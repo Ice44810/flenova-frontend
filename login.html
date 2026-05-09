@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfact - Connexion</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="h-screen overflow-hidden text-gray-800 login-bg">
+    <div class="h-full w-full flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 fade-in">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-600 mb-4">
+                    <img src="assets/transfact_icon_512.jpg" class="w-8 h-8">
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Bienvenue sur Transfact</h2>
+                <p class="text-sm text-gray-500">Connectez-vous pour gérer vos transports</p>
+            </div>
+
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="login-email" value="saisissez votre email" 
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Mot de passe</label>
+                    <input type="password" id="login-password" value="password"
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <button type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                    Se connecter
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-500">
+                    Pas encore de compte ?
+                    <a href="register.html" class="text-blue-600 hover:text-blue-800 font-medium">Créer une entreprise</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="js/api.js"></script>
+    <script>
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast border-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500`;
+            const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
+            toast.innerHTML = `
+                <i class="fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3"></i>
+                <span class="text-sm text-gray-700">${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Connexion...';
+
+            try {
+                const response = await apiFetch('auth/login', {
+                    method: 'POST',
+                    body: {
+                        email: document.getElementById('login-email').value,
+                        password: document.getElementById('login-password').value
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setCurrentUser(result.user);
+                    showToast('Bienvenue ' + result.user.name + ' !', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 500);
+                } else {
+                    showToast(result.error || 'Identifiants incorrects', 'error');
+                }
+            } catch (err) {
+                showToast('Impossible de contacter le serveur', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+    </script>
+</body>
+</html>
+

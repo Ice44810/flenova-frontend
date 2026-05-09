@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfact - TMS Complet</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <link rel="stylesheet" href="css/tailwind.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- HTML2PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="h-screen overflow-hidden text-gray-800">
+
+    <!-- APP SCREEN -->
+    <div id="app-screen" class="hidden flex h-full w-full">
+
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-slate-900 text-white flex-col hidden md:flex shadow-xl z-20">
+            <div class="h-16 flex items-center px-6 border-b border-slate-700 gap-2">
+        <img src="assets/transfact_icon_512.jpg" class="w-8 h-8">
+                <span class="text-xl font-bold tracking-wide">Transfact</span>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto py-4">
+                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Général</p>
+                <ul class="space-y-1 mb-6">
+                    <li><a href="#" onclick="router('dashboard')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-chart-pie w-6"></i>
+                            <span>Tableau de bord</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Opérations</p>
+                <ul class="space-y-1 mb-6">
+                    <li><a href="#" onclick="router('planning')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-calendar-days w-6"></i>
+                            <span>Planning</span>
+                        </a>
+                    </li>
+
+                    <li><a href="#" onclick="router('inprogress_transports')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-truck-moving w-6"></i>
+                            <span>Transports En cours</span>
+                        </a>
+                    </li>
+
+                    <li><a href="#" onclick="router('completed_transports')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-truck-moving w-6"></i>
+                            <span>Transports Réalisés</span>
+                        </a>
+                    </li>
+                    <li><a href="#" onclick="router('clients')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-building-user w-6"></i>
+                            <span>Clients</span>
+                        </a>
+                    </li>
+                </ul>
+
+<p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Ressources</p>
+                <ul class="space-y-1 mb-6">
+                    <li><a href="#" onclick="router('drivers')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-id-card w-6"></i>
+                            <span>Chauffeurs</span>
+                        </a>
+                    </li>
+                    <li><a href="#" onclick="router('fleet')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-truck w-6"></i>
+                            <span>Flotte</span>
+                        </a>
+                    </li>
+                    <li><a href="#" onclick="router('subcontractors')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-handshake w-6"></i>
+                            <span>Sous-traitants</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Analyse</p>
+                <ul class="space-y-1 mb-6">
+                    <li><a href="#" onclick="router('margin_dashboard')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-chart-line w-6"></i>
+                            <span>Marge</span>
+                        </a>
+                    </li>
+                    <li><a href="#" onclick="router('quotation')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-calculator w-6"></i>
+                            <span>Calculateur</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Finances & Admin</p>
+                <ul class="space-y-1 mb-6">
+                    <li>
+                        <a href="#" onclick="router('sales_invoices')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-file-invoice-dollar w-6"></i>
+                            <span>Factures Ventes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="router('purchase_invoices')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-file-invoice w-6"></i>
+                            <span>Factures Achats</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="router('admin')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-lock w-6"></i>
+                            <span>Administration</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Support</p>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="#" onclick="router('pricing')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-tags w-6"></i>
+                            <span>Tarifs</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="router('solutions')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-lightbulb w-6"></i>
+                            <span>Nos Solutions</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="router('contact')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-headset w-6"></i>
+                            <span>Contact & Aide</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="router('about')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-info-circle w-6"></i>
+                            <span>À propos</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-gray-50">
+            <header class="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
+                <h2 id="page-title" class="text-xl font-bold text-gray-800">Tableau de bord</h2>
+                <div class="flex items-center gap-4">
+                    <button onclick="logout()"
+                        class="hidden md:flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded transition">
+                        <i class="fa-solid fa-power-off"></i>
+                        <span>Déconnexion</span>
+                    </button>
+                    <img src="https://picsum.photos/seed/admin/40/40"
+                        class="w-10 h-10 rounded-full border border-gray-200">
+                </div>
+            </header>
+            <div id="app-content" class="flex-1 overflow-auto p-6"></div>
+        </main>
+    </div>
+
+    <!-- MODALS CONTAINER -->
+    <!-- MODAL: EDIT MISSION -->
+    <div id="edit-mission-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Modifier la Mission #<span id="edit-mission-id-display"></span></h3>
+                <button onclick="closeEditMissionModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="edit-mission-id">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>
+                    <select id="edit-mission-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule</label>
+                    <select id="edit-mission-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                        <input type="date" id="edit-mission-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Heure de livraison prévue</label>
+                        <input type="time" id="edit-mission-delivery-time" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeEditMissionModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
+                <button onclick="submitEditMission()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD ORDER -->
+    <div id="add-order-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Nouvelle Commande</h3>
+                <button onclick="closeAddOrderModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Référence Commande</label>
+                        <input type="text" id="add-order-ref" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="CMD-2025-001">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Client / Donneur d'ordre</label>
+                        <select id="add-order-client" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nature de la Marchandise</label>
+                    <input type="text" id="add-order-cargo" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Marchandises générales, Palette, etc.">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de Chargement</label>
+                        <input type="text" id="add-order-origin" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Adresse de chargement">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de Livraison</label>
+                        <input type="text" id="add-order-dest" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Adresse de livraison">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de Chargement</label>
+                        <input type="date" id="add-order-load-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de Livraison</label>
+                        <input type="date" id="add-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule assigné</label>
+                        <select id="add-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Sélectionner un véhicule --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                        <select id="add-order-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Sélectionner un chauffeur --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Poids (kg)</label>
+                        <input type="number" id="add-order-weight" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
+                        <select id="add-order-pallet-type" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="palette_europe">Palette Europe</option>
+                            <option value="palette_classique">Palette Classique</option>
+                            <option value="caisse">Caisse</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
+                        <input type="number" id="add-order-price" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <input type="checkbox" id="add-order-pallet-exchange" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                    <label for="add-order-pallet-exchange" class="text-sm text-gray-700">Échange palette Europe</label>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeAddOrderModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
+                <button onclick="submitAddOrder()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Créer la Commande</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT ORDER -->
+    <div id="edit-order-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Modifier la Commande #<span id="edit-order-ref-display"></span></h3>
+                <button onclick="closeEditOrderModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <input type="hidden" id="edit-order-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Référence Commande</label>
+                        <input type="text" id="edit-order-ref" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Client / Donneur d'ordre</label>
+                        <select id="edit-order-client" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nature de la Marchandise</label>
+                    <input type="text" id="edit-order-cargo" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de Chargement</label>
+                        <input type="text" id="edit-order-origin" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de Livraison</label>
+                        <input type="text" id="edit-order-dest" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de Chargement</label>
+                        <input type="date" id="edit-order-load-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de Livraison</label>
+                        <input type="date" id="edit-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule assigné</label>
+                        <select id="edit-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Sélectionner un véhicule --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                        <select id="edit-order-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Sélectionner un chauffeur --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Poids (kg)</label>
+                        <input type="number" id="edit-order-weight" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
+                        <select id="edit-order-pallet-type" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="palette_europe">Palette Europe</option>
+                            <option value="palette_classique">Palette Classique</option>
+                            <option value="caisse">Caisse</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
+                        <input type="number" id="edit-order-price" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <input type="checkbox" id="edit-order-pallet-exchange" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                    <label for="edit-order-pallet-exchange" class="text-sm text-gray-700">Échange palette Europe</label>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <select id="edit-order-status" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="Planifié">Planifié</option>
+                        <option value="En cours">En cours</option>
+                        <option value="Terminé">Terminé</option>
+                        <option value="Annulé">Annulé</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-between rounded-b-lg">
+                <button onclick="deleteOrder()" class="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 mr-auto">Supprimer</button>
+                <div class="flex gap-2">
+                    <button onclick="closeEditOrderModal()" class="px-4 py-2 border rounded text-gray-600">Annuler</button>
+                    <button onclick="submitEditOrder()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD/EDIT CLIENT -->
+    <div id="add-client-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 id="client-modal-title" class="font-bold text-lg text-gray-800">Nouveau Client</h3>
+                <button onclick="closeAddClientModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <input type="hidden" id="edit-client-id">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nom du Client</label>
+                    <input type="text" id="add-client-name" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="add-client-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                        <input type="tel" id="add-client-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                    <input type="text" id="add-client-address" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Numéro TVA</label>
+                        <input type="text" id="add-client-tva" placeholder="FR12345678901" class="w-full border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom du Contact</label>
+                        <input type="text" id="add-client-contact-name" class="w-full border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeAddClientModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
+                <button onclick="submitAddClient()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DRIVER CARD -->
+    <div id="driver-card-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Fiche Chauffeur</h3>
+                <button onclick="closeDriverCardModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4" id="driver-card-content">
+                <!-- Content populated by JS -->
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeDriverCardModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD/EDIT DRIVER -->
+    <div id="driver-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 id="driver-modal-title" class="font-bold text-lg text-gray-800">Nouveau Chauffeur</h3>
+                <button onclick="closeDriverModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <form onsubmit="submitDriver(event)" class="flex-1 flex flex-col overflow-hidden">
+                <div class="p-6 space-y-4 overflow-y-auto">
+                    <input type="hidden" id="edit-driver-id">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+                        <input type="text" id="driver-name" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                            <input type="tel" id="driver-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Permis</label>
+                            <input type="text" id="driver-license" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Expiration permis</label>
+                            <input type="date" id="driver-license-expiry" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                            <select id="driver-status" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="Disponible">Disponible</option>
+                                <option value="En mission">En mission</option>
+                                <option value="Repos">Repos</option>
+                                <option value="Arrêt">Arrêt</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                        <input type="text" id="driver-address" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                        <textarea id="driver-notes" rows="3" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                </div>
+                <div class="p-4 border-t bg-gray-50 flex justify-between rounded-b-lg">
+                    <button type="button" id="btn-delete-driver" onclick="deleteDriver()" class="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 hidden">Supprimer</button>
+                    <div class="flex gap-2 ml-auto">
+                        <button type="button" onclick="closeDriverModal()" class="px-4 py-2 border rounded text-gray-600">Annuler</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD VEHICLE -->
+    <div id="add-vehicle-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Ajouter un Camion</h3>
+                <button onclick="closeAddVehicleModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Immatriculation</label>
+                    <input type="text" id="add-vehicle-plate" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="AA-123-BB">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Modèle</label>
+                    <input type="text" id="add-vehicle-model" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Volvo FH">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Carburant</label>
+                        <select id="add-vehicle-fuel" class="w-full border border-gray-300 rounded-md p-2">
+                            <option value="Diesel">Diesel</option>
+                            <option value="Essence">B100</option>
+                            <option value="Électrique">Électrique</option>
+                            <option value="GPL">GPL</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kilométrage</label>
+                        <input type="number" id="add-vehicle-mileage" class="w-full border border-gray-300 rounded-md p-2" placeholder="0">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Date prochaine maintenance</label>
+                    <input type="date" id="add-vehicle-maintenance" class="w-full border border-gray-300 rounded-md p-2">
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeAddVehicleModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
+                <button onclick="submitAddVehicle()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT VEHICLE -->
+    <div id="edit-vehicle-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Modifier le Véhicule</h3>
+                <button onclick="closeEditVehicleModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <input type="hidden" id="edit-vehicle-id">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Immatriculation</label>
+                    <input type="text" id="edit-vehicle-plate" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Modèle</label>
+                    <input type="text" id="edit-vehicle-model" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Carburant</label>
+                        <select id="edit-vehicle-fuel" class="w-full border border-gray-300 rounded-md p-2">
+                            <option value="Diesel">Diesel</option>
+                            <option value="B100">B100</option>
+                            <option value="Électrique">Électrique</option>
+                            <option value="GPL">GPL</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kilométrage</label>
+                        <input type="number" id="edit-vehicle-mileage" class="w-full border border-gray-300 rounded-md p-2">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date prochaine maintenance</label>
+                        <input type="date" id="edit-vehicle-maintenance" class="w-full border border-gray-300 rounded-md p-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                        <select id="edit-vehicle-status" class="w-full border border-gray-300 rounded-md p-2">
+                            <option value="Disponible">Disponible</option>
+                            <option value="En mission">En mission</option>
+                            <option value="Garage">Garage</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                    <select id="edit-vehicle-driver" class="w-full border border-gray-300 rounded-md p-2">
+                        <option value="">-- Aucun --</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeEditVehicleModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
+                <button onclick="submitEditVehicle()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD PURCHASE INVOICE -->
+    <div id="add-purchase-invoice-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Ajouter une Facture Achat</h3>
+                <button onclick="closeAddPurchaseInvoiceModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <!-- Tabs for method selection -->
+                <div class="flex border-b mb-4">
+                    <button onclick="switchPurchaseInvoiceTab('manual')" id="tab-manual" class="px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-medium">Saisie manuelle</button>
+                    <button onclick="switchPurchaseInvoiceTab('scan')" id="tab-scan" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">Scanner/Camera</button>
+                    <button onclick="switchPurchaseInvoiceTab('file')" id="tab-file" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700">Fichier PDF</button>
+                </div>
+
+                <!-- Manual Form -->
+                <div id="purchase-invoice-manual">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">N° Pièce / Référence</label>
+                            <input type="text" id="add-purchase-ref" class="w-full border border-gray-300 rounded-md p-2" placeholder="ex: FAC-2025-456">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fournisseur</label>
+                            <input type="text" id="add-purchase-supplier" class="w-full border border-gray-300 rounded-md p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                            <select id="add-purchase-type" class="w-full border border-gray-300 rounded-md p-2">
+                                <option value="Carburant">Carburant</option>
+                                <option value="Péage">Péage</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="Assurance">Assurance</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Montant TTC (€)</label>
+                            <input type="number" id="add-purchase-amount" class="w-full border border-gray-300 rounded-md p-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                            <input type="date" id="add-purchase-date" class="w-full border border-gray-300 rounded-md p-2">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scan/Camera Form -->
+                <div id="purchase-invoice-scan" class="hidden">
+                    <div class="scan-preview" onclick="openCamera()">
+                        <div class="scan-overlay">
+                            <i class="fa-solid fa-camera text-4xl mb-2"></i>
+                            <span class="text-sm">Cliquer pour scanner</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2 text-center">Scannez la facture avec votre caméra</p>
+                </div>
+
+                <!-- File Upload Form -->
+                <div id="purchase-invoice-file" class="hidden">
+                    <div class="file-upload" onclick="document.getElementById('purchase-file-input').click()">
+                        <i class="fa-solid fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-sm text-gray-600">Cliquez pour sélectionner un fichier PDF</p>
+                        <p class="text-xs text-gray-400 mt-1">ou glissez-déposez ici</p>
+                    </div>
+                    <input type="file" id="purchase-file-input" class="hidden" accept=".pdf" onchange="handlePurchaseFileUpload(this)">
+
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="category-tag category-carburant" onclick="selectPurchaseCategory(this, 'Carburant')">Carburant</span>
+                            <span class="category-tag category-peage" onclick="selectPurchaseCategory(this, 'Péage')">Péage</span>
+                            <span class="category-tag category-maintenance" onclick="selectPurchaseCategory(this, 'Maintenance')">Maintenance</span>
+                            <span class="category-tag category-assurance" onclick="selectPurchaseCategory(this, 'Assurance')">Assurance</span>
+                            <span class="category-tag category-autre" onclick="selectPurchaseCategory(this, 'Autre')">Autre</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeAddPurchaseInvoiceModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
+                <button onclick="submitPurchaseInvoice()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+<!-- MODAL: ADD/EDIT SUBCONTRACTOR -->
+    <div id="add-subcontractor-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 id="subcontractor-modal-title" class="font-bold text-lg text-gray-800">Nouveau Sous-traitant</h3>
+                <button onclick="closeAddSubcontractorModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <input type="hidden" id="edit-subcontractor-id">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nom du Sous-traitant *</label>
+                    <input type="text" id="add-subcontractor-name" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">SIRET (14 chiffres)</label>
+                    <input type="text" id="add-subcontractor-siret" maxlength="14" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="12345678901234">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="add-subcontractor-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                        <input type="tel" id="add-subcontractor-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                    <input type="text" id="add-subcontractor-address" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Expiration RC Pro *</label>
+                        <input type="date" id="add-subcontractor-rc-expiry" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <p class="text-xs text-red-500 mt-1 hidden" id="subcontractor-rc-warning">⚠️ Assurance expirée!</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Expiration URSSAF</label>
+                        <input type="date" id="add-subcontractor-urssaf-expiry" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-sm font-medium text-gray-700">Attestation Assurance (PDF/Image) *</label>
+                        <a id="subcontractor-insurance-view" href="#" target="_blank" class="text-xs text-blue-600 hover:underline hidden"><i class="fa-solid fa-file-pdf"></i> Voir le document actuel</a>
+                    </div>
+                    <input type="file" id="add-subcontractor-insurance-file" accept=".pdf,image/*" class="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <select id="add-subcontractor-status" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="ACTIF">Actif</option>
+                        <option value="BLOQUE">Bloqué</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-between rounded-b-lg">
+                <button type="button" id="btn-delete-subcontractor" onclick="deleteSubcontractor()" class="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 hidden">Supprimer</button>
+                <div class="flex gap-2 ml-auto">
+                    <button type="button" onclick="closeAddSubcontractorModal()" class="px-4 py-2 border rounded text-gray-600">Annuler</button>
+                    <button type="button" onclick="submitAddSubcontractor()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DISPATCH (Order to Subcontractor) -->
+    <div id="dispatch-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Affecter à un Sous-traitant</h3>
+                <button onclick="closeDispatchModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="dispatch-order-id">
+                <div class="bg-blue-50 p-3 rounded-lg mb-4">
+                    <p class="text-sm text-gray-600">Commande: <strong id="dispatch-order-ref">#--</strong></p>
+                    <p class="text-sm text-gray-600">Prix de vente: <strong id="dispatch-order-price">0€</strong></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant *</label>
+                    <select id="dispatch-subcontractor" onchange="checkSubcontractorValidity()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Sélectionner --</option>
+                    </select>
+                    <p class="text-xs text-red-500 mt-1 hidden" id="dispatch-subcontractor-warning">⚠️ Ce sous-traitant a une assurance expirée</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€) *</label>
+                    <input type="number" id="dispatch-purchase-price" oninput="calculateDispatchMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                </div>
+                <div class="bg-gray-100 p-4 rounded-lg">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Prix de vente:</span>
+                        <span class="font-medium" id="dispatch-sale-display">0.00€</span>
+                    </div>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Prix d'achat:</span>
+                        <span class="font-medium" id="dispatch-cost-display">0.00€</span>
+                    </div>
+                    <div class="flex justify-between border-t border-gray-300 pt-2">
+                        <span class="font-bold text-gray-800">Marge:</span>
+                        <span class="font-bold text-green-600" id="dispatch-margin-display">0.00€ (0%)</span>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeDispatchModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
+                <button onclick="submitDispatch()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Confirmer l'affectation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD USER (Admin only) -->
+    <div id="add-user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-lg text-gray-800">Ajouter un Nouvel Utilisateur</h3>
+                <button onclick="closeAddUserModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                    <input type="text" id="add-user-name" class="w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="add-user-email" class="w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
+                    <select id="add-user-role" class="w-full border border-gray-300 rounded-md p-2">
+                        <option value="manager">Manager</option>
+                        <option value="admin">Administrateur</option>
+                        <option value="user">Utilisateur</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Mot de passe temporaire</label>
+                    <input type="password" id="add-user-password" class="w-full border border-gray-300 rounded-md p-2">
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
+                <button onclick="closeAddUserModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
+                <button onclick="submitAddUser()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Créer l'utilisateur</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PDF VIEWER -->
+    <div id="modal-overlay" class="hidden fixed inset-0 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[95vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b bg-gray-50">
+                <h3 id="modal-title" class="font-bold text-lg text-gray-800">Aperçu Facture (A4)</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="flex-1 overflow-auto p-4 bg-gray-200 flex justify-center">
+                <div id="modal-content" class="bg-white shadow-lg"></div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-between items-center rounded-b-lg" id="modal-footer">
+                <div class="flex items-center gap-2 text-sm text-gray-600" id="email-info">
+                    <!-- Client email will be displayed here -->
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="closeModal()" class="px-4 py-2 border rounded text-gray-600 hover:bg-white">Fermer</button>
+                    <button id="btn-action-secondary" class="px-4 py-2 border rounded text-gray-600 hover:bg-white">
+                        <i class="fa-solid fa-paper-plane mr-2"></i>
+                        <span>Envoyer</span>
+                    </button>
+                    <button id="btn-action-primary" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow">
+                        <i class="fa-solid fa-file-pdf mr-2"></i>
+                        <span id="btn-primary-text">Télécharger PDF</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container"></div>
+
+    <!-- JAVASCRIPT -->
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
