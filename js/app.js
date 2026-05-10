@@ -11,12 +11,39 @@ let currentUser = getCurrentUser();
 
 // Fonction utilitaire pour masquer TOUS les modaux
 function hideAllModals() {
+    // Empêche des “ré-activations” tardives (setTimeout / handlers de preview facture)
+    // de faire réapparaître l’aperçu facture pendant l’ouverture d’un autre modal.
+    // Verrou global désactivé à l'ouverture d'autres modals via hideAllModals/openInvoiceModal.
+    window.__invoicePreviewLock = true;
+
+    // Sécurité supplémentaire: arrêter tout affichage tardif de facture A4.
+    // Certains navigateurs exécutent des callbacks après le changement de modal.
+    if (!window.__invoicePreviewSessionId) window.__invoicePreviewSessionId = 0;
+    window.__invoicePreviewSessionId++;
+
+
     const modalIds = [
         'chart-modal', 'edit-mission-modal', 'add-mission-modal', 'add-client-modal',
         'driver-card-modal', 'driver-modal', 'add-vehicle-modal', 'edit-vehicle-modal',
-        'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay', 'modal-content',
-        'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal'
+        'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
+        'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
+        'invoice-modal'
     ];
+
+
+    // Invariant: le modal aperçu facture A4 (modal-overlay/modal-content) ne doit jamais être visible
+    // lorsque l'utilisateur ouvre un autre modal.
+    // On le masque en dur ici, même si un rendu (ex: openInvoiceModal) l'avait réaffiché.
+    const invoiceOverlayEl = document.getElementById('modal-overlay');
+    if (invoiceOverlayEl) {
+        invoiceOverlayEl.classList.add('hidden');
+        invoiceOverlayEl.classList.remove('flex', 'items-center', 'justify-center');
+    }
+    const invoiceContentEl = document.getElementById('modal-content');
+    if (invoiceContentEl) {
+        invoiceContentEl.classList.add('hidden');
+        invoiceContentEl.innerHTML = '';
+    }
     modalIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -1021,6 +1048,11 @@ function previewInvoice() {
         `;
     }).join('');
 
+    const companyName = currentUser?.company_name || '';
+    const companyAddress = currentUser?.company_address || '';
+    const companySiret = currentUser?.company_siret || '';
+    const companyTva = currentUser?.company_tva || '';
+
     document.getElementById('invoice-preview').innerHTML = `
         <div class="w-full h-full text-gray-800">
             <div class="flex justify-between items-start mb-10">
@@ -1037,10 +1069,10 @@ function previewInvoice() {
             <div class="grid grid-cols-2 gap-8 mb-12">
                 <div>
                     <p class="text-[9px] uppercase font-bold text-gray-400 mb-2 tracking-wider">Émetteur</p>
-                    <p class="font-bold text-sm">${currentUser?.company_name || ''}</p>
-                    <p class="text-[11px] text-gray-500">${currentUser?.company_address || ''}</p>
-                    <p class="text-[10px] text-gray-400 mt-1">SIRET : ${currentUser?.company_siret || ''}</p>
-                    <p class="text-[10px] text-gray-400">TVA : ${currentUser?.company_tva || ''}</p>
+                    <p class="font-bold text-sm">${companyName}</p>
+                    <p class="text-[11px] text-gray-500">${companyAddress}</p>
+                    <p class="text-[10px] text-gray-400 mt-1">SIRET : ${companySiret || '-'}</p>
+                    <p class="text-[10px] text-gray-400">TVA : ${companyTva || '-'}</p>
                 </div>
                 <div class="text-right">
                     <p class="text-[9px] uppercase font-bold text-gray-400 mb-2 tracking-wider">Client</p>
@@ -2360,6 +2392,20 @@ function closeDriverCardModal() {
 // --- SUBCONTRACTOR MODALS ---
 function openAddSubcontractorModal() {
     hideAllModals();
+
+    // Hard guarantee: l’aperçu Facture A4 ne doit jamais remonter au-dessus des modaux.
+    // Même logique que openAddClientModal().
+    const invoiceOverlay = document.getElementById('modal-overlay');
+    const invoiceContent = document.getElementById('modal-content');
+    if (invoiceOverlay) {
+        invoiceOverlay.classList.add('hidden');
+        invoiceOverlay.classList.remove('flex', 'items-center', 'justify-center');
+    }
+    if (invoiceContent) {
+        invoiceContent.classList.add('hidden');
+        invoiceContent.innerHTML = '';
+    }
+
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
         modalOverlay.classList.remove('hidden');
@@ -2382,6 +2428,7 @@ function openAddSubcontractorModal() {
     document.getElementById('add-subcontractor-modal').classList.remove('hidden');
 }
 
+
 function openEditSubcontractorModal(subcontractorId) {
     hideAllModals();
     const modalOverlay = document.getElementById('modal-overlay');
@@ -2389,6 +2436,7 @@ function openEditSubcontractorModal(subcontractorId) {
         modalOverlay.classList.remove('hidden');
         modalOverlay.classList.add('flex', 'items-center', 'justify-center');
     }
+
     const subcontractor = db.subcontractors.find(s => s.id === subcontractorId);
     if (!subcontractor) return;
     
@@ -2498,6 +2546,7 @@ function openDispatchModal(orderId) {
         modalOverlay.classList.remove('hidden');
         modalOverlay.classList.add('flex', 'items-center', 'justify-center');
     }
+
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return;
     
@@ -2600,11 +2649,26 @@ async function submitDispatch() {
 // --- VEHICLE MODALS ---
 function openAddVehicleModal() {
     hideAllModals();
+
+    // Hard guarantee: l’aperçu Facture A4 ne doit jamais remonter au-dessus des modaux.
+    // Même logique que openAddClientModal().
+    const invoiceOverlay = document.getElementById('modal-overlay');
+    const invoiceContent = document.getElementById('modal-content');
+    if (invoiceOverlay) {
+        invoiceOverlay.classList.add('hidden');
+        invoiceOverlay.classList.remove('flex', 'items-center', 'justify-center');
+    }
+    if (invoiceContent) {
+        invoiceContent.classList.add('hidden');
+        invoiceContent.innerHTML = '';
+    }
+
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
         modalOverlay.classList.remove('hidden');
         modalOverlay.classList.add('flex', 'items-center', 'justify-center');
     }
+
     document.getElementById('add-vehicle-plate').value = '';
     document.getElementById('add-vehicle-model').value = '';
     document.getElementById('add-vehicle-fuel').value = 'Diesel';
@@ -2612,6 +2676,7 @@ function openAddVehicleModal() {
     document.getElementById('add-vehicle-maintenance').value = '';
     document.getElementById('add-vehicle-modal').classList.remove('hidden');
 }
+
 
 function closeAddVehicleModal() {
     hideAllModals();
@@ -2657,6 +2722,7 @@ function openEditVehicleModal(vehicleId) {
         modalOverlay.classList.remove('hidden');
         modalOverlay.classList.add('flex', 'items-center', 'justify-center');
     }
+
     const vehicle = db.vehicles.find(v => v.id === vehicleId);
     if (!vehicle) return;
     
@@ -2874,6 +2940,15 @@ async function submitAddUser() {
 // --- INVOICE MODAL ---
 async function openInvoiceModal(invoiceId) {
     hideAllModals();
+    // unlock: on autorise l'ouverture SEULEMENT après avoir nettoyé tous les autres modaux
+    // (on augmente également le sessionId pour invalider tout rendu tardif)
+    if (!window.__invoicePreviewSessionId) window.__invoicePreviewSessionId = 0;
+    window.__invoicePreviewSessionId++;
+    window.__invoicePreviewLock = false;
+
+    const mySessionId = window.__invoicePreviewSessionId;
+
+
     
     let invoice;
     try {
@@ -3034,6 +3109,12 @@ async function openInvoiceModal(invoiceId) {
     // Update modal for A4 full page display
     // Cette partie est spécifique au modal de facture, qui semble être structuré différemment.
     // Elle manipule directement modal-overlay.
+    // Si un autre modal a été ouvert pendant le chargement async, on n'affiche pas la facture.
+    if (window.__invoicePreviewLock) return;
+    // Invalide tout rendu async si une autre ouverture de modal a eu lieu
+    if (mySessionId !== window.__invoicePreviewSessionId) return;
+
+
     const modalOverlay = document.getElementById('modal-overlay');
     if (modalOverlay) {
         modalOverlay.classList.remove('hidden');
@@ -3043,6 +3124,7 @@ async function openInvoiceModal(invoiceId) {
     // On affiche explicitement le conteneur de la facture
     const invoiceContent = document.getElementById('modal-content');
     if (invoiceContent) invoiceContent.classList.remove('hidden');
+
 
     const btnContainer = document.querySelector('#modal-overlay .border-t');
     if (btnContainer) {
