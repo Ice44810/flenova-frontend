@@ -841,50 +841,200 @@ function renderSalesInvoices() {
     </div>`;
 }
 
-function renderSettingInvoices() {
-    return `<div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 fade-in">
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">Personnalisation des Factures</h2>
+window.openInvoiceModal = function(invoiceId) {
+    const inv = db.sales_invoices.find(i => i.id === invoiceId);
+    if (!inv) return showToast("Facture introuvable", "error");
+
+    const client = db.clients.find(c => c.id == inv.client_id);
+    const settings = db.settings || {};
+
+    // 1. Infos Générales
+    document.getElementById('modal-inv-number').innerText = inv.id;
+    document.getElementById('modal-inv-date').innerText = inv.date;
+    document.getElementById('modal-inv-due').innerText = inv.due_date || inv.date;
+
+    // 2. Émetteur (Utilise currentUser ou settings)
+    document.getElementById('modal-issuer-name').innerText = currentUser?.company_name || "VOTRE ENTREPRISE";
+    document.getElementById('modal-issuer-address').innerText = currentUser?.company_address || "";
+    document.getElementById('modal-issuer-siret').innerText = currentUser?.company_siret || "";
+    document.getElementById('modal-issuer-tva').innerText = currentUser?.company_tva || "";
+
+    // 3. Client
+    document.getElementById('modal-client-name').innerText = client?.name || "Client Inconnu";
+    document.getElementById('modal-client-address').innerText = client?.address || "";
+
+    // 4. Lignes et Calculs
+    const itemsBody = document.getElementById('modal-invoice-items');
+    itemsBody.innerHTML = '';
+    
+    let totalHT = 0;
+    let taxes = {}; // Pour gérer plusieurs taux de TVA si besoin
+
+    // Note: Si inv.lines n'existe pas, on simule une ligne avec le montant total (fallback)
+    const lines = inv.lines || [{ desc: "Prestation de transport", qty: 1, price: inv.amount, tva: 0.20 }];
+
+    lines.forEach(l => {
+        const lineHT = l.qty * l.price;
+        totalHT += lineHT;
         
-        <form onsubmit="saveInvoiceSettings(event)" class="space-y-8">
+        // Calcul TVA
+        const tvaRate = l.tva || 0.20;
+        const taxAmount = lineHT * tvaRate;
+        taxes[tvaRate] = (taxes[tvaRate] || 0) + taxAmount;
+
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-gray-50 hover:bg-gray-50 transition-colors";
+        tr.innerHTML = `
+            <td class="p-4 font-medium text-gray-800">${l.desc}</td>
+            <td class="p-4 text-center font-mono">${l.qty}</td>
+            <td class="p-4 text-right font-mono">${l.price.toLocaleString('fr-FR')} €</td>
+            <td class="p-4 text-right font-bold">${lineHT.toLocaleString('fr-FR')} €</td>
+        `;
+        itemsBody.appendChild(tr);
+    });
+
+    // 5. Totaux
+    document.getElementById('modal-total-ht').innerText = totalHT.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    
+    const taxRows = document.getElementById('modal-tax-rows');
+    taxRows.innerHTML = '';
+    let totalTVA = 0;
+    
+    for (let rate in taxes) {
+        totalTVA += taxes[rate];
+        taxRows.innerHTML += `
+            <div class="flex justify-between">
+                <span>TVA (${(rate * 100).toFixed(1)}%)</span>
+                <span>${taxes[rate].toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+            </div>
+        `;
+    }
+
+    document.getElementById('modal-total-ttc').innerText = (totalHT + totalTVA).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+
+    // 6. Banque
+    document.getElementById('modal-bank-name').innerText = settings.bank_name || "Crédit Agricole";
+    document.getElementById('modal-iban').innerText = settings.iban || "FR76 ...";
+
+    // Afficher la modal
+    document.getElementById('invoice-modal').classList.remove('hidden');
+};
+
+window.closeInvoiceModal = function() {
+    document.getElementById('invoice-modal').classList.add('hidden');
+};
+
+function renderSettingInvoices() {
+    // Récupération de la couleur actuelle depuis la DB ou valeur par défaut
+    const currentColor = db.settings?.invoice_color || "#004d40";
+
+    return `
+    <div class="max-w-5xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-8 fade-in">
+        <div class="flex justify-between items-center mb-8 border-b pb-4">
             <div>
-                <h3 class="font-bold text-gray-700 mb-4 border-b pb-2 uppercase text-xs tracking-wider">Coordonnées Bancaires (RIB / IBAN)</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">IBAN</label>
-                        <input type="text" class="w-full border p-2 rounded text-sm font-mono" value="FR76 3000 6000 0001 2345 6789 X01">
+                <h2 class="text-2xl font-bold text-gray-800">Configuration du document</h2>
+                <p class="text-sm text-gray-500">Personnalisez l'apparence et les données légales de vos factures</p>
+            </div>
+            <button type="button" onclick="router('sales_invoices')" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        
+        <form onsubmit="saveInvoiceSettings(event)" class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            
+            <div class="lg:col-span-2 space-y-8">
+                
+                <div class="space-y-4">
+                    <h3 class="flex items-center font-bold text-blue-600 uppercase text-xs tracking-wider">
+                        <i class="fa-solid fa-building-columns mr-2"></i> Coordonnées Bancaires
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">IBAN</label>
+                            <input type="text" name="iban" class="w-full border-gray-200 border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="FR76 3000 6000 0001 2345 6789 X01">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Code BIC / SWIFT</label>
+                            <input type="text" name="bic" class="w-full border-gray-200 border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="AGRIFRPPXXX">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nom de la Banque</label>
+                            <input type="text" name="bank_name" class="w-full border-gray-200 border p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="Crédit Agricole">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Code BIC / SWIFT</label>
-                        <input type="text" class="w-full border p-2 rounded text-sm font-mono" value="AGRIFRPPXXX">
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="flex items-center font-bold text-blue-600 uppercase text-xs tracking-wider">
+                        <i class="fa-solid fa-palette mr-2"></i> Identité Visuelle
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Couleur thématique</label>
+                            <div class="flex gap-2">
+                                <input type="color" id="color-picker" oninput="updateThemePreview(this.value)" class="h-11 w-20 border-gray-200 border p-1 rounded-xl cursor-pointer bg-gray-50" value="${currentColor}">
+                                <input type="text" id="color-text" class="flex-1 border-gray-200 border p-3 rounded-xl text-sm font-mono uppercase bg-gray-50" value="${currentColor}" readonly>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Logo de l'entreprise (URL)</label>
+                            <input type="text" name="logo_url" class="w-full border-gray-200 border p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" placeholder="https://votre-site.fr/logo.png">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Nom de la Banque</label>
-                        <input type="text" class="w-full border p-2 rounded text-sm" value="Crédit Agricole">
+                </div>
+
+                <div class="flex justify-end pt-6 gap-4 border-t">
+                    <button type="button" onclick="router('sales_invoices')" class="px-6 py-2.5 text-gray-500 font-medium hover:bg-gray-100 rounded-xl transition-all">Annuler</button>
+                    <button type="submit" class="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-lg shadow-blue-100 transition-all transform hover:-translate-y-0.5">
+                        Enregistrer les modifications
+                    </button>
+                </div>
+            </div>
+
+            <div class="hidden lg:flex flex-col items-center">
+                <div class="sticky top-24 w-full">
+                    <div class="bg-gray-50 p-8 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center">
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-6 tracking-widest">Aperçu du rendu</p>
+                        
+                        <div class="bg-white w-56 h-72 shadow-2xl rounded-sm p-5 border border-gray-100 transition-all duration-300 transform hover:scale-105">
+                            <div id="theme-preview-header" class="h-5 w-full mb-4 transition-colors duration-300" style="background: ${currentColor}"></div>
+                            
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <div class="h-2 w-12 bg-gray-100"></div>
+                                    <div class="h-2 w-8 bg-gray-100"></div>
+                                </div>
+                                <div class="h-3 w-2/3 bg-gray-200"></div>
+                                <div class="h-2 w-1/2 bg-gray-100"></div>
+                                
+                                <div class="pt-4 space-y-2">
+                                    <div class="h-1 w-full bg-gray-50 border-b border-gray-100 pb-1"></div>
+                                    <div class="h-1 w-full bg-gray-50 border-b border-gray-100 pb-1"></div>
+                                    <div class="h-1 w-full bg-gray-50 border-b border-gray-100 pb-1"></div>
+                                </div>
+                                
+                                <div class="pt-4 flex justify-end">
+                                    <div class="h-4 w-16 bg-gray-100"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p class="mt-6 text-xs text-gray-400 text-center px-4">L'en-tête et les accents de vos documents utiliseront cette couleur.</p>
                     </div>
                 </div>
             </div>
 
-            <div>
-                <h3 class="font-bold text-gray-700 mb-4 border-b pb-2 uppercase text-xs tracking-wider">Personnalisation du Document</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Couleur des en-têtes</label>
-                        <input type="color" class="h-9 w-full border p-1 rounded" value="#004d40">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Logo (URL)</label>
-                        <input type="text" class="w-full border p-2 rounded text-sm" placeholder="https://votre-site.fr/logo.png">
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex justify-end pt-4 gap-3">
-                <button type="button" onclick="router('sales_invoices')" class="px-6 py-2 border rounded text-gray-600 hover:bg-gray-50">Annuler</button>
-                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold">Enregistrer les modifications</button>
-            </div>
         </form>
     </div>`;
 }
+
+// Fonction utilitaire pour la mise à jour en temps réel
+window.updateThemePreview = function(color) {
+    const header = document.getElementById('theme-preview-header');
+    const textInput = document.getElementById('color-text');
+    if (header) header.style.backgroundColor = color;
+    if (textInput) textInput.value = color.toUpperCase();
+};
 
 window.saveInvoiceSettings = function(e) {
     if (e) e.preventDefault();
@@ -892,90 +1042,75 @@ window.saveInvoiceSettings = function(e) {
     router('sales_invoices');
 };
 
+// Optimisation de renderCreateInvoice
 function renderCreateInvoice() {
     return `
-    <div class="h-full flex flex-col gap-6 fade-in">
-
-        <!-- HEADER ACTIONS -->
-        <div class="flex justify-between items-center">
-            <h3 class="text-xl font-bold text-gray-800">Créer une facture</h3>
-            <div class="flex gap-2">
-                <button onclick="router('sales_invoices')" class="px-4 py-2 border rounded text-gray-600 hover:bg-gray-100">Annuler</button>
-                <button onclick="previewInvoice()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    <i class="fa fa-eye mr-2"></i>Prévisualiser
+    <div class="h-full flex flex-col bg-gray-50 -m-6 fade-in">
+        <div class="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+            <div>
+                <h3 class="text-xl font-bold text-gray-800">Édition Facture</h3>
+                <p class="text-xs text-gray-500 font-medium">${generateInvoiceNumber()} • <span class="text-blue-600">Nouveau document</span></p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="router('sales_invoices')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all font-medium">Annuler</button>
+                <div class="h-10 w-[1px] bg-gray-200 mx-2"></div>
+                <button onclick="saveDraft()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 font-medium flex items-center">
+                    <i class="fa-regular fa-floppy-disk mr-2"></i> Brouillon
                 </button>
-                <button onclick="saveDraft()" class="px-4 py-2 bg-gray-700 text-blue-500 rounded hover:bg-gray-800">
-                    Brouillon
-                </button>
-                <button onclick="validateInvoice()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold shadow-lg">
-                    Valider la facture
+                <button onclick="validateInvoice()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md shadow-blue-200 flex items-center transition-all transform hover:-translate-y-0.5">
+                    <i class="fa-solid fa-check-double mr-2"></i> Valider & Émettre
                 </button>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 overflow-hidden">
+        <div class="flex flex-1 overflow-hidden">
+            <div class="w-2/2 p-8 overflow-y-auto border-r border-gray-200">
+                <div class="max-w-2xl mx-auto space-y-8">
+                    <section class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="flex items-center mb-4 text-blue-600">
+                            <i class="fa-solid fa-user-tie mr-2"></i>
+                            <h4 class="font-bold uppercase text-xs tracking-widest">Informations Destinataire</h4>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="col-span-2">
+                                <label class="block text-gray-500 mb-1 font-medium">Client</label>
+                                <select id="invoice-client" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                    ${db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-500 mb-1 font-medium">Date d'émission</label>
+                                <input type="date" id="invoice-date" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50">
+                            </div>
+                            <div>
+                                <label class="block text-gray-500 mb-1 font-medium">Échéance</label>
+                                <input type="date" id="invoice-due" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50">
+                            </div>
+                        </div>
+                    </section>
 
-            <!-- LEFT : FORM -->
-            <div class="bg-white p-6 rounded-xl shadow-sm border overflow-y-auto">
-                <h4 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Informations générales</h4>
-                <div class="grid grid-cols-2 gap-4 mb-8">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Client</label>
-                        <select id="invoice-client" class="w-full border p-2 rounded text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                            ${db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Date d'émission</label>
-                        <input type="date" id="invoice-date" class="w-full border p-2 rounded text-sm bg-gray-50" value="${new Date().toISOString().split('T')[0]}">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Numéro de facture</label>
-                        <input type="text" id="invoice-number" class="w-full border p-2 rounded bg-gray-100 text-sm font-mono" readonly value="${generateInvoiceNumber()}">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Échéance</label>
-                        <input type="date" id="invoice-due" class="w-full border p-2 rounded text-sm bg-gray-50" value="${new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]}">
-                    </div>
-                </div>
-
-                <!-- LIGNES -->
-                <div>
-                    <div class="flex justify-between items-center mb-3">
-                        <h4 class="font-bold text-gray-700 uppercase text-xs tracking-wider">Lignes de facturation</h4>
-                        <button onclick="addLine()" class="text-blue-600 text-xs font-bold hover:underline">
-                            <i class="fa fa-plus-circle mr-1"></i>Ajouter une ligne
-                        </button>
-                    </div>
-
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold">
-                            <tr>
-                                <th class="p-3 text-left">Description</th>
-                                <th class="p-3 text-left w-20">Qté</th>
-                                <th class="p-3 text-left w-32">Prix U. HT</th>
-                                <th class="p-3 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="invoice-lines"></tbody>
-                    </table>
+                    <section class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-center mb-6">
+                             <div class="flex items-center text-blue-600">
+                                <i class="fa-solid fa-list-ul mr-2"></i>
+                                <h4 class="font-bold uppercase text-xs tracking-widest">Lignes de facturation</h4>
+                            </div>
+                            <button onclick="addLine()" class="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors">
+                                <i class="fa fa-plus mr-1"></i> Ajouter
+                            </button>
+                        </div>
+                        <div id="invoice-lines-container" class="space-y-3">
+                            </div>
+                    </section>
                 </div>
             </div>
 
-            <!-- RIGHT : PREVIEW -->
-            <div class="bg-gray-100 p-6 rounded-xl border border-gray-200 overflow-y-auto flex flex-col">
-                <h4 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Aperçu du document</h4>
-                <div id="invoice-preview" class="flex-1 bg-white shadow-lg rounded p-8 min-h-[600px] flex flex-col items-center justify-center border border-gray-200">
-                    <div class="text-center">
-                        <i class="fa-solid fa-file-invoice text-5xl text-gray-200 mb-4"></i>
-                        <p class="text-gray-400 text-sm italic">Cliquez sur "Prévisualiser" pour générer l'aperçu dynamique</p>
+            <div class="w-1/2 bg-gray-200 p-12 overflow-y-auto flex justify-center">
+                <div id="invoice-preview" class="w-full max-w-[21cm] bg-white shadow-2xl rounded-sm p-[1.5cm] min-h-[29.7cm] transition-all duration-300">
                     </div>
-                </div>
             </div>
-
         </div>
-    </div>
-    `;
+    </div>`;
 }
 
 function generateInvoiceNumber() {
@@ -1000,21 +1135,28 @@ function addLine() {
 }
 
 function renderLines() {
-    const tbody = document.getElementById('invoice-lines');
-    if (!tbody) return; // Guard clause to prevent errors when view is inactive
-
-    tbody.innerHTML = invoiceLines.map((l, i) => `
-        <tr class="border-b border-gray-100 hover:bg-gray-50">
-            <td class="p-2"><input value="${l.desc}" onchange="updateLine(${i}, 'desc', this.value)" class="w-full border p-2 rounded text-s" placeholder="Ex: Transport de marchandises..."></td>
-            <td class="p-2"><input type="number" value="${l.qty}" onchange="updateLine(${i}, 'qty', this.value)" class="w-full border p-2 rounded text-s"></td>
-            <td class="p-2"><input type="number" value="${l.price}" onchange="updateLine(${i}, 'price', this.value)" class="w-full border p-2 rounded text-s"></td>
-            <td class="p-2 text-center">
-                <button onclick="removeLine(${i})" class="text-red-400 hover:text-red-600 transition-colors" title="Supprimer la ligne">
-                    <i class="fa fa-trash-can"></i>
-                </button>
-            </td>
-        </tr>
+    const container = document.getElementById('invoice-lines-container');
+    container.innerHTML = invoiceLines.map((l, i) => `
+        <div class="group flex gap-3 items-start bg-gray-50 p-4 rounded-xl border border-transparent hover:border-blue-200 hover:bg-white transition-all">
+            <div class="flex-1">
+                <input value="${l.desc}" oninput="updateLine(${i}, 'desc', this.value)" 
+                    class="w-full bg-transparent font-medium text-gray-800 placeholder-gray-400 outline-none" placeholder="Description de la prestation...">
+            </div>
+            <div class="w-20">
+                <input type="number" value="${l.qty}" oninput="updateLine(${i}, 'qty', this.value)" 
+                    class="w-full bg-transparent text-center font-bold text-gray-700 outline-none" placeholder="Qté">
+            </div>
+            <div class="w-32 flex items-center">
+                <input type="number" value="${l.price}" oninput="updateLine(${i}, 'price', this.value)" 
+                    class="w-full bg-transparent text-right font-bold text-gray-700 outline-none" placeholder="Prix HT">
+                <span class="ml-1 text-gray-400 text-xs">€</span>
+            </div>
+            <button onclick="removeLine(${i})" class="opacity-0 group-hover:opacity-100 p-2 text-red-400 hover:text-red-600 transition-all">
+                <i class="fa-solid fa-circle-xmark"></i>
+            </button>
+        </div>
     `).join('');
+    previewInvoice(); // Appel automatique de l'aperçu
 }
 
 function updateLine(i, field, value) {
@@ -1134,8 +1276,17 @@ async function saveDraft() {
 }
 
 async function validateInvoice() {
-    const data = getInvoiceFormData('En attente');
-    if (!data) return;
+    const total =invoiceLines.reduce((acc, l) => acc + (l.qty * l.price), 0);
+
+    const confirm = await Swal.fire({
+        title: "Confirmer la validation",
+        html: `Êtes-vous sûr de vouloir valider cette facture pour un montant total de <strong>${total.toLocaleString()} €</strong> ?<br><span class="text-sm text-gray-500">Cette action est irréversible.</span>`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Oui, valider",
+        confirmButtonColor: "#059669",
+    })
+    if (!confirm.isConfirmed) return;
 
     try {
         const res = await apiFetch('sales-invoices', { method: 'POST', body: data });
@@ -1150,6 +1301,28 @@ async function validateInvoice() {
     } catch (err) {
         showToast("Impossible de contacter le serveur", "error");
     }
+}
+
+function generateCreditNote(invoiceId, isTotal = true) {
+    const originalInvoice = db.sales_invoices.find(inv => inv.id === invoiceId);
+    
+    // Si partiel, on ouvre une modale pour choisir les quantités à rembourser
+    if (!isTotal) {
+        openPartialCreditNoteModal(originalInvoice);
+        return;
+    }
+
+    // Si total, on génère un document miroir avec montants négatifs
+    const creditNoteData = {
+        type: 'AVOIR',
+        original_invoice_ref: originalInvoice.id,
+        client_id: originalInvoice.client_id,
+        lines: originalInvoice.lines.map(l => ({ ...l, qty: -l.qty })),
+        amount: -originalInvoice.amount,
+        status: 'Validé'
+    };
+    
+    // ... Enregistrement et router vers la liste
 }
 
 function getInvoiceFormData(status) {
