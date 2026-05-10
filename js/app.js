@@ -30,7 +30,6 @@ function hideAllModals() {
         'invoice-modal'
     ];
 
-
     // Invariant: le modal aperçu facture A4 (modal-overlay/modal-content) ne doit jamais être visible
     // lorsque l'utilisateur ouvre un autre modal.
     // On le masque en dur ici, même si un rendu (ex: openInvoiceModal) l'avait réaffiché.
@@ -142,7 +141,7 @@ function makeElementDraggable(el) {
     }
 
     // Rendre les modaux déplaçables après le premier rendu
-    const modalsToMakeDraggable = ['edit-mission-modal', 'add-order-modal', 'add-client-modal', 'driver-modal', 'add-vehicle-modal', 'add-purchase-invoice-modal', 'add-user-modal', 'dispatch-modal', 'add-subcontractor-modal'];
+    const modalsToMakeDraggable = ['edit-mission-modal', 'add-order-modal', 'add-client-modal', 'driver-modal', 'add-vehicle-modal', 'add-purchase-invoice-modal', 'add-user-modal', 'dispatch-modal', 'add-subcontractor-modal', 'invoice-modal', 'edit-order-modal'];
     modalsToMakeDraggable.forEach(id => {
         const el = document.getElementById(id);
         if (el) makeElementDraggable(el);
