@@ -849,18 +849,19 @@ window.openInvoiceModal = function(invoiceId) {
 
     // 1. Infos Générales
     document.getElementById('modal-inv-number').innerText = inv.id;
-    document.getElementById('modal-inv-date').innerText = inv.date;
-    document.getElementById('modal-inv-due').innerText = inv.due_date || inv.date;
+    document.getElementById('modal-inv-date').innerText = inv.date ? inv.date.split('T')[0] : "";
+    document.getElementById('modal-inv-due').innerText = (inv.due_date || inv.date) ? (inv.due_date || inv.date).split('T')[0] : "";
 
     // 2. Émetteur (Utilise currentUser ou settings)
     document.getElementById('modal-issuer-name').innerText = currentUser?.company_name || "VOTRE ENTREPRISE";
     document.getElementById('modal-issuer-address').innerText = currentUser?.company_address || "";
-    document.getElementById('modal-issuer-siret').innerText = currentUser?.company_siret || "";
-    document.getElementById('modal-issuer-tva').innerText = currentUser?.company_tva || "";
+    document.getElementById('modal-issuer-siret').innerText = currentUser?.company_siret || "-";
+    document.getElementById('modal-issuer-tva').innerText = currentUser?.company_tva || "-";
 
     // 3. Client
     document.getElementById('modal-client-name').innerText = client?.name || "Client Inconnu";
     document.getElementById('modal-client-address').innerText = client?.address || "";
+    document.getElementById('modal-client-tva').innerText = client?.tva || "-";
 
     // 4. Lignes et Calculs
     const itemsBody = document.getElementById('modal-invoice-items');
@@ -869,11 +870,13 @@ window.openInvoiceModal = function(invoiceId) {
     let totalHT = 0;
     let taxes = {}; // Pour gérer plusieurs taux de TVA si besoin
 
-    // Note: Si inv.lines n'existe pas, on simule une ligne avec le montant total (fallback)
-    const lines = inv.lines || [{ desc: "Prestation de transport", qty: 1, price: inv.amount, tva: 0.20 }];
+    // Utilisation de 'items' (format standard dans le backend) ou fallback sur 'lines'
+    const lines = inv.items || inv.lines || [{ desc: "Prestation de transport", qty: 1, price: inv.amount, tva: 0.20 }];
 
     lines.forEach(l => {
-        const lineHT = l.qty * l.price;
+        const qty = l.qty || 1;
+        const price = l.price || 0;
+        const lineHT = qty * price;
         totalHT += lineHT;
         
         // Calcul TVA
@@ -885,8 +888,8 @@ window.openInvoiceModal = function(invoiceId) {
         tr.className = "border-b border-gray-50 hover:bg-gray-50 transition-colors";
         tr.innerHTML = `
             <td class="p-4 font-medium text-gray-800">${l.desc}</td>
-            <td class="p-4 text-center font-mono">${l.qty}</td>
-            <td class="p-4 text-right font-mono">${l.price.toLocaleString('fr-FR')} €</td>
+            <td class="p-4 text-center font-mono">${qty}</td>
+            <td class="p-4 text-right font-mono">${price.toLocaleString('fr-FR')} €</td>
             <td class="p-4 text-right font-bold">${lineHT.toLocaleString('fr-FR')} €</td>
         `;
         itemsBody.appendChild(tr);
@@ -914,6 +917,12 @@ window.openInvoiceModal = function(invoiceId) {
     // 6. Banque
     document.getElementById('modal-bank-name').innerText = settings.bank_name || "Crédit Agricole";
     document.getElementById('modal-iban').innerText = settings.iban || "FR76 ...";
+
+    // 7. Actions (Lien vers le téléchargement)
+    const downloadBtn = document.getElementById('download-btn');
+    if (downloadBtn) {
+        downloadBtn.onclick = () => downloadInvoicePDF(inv.id);
+    }
 
     // Afficher la modal
     document.getElementById('invoice-modal').classList.remove('hidden');
@@ -3106,235 +3115,6 @@ async function submitAddUser() {
         router('admin');
     } else {
         showToast('Veuillez remplir tous les champs', 'error');
-    }
-}
-
-// --- INVOICE MODAL ---
-async function openInvoiceModal(invoiceId) {
-    hideAllModals();
-    // unlock: on autorise l'ouverture SEULEMENT après avoir nettoyé tous les autres modaux
-    // (on augmente également le sessionId pour invalider tout rendu tardif)
-    if (!window.__invoicePreviewSessionId) window.__invoicePreviewSessionId = 0;
-    window.__invoicePreviewSessionId++;
-    window.__invoicePreviewLock = false;
-
-    const mySessionId = window.__invoicePreviewSessionId;
-
-
-    
-    let invoice;
-    try {
-        const res = await apiFetch(`sales-invoices/${invoiceId}`);
-        const result = await res.json();
-        invoice = result.data;
-    } catch (e) {
-        showToast("Erreur lors du chargement des détails", "error");
-        return;
-    }
-
-    if (!invoice) return;
-    const client = db.clients.find(c => c.id == invoice.client_id);
-    const invoiceCurrency = invoice.currency || 'EUR';
-    const clientEmail = client ? client.email : '';
-
-    // Sécurité : s'assurer que les items sont bien un tableau
-    let items = invoice.items || [];
-    if (typeof items === 'string') {
-        try { items = JSON.parse(items); } catch (e) { items = []; }
-    }
-
-    document.getElementById('modal-title').textContent = 'Facture ' + invoiceId;
-
-    // Calculs dynamiques pour le nouveau modèle Factur-X
-    let totalHT = 0;
-    let tax20 = 0;
-    let tax55 = 0;
-    let hasZeroTax = false;
-
-    const itemsHtml = items.map((item, index) => {
-        const qty = item.qty || 1;
-        const pu = item.price; // HT
-        // On récupère le taux de l'objet facture ou 20% par défaut
-        const tvaRate = (invoice.tva_rate !== undefined) ? (invoice.tva_rate / 100) : 0.20;
-        
-        const lineHT = qty * pu;
-        const lineTax = lineHT * tvaRate;
-
-        if (tvaRate === 0) hasZeroTax = true;
-        totalHT += lineHT;
-        if (tvaRate === 0.20) tax20 += lineTax;
-        else if (tvaRate === 0.055) tax55 += lineTax;
-
-        return `
-            <tr class="border-b border-gray-100">
-                <td class="p-3 font-mono text-[10px]">${invoice.order_ref || 'REF-' + (index + 1)}</td>
-                <td class="p-3 font-medium text-[11px] text-gray-800">${item.desc}</td>
-                <td class="p-3 text-center text-[11px]">${qty}</td>
-                <td class="p-3 text-right text-[11px]">${pu.toLocaleString('fr-FR', { style: 'currency', currency: invoiceCurrency })}</td>
-                <td class="p-3 text-right text-[11px]">${(tvaRate * 100).toFixed(1)}%</td>
-                <td class="p-3 text-right font-bold text-[11px]">${lineHT.toLocaleString('fr-FR', { style: 'currency', currency: invoiceCurrency })}</td>
-            </tr>
-        `;
-    }).join('');
-
-    const totalTTC = totalHT + tax20 + tax55;
-    
-    document.getElementById('modal-content').innerHTML = `
-        <div class="max-w-4xl mx-auto bg-white overflow-hidden">
-            <div class="bg-[#004d40] text-white p-6 flex justify-between items-center">
-                <div>
-                    <h1 class="text-xl font-bold tracking-tight uppercase">Facture Électronique Conforme</h1>
-                    <p class="text-[10px] opacity-80">(FORMAT MIXTE / FACTUR-X)</p>
-                </div>
-                <div class="text-right uppercase">
-                    <h2 class="text-3xl font-extrabold leading-none">Facture</h2>
-                    <p class="text-sm mt-1">N° : <span class="font-mono text-lg">${invoice.id}</span> [${invoice.typeCode || '380'}]</p>
-                    <p class="text-xs">Date : ${invoice.date}</p>
-                </div>
-            </div>
-
-            <div class="p-8">
-                <div class="grid grid-cols-2 gap-12 mb-8">
-                    <div>
-                        <h3 class="font-bold text-gray-800 border-b-2 border-[#004d40] mb-2 text-[10px] uppercase tracking-wider">Émetteur</h3>
-                        <p class="font-bold text-sm text-gray-800">${currentUser?.company_name || 'TRANSFACT SAS'}</p>
-                        <p class="text-[11px] text-gray-600">${currentUser?.company_address || 'Adresse non renseignée'}</p>
-                        <p class="text-[11px] text-gray-500">SIRET : ${currentUser?.company_siret || '-'}</p>
-                        <p class="text-[11px] text-gray-500">TVA : ${currentUser?.company_tva || '-'}</p>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-gray-800 border-b-2 border-gray-300 mb-2 text-right text-[10px] uppercase tracking-wider">Destinataire</h3>
-                        <div class="text-right">
-                            <p class="font-bold uppercase text-sm text-gray-800">${client ? client.name : '-'}</p>
-                            <p class="text-[11px] text-gray-600">${client ? client.address : '-'}</p>
-                            ${client && client.tva ? `<p class="text-[11px] text-gray-500">TVA : ${client.tva}</p>` : ''}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-green-50 border border-green-200 p-3 rounded-md flex items-center mb-8">
-                    <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <p class="text-[10px] text-green-800 uppercase font-semibold">Note : Ce document contient un fichier de données XML intégré conforme au standard Factur-X pour un traitement automatique.</p>
-                </div>
-
-                <table class="w-full text-left border-collapse mb-8">
-                    <thead class="bg-gray-50 uppercase text-[10px] font-bold text-gray-600 border-y border-gray-200">
-                        <tr>
-                            <th class="p-3">Référence</th>
-                            <th class="p-3">Désignation</th>
-                            <th class="p-3 text-center">Qté</th>
-                            <th class="p-3 text-right">PU H.T.</th>
-                            <th class="p-3 text-right">TVA</th>
-                            <th class="p-3 text-right">Montant H.T.</th>
-                        </tr>
-                    </thead>
-                    <tbody id="invoice-items" class="text-gray-700">
-                        ${itemsHtml}
-                    </tbody>
-                </table>
-
-                <div class="flex justify-between items-start">
-                    <div class="text-[10px] text-gray-500 space-y-1 w-1/2 pr-8 text-justify">
-                        <p class="font-bold text-gray-700 uppercase">Modalités de paiement :</p>
-                        <p>Date d'échéance : 30 jours (Loi LME)</p>
-                        <p>Mode de règlement : Virement Bancaire</p>
-                        <p>IBAN : FR76 3000 6000 0001 2345 6789 X01</p>
-                        ${hasZeroTax ? `
-                        <div class="mt-2 p-2 bg-blue-50 text-blue-800 border-l-2 border-blue-400 font-semibold italic">
-                            Mention : Exonération de TVA, article 262 ter I du CGI (ou Auto-liquidation).
-                        </div>
-                        ` : ''}
-                        <div class="mt-4 p-3 bg-gray-50 border-l-4 border-orange-400">
-                             <p class="font-bold text-gray-700 uppercase mb-1">Pénalités de retard :</p>
-                             <p class="text-[9px] leading-relaxed">Taux de 33,39% annuel (3 fois le taux légal). Indemnité forfaitaire de 40€ pour frais de recouvrement. S'applique de plein droit dès le premier jour de retard sans rappel nécessaire.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="w-1/3 space-y-2">
-                        <div class="flex justify-between text-xs text-gray-600">
-                            <span>Total H.T.</span>
-                            <span class="font-medium">${totalHT.toLocaleString('fr-FR', { style: 'currency', currency: invoiceCurrency })}</span>
-                        </div>
-                        <div class="flex justify-between text-xs text-gray-600">
-                            <span>TVA (20%)</span>
-                            <span>${tax20.toLocaleString('fr-FR', { style: 'currency', currency: invoiceCurrency })}</span>
-                        </div>
-                        <div class="flex justify-between text-xs text-gray-600">
-                            <span>TVA (5,5%)</span>
-                            <span>${tax55.toLocaleString('fr-FR', { style: 'currency', currency: invoiceCurrency })}</span>
-                        </div>
-                        <div class="flex justify-between text-lg font-bold text-[#004d40] border-t-2 border-[#004d40] pt-2 mt-2">
-                            <span>NET À PAYER</span>
-                            <span>${totalTTC.toLocaleString('fr-FR', { style: 'currency', currency: invoiceCurrency })}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-12 pt-6 border-t border-gray-200 text-[9px] text-gray-400 text-center uppercase tracking-widest leading-relaxed">
-                    Facture émise électroniquement. L'intégrité et l'authenticité sont garanties par signature numérique. Archivage légal 10 ans.
-                    <br>${currentUser?.company_name || 'TRANSFACT SAS'} - SIRET: ${currentUser?.company_siret || '000 000 000 00000'} - APE: 4941B - Capital Social: 10 000€
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Update modal for A4 full page display
-    // Cette partie est spécifique au modal de facture, qui semble être structuré différemment.
-    // Elle manipule directement modal-overlay.
-    // Si un autre modal a été ouvert pendant le chargement async, on n'affiche pas la facture.
-    if (window.__invoicePreviewLock) return;
-    // Invalide tout rendu async si une autre ouverture de modal a eu lieu
-    if (mySessionId !== window.__invoicePreviewSessionId) return;
-
-
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
-
-    // On affiche explicitement le conteneur de la facture
-    const invoiceContent = document.getElementById('modal-content');
-    if (invoiceContent) invoiceContent.classList.remove('hidden');
-
-
-    const btnContainer = document.querySelector('#modal-overlay .border-t');
-    if (btnContainer) {
-        let actionButtons = '';
-        
-        if (invoice.status === 'Brouillon' || invoice.status === 'Draft') {
-            actionButtons = `
-                <button onclick="editDraft('${invoiceId}')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow transition-all">
-                    <i class="fa-solid fa-pen mr-2"></i>Modifier contenu
-                </button>
-                <button onclick="validateDraft('${invoiceId}')" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 shadow transition-all active:scale-95">
-                    <i class="fa-solid fa-check-double mr-2"></i>Valider définitivement
-                </button>
-            `;
-        } else if (invoice.status !== 'Cancelled' && invoice.status !== 'annulée') {
-            actionButtons = `
-                <button onclick="window.createCreditNote('${invoiceId}', false)" class="px-4 py-2 bg-orange-100 text-orange-700 border border-orange-200 rounded hover:bg-orange-200 shadow-sm transition-all">
-                    <i class="fa-solid fa-file-invoice-dollar mr-1"></i> Avoir Total
-                </button>
-                <button onclick="window.createCreditNote('${invoiceId}', true)" class="px-4 py-2 bg-gray-100 text-gray-700 border rounded hover:bg-gray-200 shadow-sm transition-all">
-                    <i class="fa-solid fa-scissors mr-1"></i> Avoir Partiel
-                </button>
-            `;
-        }
-
-        btnContainer.innerHTML = `
-            <div class="flex items-center gap-2 text-sm text-gray-600 mr-auto">
-                ${clientEmail ? `<i class="fa-solid fa-envelope"></i><span>Envoyer à: <strong>${clientEmail}</strong></span>` : '<div class="text-orange-500 font-semibold text-xs"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Email client manquant</div>'}
-            </div>
-            <button onclick="closeModal()" class="px-4 py-2 border rounded text-gray-600 hover:bg-white">Fermer</button>
-            ${actionButtons}
-            <button onclick="confirmSendInvoice('${invoiceId}', '${clientEmail}')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 shadow transition-all active:scale-95">
-                <i class="fa-solid fa-paper-plane mr-2"></i>Envoyer
-            </button>
-            <button onclick="downloadInvoicePDF('${invoiceId}')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow transition-all active:scale-95">
-                <i class="fa-solid fa-file-pdf mr-2"></i>Télécharger PDF
-            </button>
-        `;
     }
 }
 
