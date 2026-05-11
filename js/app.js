@@ -845,7 +845,6 @@ window.openInvoiceModal = function(invoiceId) {
     if (!inv) return showToast("Facture introuvable", "error");
 
     const client = db.clients.find(c => c.id == inv.client_id);
-    const settings = db.settings || {};
 
     // 1. Infos Générales
     document.getElementById('modal-inv-number').innerText = inv.id;
@@ -861,6 +860,7 @@ window.openInvoiceModal = function(invoiceId) {
     // 3. Client
     document.getElementById('modal-client-name').innerText = client?.name || "Client Inconnu";
     document.getElementById('modal-client-address').innerText = client?.address || "";
+    document.getElementById('modal-client-siret').innerText = client?.siret || "-";
     document.getElementById('modal-client-tva').innerText = client?.tva || "-";
 
     // 4. Lignes et Calculs
@@ -915,8 +915,8 @@ window.openInvoiceModal = function(invoiceId) {
     document.getElementById('modal-total-ttc').innerText = (totalHT + totalTVA).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 
     // 6. Banque
-    document.getElementById('modal-bank-name').innerText = settings.bank_name || "Crédit Agricole";
-    document.getElementById('modal-iban').innerText = settings.iban || "FR76 ...";
+    document.getElementById('modal-bank-name').innerText = currentUser?.company_bank || "-";
+    document.getElementById('modal-iban').innerText = currentUser?.company_iban || "-";
 
     // 7. Actions (Lien vers le téléchargement)
     const downloadBtn = document.getElementById('download-btn');
@@ -924,8 +924,10 @@ window.openInvoiceModal = function(invoiceId) {
         downloadBtn.onclick = () => downloadInvoicePDF(inv.id);
     }
 
-    // Afficher la modal
-    document.getElementById('invoice-modal').classList.remove('hidden');
+    // Afficher la modal (on force flex car hideAllModals le retire)
+    const modal = document.getElementById('invoice-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
 };
 
 window.closeInvoiceModal = function() {
