@@ -845,9 +845,12 @@ window.openInvoiceModal = function(invoiceId) {
     if (!inv) return showToast("Facture introuvable", "error");
 
     const client = db.clients.find(c => c.id == inv.client_id);
+    const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
+    const user = currentUser || getCurrentUser();
 
     // 1. Infos Générales
     document.getElementById('modal-inv-number').innerText = inv.id;
+    document.getElementById('modal-inv-number').innerText = inv.id || "N/A";
     document.getElementById('modal-inv-date').innerText = inv.date ? inv.date.split('T')[0] : "";
     document.getElementById('modal-inv-due').innerText = (inv.due_date || inv.date) ? (inv.due_date || inv.date).split('T')[0] : "";
 
@@ -856,11 +859,19 @@ window.openInvoiceModal = function(invoiceId) {
     document.getElementById('modal-issuer-address').innerText = currentUser?.company_address || "";
     document.getElementById('modal-issuer-siret').innerText = currentUser?.company_siret || "-";
     document.getElementById('modal-issuer-tva').innerText = currentUser?.company_tva || "-";
+    document.getElementById('modal-issuer-name').innerText = user?.company_name || "VOTRE ENTREPRISE";
+    document.getElementById('modal-issuer-address').innerText = user?.company_address || "";
+    document.getElementById('modal-issuer-siret').innerText = user?.company_siret || "-";
+    document.getElementById('modal-issuer-tva').innerText = user?.company_tva || "-";
 
     // 3. Client
     document.getElementById('modal-client-name').innerText = client?.name || "Client Inconnu";
     document.getElementById('modal-client-address').innerText = client?.address || "";
     document.getElementById('modal-client-siret').innerText = client?.siret || "-";
+    
+    const clientSiretEl = document.getElementById('modal-client-siret');
+    if (clientSiretEl) clientSiretEl.innerText = client?.siret || "-";
+    
     document.getElementById('modal-client-tva').innerText = client?.tva || "-";
 
     // 4. Lignes et Calculs
@@ -917,11 +928,25 @@ window.openInvoiceModal = function(invoiceId) {
     // 6. Banque
     document.getElementById('modal-bank-name').innerText = currentUser?.company_bank || "-";
     document.getElementById('modal-iban').innerText = currentUser?.company_iban || "-";
+    document.getElementById('modal-bank-name').innerText = user?.company_bank || "-";
+    document.getElementById('modal-iban').innerText = user?.company_iban || "-";
 
     // 7. Actions (Lien vers le téléchargement)
+    const editBtn = document.getElementById('edit-draft-btn');
+    if (editBtn) {
+        // Si c'est un brouillon, on permet la modification
+        if (inv.status === 'Brouillon') {
+            editBtn.classList.remove('hidden');
+            editBtn.onclick = () => { closeInvoiceModal(); editDraft(inv.id); };
+        } else {
+            editBtn.classList.add('hidden');
+        }
+    }
+
     const downloadBtn = document.getElementById('download-btn');
     if (downloadBtn) {
         downloadBtn.onclick = () => downloadInvoicePDF(inv.id);
+        downloadBtn.onclick = () => downloadInvoicePDF(invoiceId);
     }
 
     // Afficher la modal (on force flex car hideAllModals le retire)
@@ -929,6 +954,7 @@ window.openInvoiceModal = function(invoiceId) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 };
+window.openInvoiceModal = openInvoiceModal;
 
 window.closeInvoiceModal = function() {
     document.getElementById('invoice-modal').classList.add('hidden');
@@ -1179,7 +1205,7 @@ function removeLine(i) {
     invoiceLines.splice(i, 1);
     renderLines();
 }
-
+http://localhost:3000/#
 function previewInvoice() {
     const clientId = document.getElementById('invoice-client').value;
     const client = db.clients.find(c => c.id == clientId);
@@ -2239,11 +2265,6 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
 // --- MISSION MODALS ---
 function openEditMissionModal(missionId) {
     hideAllModals(); // Masquer tous les autres modaux d'abord
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
     const mission = db.missions.find(m => m.id === missionId);
     if (!mission) return;
     
@@ -2290,14 +2311,9 @@ async function submitEditMission() {
         router('planning');
     }
 }
-
++
 function openAddMissionModal() {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
     // Populate clients
     const clientSelect = document.getElementById('add-mission-client');
     clientSelect.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -2370,6 +2386,7 @@ function openAddClientModal() {
     document.getElementById('client-modal-title').textContent = 'Nouveau Client';
     document.getElementById('edit-client-id').value = '';
     document.getElementById('add-client-name').value = '';
+    document.getElementById('add-client-siret').value = '';
     document.getElementById('add-client-email').value = '';
     document.getElementById('add-client-phone').value = '';
     document.getElementById('add-client-address').value = '';
@@ -2380,17 +2397,13 @@ function openAddClientModal() {
 
 function openEditClientModal(clientId) {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
     const client = db.clients.find(c => c.id === clientId);
     if (!client) return;
     
     document.getElementById('client-modal-title').textContent = 'Éditer Client';
     document.getElementById('edit-client-id').value = clientId;
     document.getElementById('add-client-name').value = client.name;
+    document.getElementById('add-client-siret').value = client.siret || '';
     document.getElementById('add-client-email').value = client.email;
     document.getElementById('add-client-phone').value = client.phone;
     document.getElementById('add-client-address').value = client.address;
@@ -2409,6 +2422,7 @@ async function submitAddClient() {
     const editId = document.getElementById('edit-client-id').value;
     const clientData = {
         name: document.getElementById('add-client-name').value,
+        siret: document.getElementById('add-client-siret').value,
         email: document.getElementById('add-client-email').value,
         phone: document.getElementById('add-client-phone').value,
         address: document.getElementById('add-client-address').value,
@@ -2576,24 +2590,6 @@ function closeDriverCardModal() {
 function openAddSubcontractorModal() {
     hideAllModals();
 
-    // Hard guarantee: l’aperçu Facture A4 ne doit jamais remonter au-dessus des modaux.
-    // Même logique que openAddClientModal().
-    const invoiceOverlay = document.getElementById('modal-overlay');
-    const invoiceContent = document.getElementById('modal-content');
-    if (invoiceOverlay) {
-        invoiceOverlay.classList.add('hidden');
-        invoiceOverlay.classList.remove('flex', 'items-center', 'justify-center');
-    }
-    if (invoiceContent) {
-        invoiceContent.classList.add('hidden');
-        invoiceContent.innerHTML = '';
-    }
-
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
     document.getElementById('subcontractor-modal-title').textContent = 'Nouveau Sous-traitant';
     document.getElementById('edit-subcontractor-id').value = '';
     document.getElementById('add-subcontractor-name').value = '';
@@ -2614,11 +2610,6 @@ function openAddSubcontractorModal() {
 
 function openEditSubcontractorModal(subcontractorId) {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
 
     const subcontractor = db.subcontractors.find(s => s.id === subcontractorId);
     if (!subcontractor) return;
@@ -2724,11 +2715,6 @@ async function deleteSubcontractor() {
 // --- DISPATCH MODALS ---
 function openDispatchModal(orderId) {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
 
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return;
@@ -2833,25 +2819,6 @@ async function submitDispatch() {
 function openAddVehicleModal() {
     hideAllModals();
 
-    // Hard guarantee: l’aperçu Facture A4 ne doit jamais remonter au-dessus des modaux.
-    // Même logique que openAddClientModal().
-    const invoiceOverlay = document.getElementById('modal-overlay');
-    const invoiceContent = document.getElementById('modal-content');
-    if (invoiceOverlay) {
-        invoiceOverlay.classList.add('hidden');
-        invoiceOverlay.classList.remove('flex', 'items-center', 'justify-center');
-    }
-    if (invoiceContent) {
-        invoiceContent.classList.add('hidden');
-        invoiceContent.innerHTML = '';
-    }
-
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
-
     document.getElementById('add-vehicle-plate').value = '';
     document.getElementById('add-vehicle-model').value = '';
     document.getElementById('add-vehicle-fuel').value = 'Diesel';
@@ -2900,11 +2867,6 @@ async function submitAddVehicle() {
 
 function openEditVehicleModal(vehicleId) {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
 
     const vehicle = db.vehicles.find(v => v.id === vehicleId);
     if (!vehicle) return;
@@ -2962,16 +2924,26 @@ async function submitEditVehicle() {
     }
 }
 
+// --- SALE INVOICE MODAL ---
+function openSaleInvoiceModal(orderId) {
+    const order = db.orders.find(o => o.id === orderId);
+    if (!order) return showToast("Commande introuvable", "error");
+    
+    // Si l'utilisateur veut voir/modifier une facture à partir d'une commande
+    // On utilise la logique de création qui permet déjà la modification avant validation
+    showToast("Génération de l'aperçu de facturation...", "info");
+    createInvoiceFromMission(orderId);
+}
+
+function closeSaleInvoiceModal() {
+    hideAllModals();
+}
+
 // --- PURCHASE INVOICE MODAL ---
 let selectedPurchaseCategory = 'Carburant';
 
 function openAddPurchaseInvoiceModal() {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
     document.getElementById('add-purchase-supplier').value = '';
     document.getElementById('add-purchase-type').value = 'Carburant';
     document.getElementById('add-purchase-ref').value = '';
@@ -3080,11 +3052,6 @@ async function submitPurchaseInvoice() {
 // --- USER MODAL (ADMIN) ---
 function openAddUserModal() {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
     document.getElementById('add-user-name').value = '';
     document.getElementById('add-user-email').value = '';
     document.getElementById('add-user-role').value = 'user';
@@ -3276,11 +3243,6 @@ function exportAccounting(type) {
 // --- ORDER FUNCTIONS ---
 function openAddOrderModal() {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
     // Populate clients
     const clientSelect = document.getElementById('add-order-client');
     clientSelect.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -3343,11 +3305,6 @@ async function submitAddOrder() {
 // --- EDIT ORDER FUNCTIONS ---
 function openEditOrderModal(orderId) {
     hideAllModals();
-    const modalOverlay = document.getElementById('modal-overlay');
-    if (modalOverlay) {
-        modalOverlay.classList.remove('hidden');
-        modalOverlay.classList.add('flex', 'items-center', 'justify-center');
-    }
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return;
     

@@ -187,7 +187,7 @@
 
     <!-- MODALS CONTAINER -->
     <!-- MODAL: EDIT MISSION -->
-    <div id="edit-mission-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="edit-mission-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Modifier la Mission #<span id="edit-mission-id-display"></span></h3>
@@ -222,7 +222,7 @@
     </div>
 
     <!-- MODAL: ADD ORDER -->
-    <div id="add-order-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="add-order-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Nouvelle Commande</h3>
@@ -309,7 +309,7 @@
     </div>
 
     <!-- MODAL: EDIT ORDER -->
-    <div id="edit-order-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="edit-order-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Modifier la Commande #<span id="edit-order-ref-display"></span></h3>
@@ -409,7 +409,7 @@
     </div>
 
     <!-- MODAL: ADD/EDIT CLIENT -->
-    <div id="add-client-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="add-client-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="client-modal-title" class="font-bold text-lg text-gray-800">Nouveau Client</h3>
@@ -454,7 +454,7 @@
     </div>
 
     <!-- MODAL: DRIVER CARD -->
-    <div id="driver-card-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="driver-card-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Fiche Chauffeur</h3>
@@ -470,7 +470,7 @@
     </div>
 
     <!-- MODAL: ADD/EDIT DRIVER -->
-    <div id="driver-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="driver-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="driver-modal-title" class="font-bold text-lg text-gray-800">Nouveau Chauffeur</h3>
@@ -529,7 +529,7 @@
     </div>
 
     <!-- MODAL: ADD VEHICLE -->
-    <div id="add-vehicle-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="add-vehicle-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Ajouter un Camion</h3>
@@ -572,7 +572,7 @@
     </div>
 
     <!-- MODAL: EDIT VEHICLE -->
-    <div id="edit-vehicle-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="edit-vehicle-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Modifier le Véhicule</h3>
@@ -641,6 +641,9 @@
                 </button>
                 <button id="download-btn" class="text-gray-600 hover:text-green-600 p-2 rounded-lg hover:bg-green-50 transition-all" title="Télécharger XML Factur-X">
                     <i class="fa-solid fa-file-code"></i>
+                </button>
+                <button id="edit-draft-btn" class="hidden text-gray-600 hover:text-orange-600 p-2 rounded-lg hover:bg-orange-50 transition-all" title="Modifier le brouillon">
+                    <i class="fa-solid fa-pen-to-square"></i>
                 </button>
             </div>
             <button onclick="closeInvoiceModal()" class="text-gray-400 hover:text-red-500 p-2 transition-all">
@@ -715,8 +718,8 @@
                     </div>
                     <div id="modal-tax-rows" class="space-y-1 text-xs text-gray-500 italic">
                         </div>
-                    <div class="flex justify-between text-xl font-black text-[#004d40] border-t-2 border-[#004d40] pt-3">
-                        <span>NET À PAYER</span>
+                    <div class="flex justify-end gap-3 text-xl font-black text-[#004d40] border-t-2 border-[#004d40] pt-3">
+                        <span>NET À PAYER&nbsp;</span>
                         <span id="modal-total-ttc">0,00 €</span>
                     </div>
                 </div>
@@ -728,7 +731,7 @@
     </div>
 </div>
     <!-- MODAL: ADD PURCHASE INVOICE -->
-    <div id="add-purchase-invoice-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="add-purchase-invoice-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Ajouter une Facture Achat</h3>
@@ -816,7 +819,7 @@
     </div>
 
 <!-- MODAL: ADD/EDIT SUBCONTRACTOR -->
-    <div id="add-subcontractor-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="add-subcontractor-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="subcontractor-modal-title" class="font-bold text-lg text-gray-800">Nouveau Sous-traitant</h3>
@@ -883,7 +886,7 @@
     </div>
 
     <!-- MODAL: DISPATCH (Order to Subcontractor) -->
-    <div id="dispatch-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="dispatch-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Affecter à un Sous-traitant</h3>
@@ -929,7 +932,7 @@
     </div>
 
     <!-- MODAL: ADD USER (Admin only) -->
-    <div id="add-user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="add-user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Ajouter un Nouvel Utilisateur</h3>
@@ -965,7 +968,7 @@
     </div>
 
     <!-- MODAL: PDF VIEWER -->
-    <div id="modal-overlay" class="hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div id="modal-overlay" class="hidden fixed inset-0 z-50 items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[95vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b bg-gray-50">
                 <h3 id="modal-title" class="font-bold text-lg text-gray-800">Aperçu Facture (A4)</h3>
