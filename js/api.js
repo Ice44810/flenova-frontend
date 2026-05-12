@@ -51,8 +51,10 @@ async function apiFetch(url, options = {}) {
             const shouldTryRefresh = 
                 errorData.error === 'TOKEN_EXPIRED' || 
                 errorData.error === 'TOKEN_MISSING' ||
-                errorData.error?.toLowerCase().includes('expiré') || 
-                errorData.error?.toLowerCase().includes('manquant');
+                errorData.error?.toLowerCase().includes('expir') || 
+                errorData.error?.toLowerCase().includes('manquant') ||
+                errorData.error?.toLowerCase().includes('expired') ||
+                errorData.error?.toLowerCase().includes('missing');
 
             if (shouldTryRefresh) {
                 if (isAuthPage) return response; // Ne pas rediriger si on est déjà sur login/register

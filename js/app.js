@@ -109,25 +109,23 @@ function makeElementDraggable(el) {
 
 // --- BOOTSTRAP ---
 (async () => {
-    if (!currentUser) {
-        // Try to validate session with backend
-        try {
-            const res = await apiFetch('auth/me');
-            if (res.ok) {
-                const data = await res.json();
-                if (data.success && data.user) {
-                    currentUser = data.user;
-                    setCurrentUser(data.user);
-                } else {
-                    throw new Error('No user');
-                }
-            } else {
-                throw new Error('Not authenticated');
-            }
-        } catch (e) {
-            window.location.href = '/login.html';
-            return;
+    // On vérifie systématiquement la validité de la session avec le serveur au démarrage.
+    // Cela évite de lancer des requêtes de données en parallèle si le jeton est expiré.
+    try {
+        const res = await apiFetch('auth/me');
+        if (res.ok) {
+            const data = await res.json();
+            currentUser = data.user;
+            setCurrentUser(data.user);
+        } else {
+            throw new Error('Session expirée ou invalide');
         }
+    } catch (e) {
+        console.warn("Échec de l'authentification au démarrage:", e.message);
+        if (!window.location.pathname.endsWith('login.html')) {
+            window.location.href = '/login.html';
+        }
+        return;
     }
 
     const appScreen = document.getElementById('app-screen');
@@ -841,7 +839,8 @@ function renderSalesInvoices() {
 }
 
 window.openInvoiceModal = function(invoiceId) {
-    const inv = db.sales_invoices.find(i => i.id === invoiceId);
+    // Recherche par ID (numérique) ou par Numéro de facture (FAC-...)
+    const inv = db.sales_invoices.find(i => String(i.id) === String(invoiceId) || i.number === invoiceId);
     if (!inv) return showToast("Facture introuvable", "error");
 
     const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
@@ -1353,7 +1352,7 @@ async function saveDraft() {
         if (res.ok) {
             await fetchAllData();
             // Ouvre la prévisualisation après la sauvegarde du brouillon
-            openInvoiceModal(data.id);
+            openInvoiceModal(data.number);
             showToast("Brouillon sauvegardé avec succès", "success");
         } else {
             const err = await res.json().catch(() => ({}));
@@ -1368,17 +1367,10 @@ async function validateInvoice() {
     const data = getInvoiceFormData('Validée');
     if (!data) return;
 
-    const total =invoiceLines.reduce((acc, l) => acc + (l.qty * l.price), 0);
+    const total = invoiceLines.reduce((acc, l) => acc + (l.qty * l.price), 0);
 
-    const confirm = await Swal.fire({
-        title: "Confirmer la validation",
-        html: `Êtes-vous sûr de vouloir valider cette facture pour un montant total de <strong>${total.toLocaleString()} €</strong> ?<br><span class="text-sm text-gray-500">Cette action est irréversible.</span>`,
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Oui, valider",
-        confirmButtonColor: "#059669",
-    })
-    if (!confirm.isConfirmed) return;
+    const isConfirmed = window.confirm(`Êtes-vous sûr de vouloir valider cette facture pour un montant total de ${total.toLocaleString()} € ?\n\nCette action est irréversible.`);
+    if (!isConfirmed) return;
 
     try {
         const res = await apiFetch('sales-invoices', { method: 'POST', body: data });
@@ -1450,7 +1442,7 @@ function getInvoiceFormData(status) {
     const totalAmount = validLines.reduce((acc, l) => acc + (l.qty * l.price), 0);
 
     return {
-        id: number,
+        number: number,
         client_id: parseInt(clientId),
         date: date,
         due_date: due,
