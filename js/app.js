@@ -849,30 +849,30 @@ window.openInvoiceModal = function(invoiceId) {
 
     // Normalisation statut pour rendre les boutons fiables
     const normalizedStatus = (inv.status ?? '').toString().trim().toLowerCase();
-    const isDraft = normalizedStatus === 'brouillon' || normalizedStatus === 'brouillon ' || normalizedStatus === 'draft' || normalizedStatus === 'brouillon\u200b';
+    const isDraft = normalizedStatus.includes('brouillon') || normalizedStatus === 'draft';
 
     // 1. Infos Générales
     const invNumberEl = document.getElementById('modal-inv-number');
-    if (invNumberEl) invNumberEl.innerText = inv.id || "N/A";
+    if (invNumberEl) invNumberEl.innerText = inv.number || inv.id || "N/A";
 
     const invDateEl = document.getElementById('modal-inv-date');
-    if (invDateEl) invDateEl.innerText = inv.date ? inv.date.split('T')[0] : "";
+    if (invDateEl) invDateEl.innerText = inv.date ? new Date(inv.date).toLocaleDateString('fr-FR') : "";
 
     const dueEl = document.getElementById('modal-inv-due');
-    if (dueEl) dueEl.innerText = (inv.due_date || inv.date) ? (inv.due_date || inv.date).split('T')[0] : "";
+    if (dueEl) dueEl.innerText = (inv.due_date || inv.date) ? new Date(inv.due_date || inv.date).toLocaleDateString('fr-FR') : "";
 
     // 2. Émetteur
     const issuerName = document.getElementById('modal-issuer-name');
-    if (issuerName) issuerName.innerText = user?.company_name || "VOTRE ENTREPRISE";
+    if (issuerName) issuerName.innerText = (user?.company_name || currentUser?.company_name || "VOTRE ENTREPRISE").toUpperCase();
 
     const issuerAddress = document.getElementById('modal-issuer-address');
-    if (issuerAddress) issuerAddress.innerText = user?.company_address || "";
+    if (issuerAddress) issuerAddress.innerText = user?.company_address || currentUser?.company_address || "";
 
     const issuerSiret = document.getElementById('modal-issuer-siret');
-    if (issuerSiret) issuerSiret.innerText = user?.company_siret || "-";
+    if (issuerSiret) issuerSiret.innerText = user?.company_siret || currentUser?.company_siret || "-";
 
     const issuerTva = document.getElementById('modal-issuer-tva');
-    if (issuerTva) issuerTva.innerText = user?.company_tva || "-";
+    if (issuerTva) issuerTva.innerText = user?.company_tva || currentUser?.company_tva || "-";
 
     // 3. Client
     const clientName = document.getElementById('modal-client-name');
@@ -882,10 +882,10 @@ window.openInvoiceModal = function(invoiceId) {
     if (clientAddress) clientAddress.innerText = client?.address || "";
 
     const clientSiretEl = document.getElementById('modal-client-siret');
-    if (clientSiretEl) clientSiretEl.innerText = client?.siret || "-";
+    if (clientSiretEl) clientSiretEl.innerText = client?.siret || client?.company_siret || "-";
 
     const clientTvaEl = document.getElementById('modal-client-tva');
-    if (clientTvaEl) clientTvaEl.innerText = client?.tva || "-";
+    if (clientTvaEl) clientTvaEl.innerText = client?.tva || client?.company_tva || "-";
 
     // 4. Lignes et Calculs
     const itemsBody = document.getElementById('modal-invoice-items');
@@ -957,10 +957,10 @@ window.openInvoiceModal = function(invoiceId) {
 
     // 6. Banque / IBAN
     const bankEl = document.getElementById('modal-bank-name');
-    if (bankEl) bankEl.innerText = user?.company_bank || "-";
+    if (bankEl) bankEl.innerText = user?.company_bank || currentUser?.company_bank || "-";
 
     const ibanEl = document.getElementById('modal-iban');
-    if (ibanEl) ibanEl.innerText = user?.company_iban || "-";
+    if (ibanEl) ibanEl.innerText = user?.company_iban || currentUser?.company_iban || "-";
 
     // 7. Actions
     const editBtn = document.getElementById('edit-draft-btn');
@@ -989,7 +989,26 @@ window.openInvoiceModal = openInvoiceModal;
 
 
 window.closeInvoiceModal = function() {
-    document.getElementById('invoice-modal').classList.add('hidden');
+    hideAllModals();
+};
+
+window.printInvoice = function() {
+    const content = document.getElementById('invoice-modal-content');
+    if (!content) return;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Impression Facture</title>
+                <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+            </head>
+            <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+                <div class="p-10">${content.innerHTML}</div>
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
 };
 
 function renderSettingInvoices() {
@@ -1115,6 +1134,7 @@ function renderCreateInvoice() {
     return `
     <div class="h-full flex flex-col bg-gray-50 -m-6 fade-in">
         <div class="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+            <input type="hidden" id="invoice-number" value="${generateInvoiceNumber()}">
             <div>
                 <h3 class="text-xl font-bold text-gray-800">Édition Facture</h3>
                 <p class="text-xs text-gray-500 font-medium">${generateInvoiceNumber()} • <span class="text-blue-600">Nouveau document</span></p>
@@ -1122,8 +1142,8 @@ function renderCreateInvoice() {
             <div class="flex gap-3">
                 <button onclick="router('sales_invoices')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all font-medium">Annuler</button>
                 <div class="h-10 w-[1px] bg-gray-200 mx-2"></div>
-                <button onclick="saveDraft()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 font-medium flex items-center">
-                    <i class="fa-regular fa-floppy-disk mr-2"></i> Brouillon
+                 <button onclick="saveDraft()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 font-medium flex items-center">
+                    <i class="fa-regular fa-floppy-disk mr-2"></i> Prévisualiser
                 </button>
                 <button onclick="validateInvoice()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md shadow-blue-200 flex items-center transition-all transform hover:-translate-y-0.5">
                     <i class="fa-solid fa-check-double mr-2"></i> Valider & Émettre
@@ -1332,8 +1352,9 @@ async function saveDraft() {
         const res = await apiFetch('sales-invoices', { method: 'POST', body: data });
         if (res.ok) {
             await fetchAllData();
+            // Ouvre la prévisualisation après la sauvegarde du brouillon
+            openInvoiceModal(data.id);
             showToast("Brouillon sauvegardé avec succès", "success");
-            router('sales_invoices');
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || "Erreur lors de la sauvegarde du brouillon", "error");
@@ -1344,6 +1365,9 @@ async function saveDraft() {
 }
 
 async function validateInvoice() {
+    const data = getInvoiceFormData('Validée');
+    if (!data) return;
+
     const total =invoiceLines.reduce((acc, l) => acc + (l.qty * l.price), 0);
 
     const confirm = await Swal.fire({
@@ -1391,6 +1415,17 @@ function generateCreditNote(invoiceId, isTotal = true) {
     };
     
     // ... Enregistrement et router vers la liste
+    apiFetch('sales-invoices', { method: 'POST', body: creditNoteData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.id) {
+                showToast("Avoir généré avec succès", "success");
+                router('sales_invoices');
+            } else {
+                showToast("Erreur lors de la génération de l'avoir", "error");
+            }
+        })
+        .catch(() => showToast("Impossible de contacter le serveur", "error"));
 }
 
 function getInvoiceFormData(status) {
