@@ -844,61 +844,85 @@ window.openInvoiceModal = function(invoiceId) {
     const inv = db.sales_invoices.find(i => i.id === invoiceId);
     if (!inv) return showToast("Facture introuvable", "error");
 
-    const client = db.clients.find(c => c.id == inv.client_id);
     const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
     const user = currentUser || getCurrentUser();
 
-    // 1. Infos Générales
-    document.getElementById('modal-inv-number').innerText = inv.id;
-    document.getElementById('modal-inv-number').innerText = inv.id || "N/A";
-    document.getElementById('modal-inv-date').innerText = inv.date ? inv.date.split('T')[0] : "";
-    document.getElementById('modal-inv-due').innerText = (inv.due_date || inv.date) ? (inv.due_date || inv.date).split('T')[0] : "";
+    // Normalisation statut pour rendre les boutons fiables
+    const normalizedStatus = (inv.status ?? '').toString().trim().toLowerCase();
+    const isDraft = normalizedStatus === 'brouillon' || normalizedStatus === 'brouillon ' || normalizedStatus === 'draft' || normalizedStatus === 'brouillon\u200b';
 
-    // 2. Émetteur (Utilise currentUser ou settings)
-    document.getElementById('modal-issuer-name').innerText = currentUser?.company_name || "VOTRE ENTREPRISE";
-    document.getElementById('modal-issuer-address').innerText = currentUser?.company_address || "";
-    document.getElementById('modal-issuer-siret').innerText = currentUser?.company_siret || "-";
-    document.getElementById('modal-issuer-tva').innerText = currentUser?.company_tva || "-";
-    document.getElementById('modal-issuer-name').innerText = user?.company_name || "VOTRE ENTREPRISE";
-    document.getElementById('modal-issuer-address').innerText = user?.company_address || "";
-    document.getElementById('modal-issuer-siret').innerText = user?.company_siret || "-";
-    document.getElementById('modal-issuer-tva').innerText = user?.company_tva || "-";
+    // 1. Infos Générales
+    const invNumberEl = document.getElementById('modal-inv-number');
+    if (invNumberEl) invNumberEl.innerText = inv.id || "N/A";
+
+    const invDateEl = document.getElementById('modal-inv-date');
+    if (invDateEl) invDateEl.innerText = inv.date ? inv.date.split('T')[0] : "";
+
+    const dueEl = document.getElementById('modal-inv-due');
+    if (dueEl) dueEl.innerText = (inv.due_date || inv.date) ? (inv.due_date || inv.date).split('T')[0] : "";
+
+    // 2. Émetteur
+    const issuerName = document.getElementById('modal-issuer-name');
+    if (issuerName) issuerName.innerText = user?.company_name || "VOTRE ENTREPRISE";
+
+    const issuerAddress = document.getElementById('modal-issuer-address');
+    if (issuerAddress) issuerAddress.innerText = user?.company_address || "";
+
+    const issuerSiret = document.getElementById('modal-issuer-siret');
+    if (issuerSiret) issuerSiret.innerText = user?.company_siret || "-";
+
+    const issuerTva = document.getElementById('modal-issuer-tva');
+    if (issuerTva) issuerTva.innerText = user?.company_tva || "-";
 
     // 3. Client
-    document.getElementById('modal-client-name').innerText = client?.name || "Client Inconnu";
-    document.getElementById('modal-client-address').innerText = client?.address || "";
-    document.getElementById('modal-client-siret').innerText = client?.siret || "-";
-    
+    const clientName = document.getElementById('modal-client-name');
+    if (clientName) clientName.innerText = client?.name || "Client Inconnu";
+
+    const clientAddress = document.getElementById('modal-client-address');
+    if (clientAddress) clientAddress.innerText = client?.address || "";
+
     const clientSiretEl = document.getElementById('modal-client-siret');
     if (clientSiretEl) clientSiretEl.innerText = client?.siret || "-";
-    
-    document.getElementById('modal-client-tva').innerText = client?.tva || "-";
+
+    const clientTvaEl = document.getElementById('modal-client-tva');
+    if (clientTvaEl) clientTvaEl.innerText = client?.tva || "-";
 
     // 4. Lignes et Calculs
     const itemsBody = document.getElementById('modal-invoice-items');
-    itemsBody.innerHTML = '';
-    
-    let totalHT = 0;
-    let taxes = {}; // Pour gérer plusieurs taux de TVA si besoin
+    if (itemsBody) itemsBody.innerHTML = '';
 
-    // Utilisation de 'items' (format standard dans le backend) ou fallback sur 'lines'
-    const lines = inv.items || inv.lines || [{ desc: "Prestation de transport", qty: 1, price: inv.amount, tva: 0.20 }];
+    let totalHT = 0;
+    let taxes = {}; // taux TVA => montant TVA
+
+    let lines = inv.items || inv.lines;
+    if (!Array.isArray(lines)) {
+        // si items stockés en string JSON côté backend
+        if (typeof lines === 'string') {
+            try { lines = JSON.parse(lines); } catch { lines = null; }
+        }
+    }
+    if (!Array.isArray(lines)) {
+        lines = [{ desc: "Prestation de transport", qty: 1, price: inv.amount, tva: 0.20 }];
+    }
 
     lines.forEach(l => {
-        const qty = l.qty || 1;
-        const price = l.price || 0;
+        const qty = Number(l.qty ?? 1) || 1;
+        const price = Number(l.price ?? 0) || 0;
         const lineHT = qty * price;
         totalHT += lineHT;
-        
-        // Calcul TVA
-        const tvaRate = l.tva || 0.20;
+
+        // TVA: parfois 0.20, parfois 20
+        let tvaRate = Number(l.tva ?? l.tva_rate ?? 0.20) || 0;
+        if (tvaRate > 1) tvaRate = tvaRate / 100;
+
         const taxAmount = lineHT * tvaRate;
         taxes[tvaRate] = (taxes[tvaRate] || 0) + taxAmount;
 
+        if (!itemsBody) return;
         const tr = document.createElement('tr');
         tr.className = "border-b border-gray-50 hover:bg-gray-50 transition-colors";
         tr.innerHTML = `
-            <td class="p-4 font-medium text-gray-800">${l.desc}</td>
+            <td class="p-4 font-medium text-gray-800">${l.desc || ''}</td>
             <td class="p-4 text-center font-mono">${qty}</td>
             <td class="p-4 text-right font-mono">${price.toLocaleString('fr-FR')} €</td>
             <td class="p-4 text-right font-bold">${lineHT.toLocaleString('fr-FR')} €</td>
@@ -907,35 +931,41 @@ window.openInvoiceModal = function(invoiceId) {
     });
 
     // 5. Totaux
-    document.getElementById('modal-total-ht').innerText = totalHT.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
-    
+    const totalHTEl = document.getElementById('modal-total-ht');
+    if (totalHTEl) totalHTEl.innerText = totalHT.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+
     const taxRows = document.getElementById('modal-tax-rows');
-    taxRows.innerHTML = '';
+    if (taxRows) taxRows.innerHTML = '';
+
     let totalTVA = 0;
-    
-    for (let rate in taxes) {
-        totalTVA += taxes[rate];
-        taxRows.innerHTML += `
-            <div class="flex justify-between">
-                <span>TVA (${(rate * 100).toFixed(1)}%)</span>
-                <span>${taxes[rate].toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
-            </div>
-        `;
+    if (taxRows) {
+        for (let rate in taxes) {
+            totalTVA += taxes[rate];
+            taxRows.innerHTML += `
+                <div class="flex justify-between">
+                    <span>TVA (${(Number(rate) * 100).toFixed(1)}%)</span>
+                    <span>${taxes[rate].toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                </div>
+            `;
+        }
+    } else {
+        totalTVA = Object.values(taxes).reduce((a, b) => a + b, 0);
     }
 
-    document.getElementById('modal-total-ttc').innerText = (totalHT + totalTVA).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    const totalTTCEI = document.getElementById('modal-total-ttc');
+    if (totalTTCEI) totalTTCEI.innerText = (totalHT + totalTVA).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 
-    // 6. Banque
-    document.getElementById('modal-bank-name').innerText = currentUser?.company_bank || "-";
-    document.getElementById('modal-iban').innerText = currentUser?.company_iban || "-";
-    document.getElementById('modal-bank-name').innerText = user?.company_bank || "-";
-    document.getElementById('modal-iban').innerText = user?.company_iban || "-";
+    // 6. Banque / IBAN
+    const bankEl = document.getElementById('modal-bank-name');
+    if (bankEl) bankEl.innerText = user?.company_bank || "-";
 
-    // 7. Actions (Lien vers le téléchargement)
+    const ibanEl = document.getElementById('modal-iban');
+    if (ibanEl) ibanEl.innerText = user?.company_iban || "-";
+
+    // 7. Actions
     const editBtn = document.getElementById('edit-draft-btn');
     if (editBtn) {
-        // Si c'est un brouillon, on permet la modification
-        if (inv.status === 'Brouillon') {
+        if (isDraft) {
             editBtn.classList.remove('hidden');
             editBtn.onclick = () => { closeInvoiceModal(); editDraft(inv.id); };
         } else {
@@ -945,16 +975,18 @@ window.openInvoiceModal = function(invoiceId) {
 
     const downloadBtn = document.getElementById('download-btn');
     if (downloadBtn) {
-        downloadBtn.onclick = () => downloadInvoicePDF(inv.id);
+        // Actuellement le backend retourne un PDF. On garde la fonction en attendant XML dédié.
         downloadBtn.onclick = () => downloadInvoicePDF(invoiceId);
     }
 
-    // Afficher la modal (on force flex car hideAllModals le retire)
     const modal = document.getElementById('invoice-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
 };
 window.openInvoiceModal = openInvoiceModal;
+
 
 window.closeInvoiceModal = function() {
     document.getElementById('invoice-modal').classList.add('hidden');
