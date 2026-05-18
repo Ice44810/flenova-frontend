@@ -1128,7 +1128,7 @@ window.saveInvoiceSettings = function(e) {
     router('sales_invoices');
 };
 
-// Optimisation de renderCreateInvoice
+// Optimisation de renderCreateInvoice 
 function renderCreateInvoice() {
     return `
     <div class="h-full flex flex-col bg-gray-50 -m-6 fade-in">
@@ -1225,15 +1225,15 @@ function renderLines() {
     const container = document.getElementById('invoice-lines-container');
     container.innerHTML = invoiceLines.map((l, i) => `
         <div class="group flex gap-3 items-start bg-gray-50 p-4 rounded-xl border border-transparent hover:border-blue-200 hover:bg-white transition-all">
-            <div class="flex-1">
+            <div class="w-32 flex items-center">
                 <input value="${l.desc}" oninput="updateLine(${i}, 'desc', this.value)" 
-                    class="w-full bg-transparent font-medium text-gray-800 placeholder-gray-400 outline-none" placeholder="Description de la prestation...">
+                    class="w-full bg-transparent text-left font-bold text-gray-700 outline-none" placeholder="Description de la prestation">
             </div>
-            <div class="w-20">
+            <div class="w-2">
                 <input type="number" value="${l.qty}" oninput="updateLine(${i}, 'qty', this.value)" 
                     class="w-full bg-transparent text-center font-bold text-gray-700 outline-none" placeholder="Qté">
             </div>
-            <div class="w-32 flex items-center">
+            <div class="w-25 flex items-center">
                 <input type="number" value="${l.price}" oninput="updateLine(${i}, 'price', this.value)" 
                     class="w-full bg-transparent text-right font-bold text-gray-700 outline-none" placeholder="Prix HT">
                 <span class="ml-1 text-gray-400 text-xs">€</span>
