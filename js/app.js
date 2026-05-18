@@ -1167,11 +1167,11 @@ function renderCreateInvoice() {
                             </div>
                             <div>
                                 <label class="block text-gray-500 mb-1 font-medium">Date d'émission</label>
-                                <input type="date" id="invoice-date" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50">
+                                <input type="date" id="invoice-date" value="${new Date().toISOString().split('T')[0]}" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50">
                             </div>
                             <div>
                                 <label class="block text-gray-500 mb-1 font-medium">Échéance</label>
-                                <input type="date" id="invoice-due" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50">
+                                <input type="date" id="invoice-due" value="${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50">
                             </div>
                         </div>
                     </section>
@@ -1250,13 +1250,13 @@ function updateLine(i, field, value) {
     // Parse numeric fields to prevent calculation errors in preview/storage
     const isNumeric = field === 'qty' || field === 'price';
     invoiceLines[i][field] = isNumeric ? (parseFloat(value) || 0) : value;
+    previewInvoice();
 }
 
 function removeLine(i) {
     invoiceLines.splice(i, 1);
     renderLines();
 }
-http://localhost:3000/#
 function previewInvoice() {
     const clientId = document.getElementById('invoice-client').value;
     const client = db.clients.find(c => c.id == clientId);
