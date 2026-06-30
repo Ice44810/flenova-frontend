@@ -7,6 +7,21 @@ let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], use
 
 let salesChartInstance = null;
 let invoiceLines = [];
+let editingInvoiceId = null;
+
+function formatDateForInput(value) {
+    if (!value) return new Date().toISOString().split('T')[0];
+    const s = String(value);
+    if (s.includes('T')) return s.split('T')[0];
+    return s.slice(0, 10);
+}
+
+function normalizeUploadUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('/uploads/')) return url;
+    const match = url.match(/\/uploads\/subcontractors\/[^/?#]+/);
+    return match ? match[0] : url;
+}
 let currentUser = getCurrentUser();
 
 // Fonction utilitaire pour masquer TOUS les modaux
@@ -27,7 +42,7 @@ function hideAllModals() {
         'driver-card-modal', 'driver-modal', 'add-vehicle-modal', 'edit-vehicle-modal',
         'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
         'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
-        'invoice-modal'
+        'invoice-modal', 'transport-detail-modal'
     ];
 
     // Invariant: le modal aperçu facture A4 (modal-overlay/modal-content) ne doit jamais être visible
@@ -117,6 +132,9 @@ function makeElementDraggable(el) {
             const data = await res.json();
             currentUser = data.user;
             setCurrentUser(data.user);
+            if (data.permissions && typeof setPermissionsFromServer === 'function') {
+                setPermissionsFromServer(data.permissions);
+            }
         } else {
             throw new Error('Session expirée ou invalide');
         }
@@ -133,7 +151,10 @@ function makeElementDraggable(el) {
 
     hideAllModals();
 
+    if (typeof loadPermissions === 'function' && !cachedPermissions) await loadPermissions();
+
     const ok = await fetchAllData();
+    if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
     if (ok) {
         router('dashboard');
     }
@@ -168,25 +189,25 @@ async function fetchAllData() {
     try {
         const fetchJson = async (url) => {
             const res = await apiFetch(url);
+            if (!res.ok) return [];
             const data = await res.json();
-            // Gère les tableaux bruts ou les réponses enveloppées { data: [...] } ou { orders: [...] }
             if (Array.isArray(data)) return data;
             if (data.data && Array.isArray(data.data)) return data.data;
-            
-            // Tente de trouver une clé correspondant à la ressource (ex: "orders" pour la route 'orders')
             const resourceKey = url.split('/')[0].replace('-', '_');
             return (data[resourceKey] && Array.isArray(data[resourceKey])) ? data[resourceKey] : [];
         };
+        const mayView = (module) => (typeof can !== 'function') || can(module, 'view');
+
         const [orders, clients, missions, drivers, vehicles, users, sales, purchase, subcontractors] = await Promise.all([
-            fetchJson('orders'),
-            fetchJson('clients'),
-            fetchJson('missions'),
-            fetchJson('drivers'),
-            fetchJson('vehicles'),
-            fetchJson('users'),
-            fetchJson('sales-invoices'),
-            fetchJson('purchase-invoices'),
-            fetchJson('subcontractors')
+            mayView('transports') ? fetchJson('transport-orders') : Promise.resolve([]),
+            mayView('clients') ? fetchJson('clients') : Promise.resolve([]),
+            mayView('transports') ? fetchJson('missions') : Promise.resolve([]),
+            mayView('carriers') ? fetchJson('drivers') : Promise.resolve([]),
+            mayView('carriers') ? fetchJson('vehicles') : Promise.resolve([]),
+            (typeof canManageUsers === 'function' && canManageUsers()) ? fetchJson('users') : Promise.resolve([]),
+            mayView('billing') ? fetchJson('sales-invoices') : Promise.resolve([]),
+            mayView('billing') ? fetchJson('purchase-invoices') : Promise.resolve([]),
+            mayView('carriers') ? fetchJson('subcontractors') : Promise.resolve([])
         ]);
         db = { orders, clients, missions, drivers, vehicles, users, sales_invoices: sales, purchase_invoices: purchase, subcontractors };
         return true;
@@ -196,15 +217,7 @@ async function fetchAllData() {
     }
 }
 
-// Helper function to check if current user is admin
-function isAdmin() {
-    return currentUser && currentUser.role === 'admin';
-}
-
-// Helper function to check if user has access to invoice functions
-function canManageInvoices() {
-    return currentUser && currentUser.role === 'admin';
-}
+// RBAC : isAdmin, canManageInvoices, canManageUsers, … → permissions.js
 
 // Function to toggle all invoice checkboxes
 function toggleSelectAllInvoices(masterCheckbox) {
@@ -252,8 +265,23 @@ function renderDashboard(stats = {}) {
         tabContent = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-gray-700">${stats.totalExpeditions || 0}</h3>
-                <p class="text-gray-400 text-sm">Expéditions</p>
+                <h3 class="text-3xl font-bold text-blue-600">${stats.activeTransports ?? stats.activeMissions ?? 0}</h3>
+                <p class="text-gray-400 text-sm">Transports actifs</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                <h3 class="text-3xl font-bold text-teal-600">${stats.delivered ?? 0}</h3>
+                <p class="text-gray-400 text-sm">Livrés</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                <h3 class="text-3xl font-bold text-orange-600">${stats.uninvoicedTransports ?? 0}</h3>
+                <p class="text-gray-400 text-sm">À préfacturer</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                <h3 class="text-3xl font-bold text-gray-700">${stats.totalTransports ?? stats.totalExpeditions ?? 0}</h3>
+                <p class="text-gray-400 text-sm">Total transports</p>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center relative">
                 <h3 class="text-3xl font-bold text-gray-700">${Number(stats.totalRevenue || 0).toLocaleString()} €</h3>
@@ -501,7 +529,7 @@ function renderPlanning() {
         return { ...o, day: dayName };
     });
 
-    const getStatusColor = (s) => { if (s === 'Planifié') return 'border-l-4 border-gray-400'; if (s === 'En cours') return 'border-l-4 border-blue-500'; if (s === 'Terminé') return 'border-l-4 border-green-500'; if (s === 'Annulé') return 'border-l-4 border-red-400'; return ''; };
+    const getStatusColor = (s) => typeof getStatusBorderClass === 'function' ? getStatusBorderClass(s) : (s === 'Planifié' ? 'border-l-4 border-gray-400' : s === 'En cours' ? 'border-l-4 border-blue-500' : s === 'Terminé' ? 'border-l-4 border-green-500' : s === 'Annulé' ? 'border-l-4 border-red-400' : '');
     
     // Calcul du numéro de semaine ISO
     const getISOWeek = (date) => {
@@ -529,7 +557,7 @@ function renderPlanning() {
                     return `<div class="flex-1 flex flex-col h-full min-w-[150px] ${isToday ? 'bg-blue-50' : ''}">
                         <div class="p-3 text-center border-b font-semibold text-sm text-gray-600 ${isToday ? 'bg-blue-100 text-blue-700' : ''}">${day}</div>
                         <div class="p-2 space-y-2 flex-1 overflow-y-auto">
-                            ${dayMissions.length > 0 ? dayMissions.map(m => `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition cursor-pointer relative group" onclick="openEditOrderModal(${m.id})">
+                            ${dayMissions.length > 0 ? dayMissions.map(m => `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition cursor-pointer relative group" onclick="openTransportDetail(${m.id})">
                                 <div class="font-bold text-gray-800 mb-1">#${m.ref || m.id}</div>
                                 <div class="text-gray-500 truncate text-[10px]">${m.origin} <i class="fa-solid fa-arrow-right mx-1"></i> ${m.dest}</div>
                                 <div class="mt-1 text-xs text-gray-400"><i class="fa-regular fa-clock mr-1"></i>${m.delivery_date || '--/--'}</div>
@@ -600,7 +628,7 @@ function renderSubcontractors() {
                             <td class="px-4 py-3 font-mono text-xs">${s.siret || '-'}</td>
                             <td class="px-4 py-3">
                                 <span class="${rcStatus} px-2 py-1 rounded text-xs font-semibold block mb-1">${s.rc_pro_expiry || 'N/A'}</span>
-                                ${s.insurance_doc_url ? `<a href="${s.insurance_doc_url}" target="_blank" class="text-blue-500 text-[10px] hover:underline flex items-center gap-1"><i class="fa-solid fa-file-pdf"></i> Voir document</a>` : ''}
+                                ${s.insurance_doc_url ? `<a href="${normalizeUploadUrl(s.insurance_doc_url)}" target="_blank" class="text-blue-500 text-[10px] hover:underline flex items-center gap-1"><i class="fa-solid fa-file-pdf"></i> Voir document</a>` : ''}
                             </td>
                             <td class="px-4 py-3">${s.urssaf_expiry || '-'}</td>
                             <td class="px-4 py-3"><span class="${statusClass} px-2 py-1 rounded text-xs font-semibold">${s.status}</span></td>
@@ -873,6 +901,16 @@ window.openInvoiceModal = function(invoiceId) {
     const issuerTva = document.getElementById('modal-issuer-tva');
     if (issuerTva) issuerTva.innerText = user?.company_tva || currentUser?.company_tva || "-";
 
+    const logoEl = document.getElementById('modal-company-logo');
+    if (logoEl) {
+        const logoUrl = resolveCompanyLogoUrl(user?.company_logo || currentUser?.company_logo);
+        logoEl.src = logoUrl;
+        logoEl.classList.remove('hidden');
+        logoEl.onerror = () => {
+            logoEl.src = 'assets/transfact_icon_512.jpg';
+        };
+    }
+
     // 3. Client
     const clientName = document.getElementById('modal-client-name');
     if (clientName) clientName.innerText = client?.name || "Client Inconnu";
@@ -992,18 +1030,31 @@ window.closeInvoiceModal = function() {
 };
 
 window.printInvoice = function() {
-    const content = document.getElementById('invoice-modal-content');
+    const content = document.getElementById('printable-invoice');
     if (!content) return;
-    
+
     const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        showToast('Veuillez autoriser les pop-ups pour imprimer', 'error');
+        return;
+    }
+
     printWindow.document.write(`
-        <html>
+        <!DOCTYPE html>
+        <html lang="fr">
             <head>
+                <meta charset="UTF-8">
                 <title>Impression Facture</title>
-                <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="/css/tailwind.css">
+                <style>
+                    body { margin: 0; padding: 20px; font-family: Arial, sans-serif; color: #1f2937; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+                    @media print { body { padding: 0; } }
+                </style>
             </head>
-            <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
-                <div class="p-10">${content.innerHTML}</div>
+            <body onload="window.print(); setTimeout(() => window.close(), 300);">
+                ${content.innerHTML}
             </body>
         </html>
     `);
@@ -1011,8 +1062,8 @@ window.printInvoice = function() {
 };
 
 function renderSettingInvoices() {
-    // Récupération de la couleur actuelle depuis la DB ou valeur par défaut
     const currentColor = db.settings?.invoice_color || "#004d40";
+    const logoSrc = resolveCompanyLogoUrl(currentUser?.company_logo);
 
     return `
     <div class="max-w-5xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-8 fade-in">
@@ -1037,7 +1088,7 @@ function renderSettingInvoices() {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="md:col-span-2">
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">IBAN</label>
-                            <input type="text" name="iban" class="w-full border-gray-200 border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="FR76 3000 6000 0001 2345 6789 X01">
+                            <input type="text" name="iban" class="w-full border-gray-200 border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="${currentUser?.company_iban || ''}" placeholder="FR76 3000 6000 0001 2345 6789 X01">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Code BIC / SWIFT</label>
@@ -1045,7 +1096,7 @@ function renderSettingInvoices() {
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nom de la Banque</label>
-                            <input type="text" name="bank_name" class="w-full border-gray-200 border p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="Crédit Agricole">
+                            <input type="text" name="bank_name" class="w-full border-gray-200 border p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="${currentUser?.company_bank || ''}" placeholder="Crédit Agricole">
                         </div>
                     </div>
                 </div>
@@ -1063,8 +1114,12 @@ function renderSettingInvoices() {
                             </div>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Logo de l'entreprise (URL)</label>
-                            <input type="text" name="logo_url" class="w-full border-gray-200 border p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" placeholder="https://votre-site.fr/logo.png">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Logo sur les factures</label>
+                            <div class="flex items-center gap-4 p-3 border border-gray-200 rounded-xl bg-gray-50">
+                                <img src="${logoSrc}" alt="Logo" class="h-12 max-w-[120px] object-contain"
+                                     onerror="this.src='assets/transfact_icon_512.jpg'">
+                                <p class="text-xs text-gray-500">Modifiable dans <button type="button" onclick="router('admin')" class="text-blue-600 hover:underline font-medium">Paramètres entreprise</button>.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1122,10 +1177,37 @@ window.updateThemePreview = function(color) {
     if (textInput) textInput.value = color.toUpperCase();
 };
 
-window.saveInvoiceSettings = function(e) {
+window.saveInvoiceSettings = async function(e) {
     if (e) e.preventDefault();
-    showToast("Paramètres de facturation mis à jour avec succès", "success");
-    router('sales_invoices');
+    const form = e?.target;
+    if (!form || !currentUser?.company_id) return;
+
+    const payload = {
+        iban: form.iban?.value?.trim() || '',
+        bank_name: form.bank_name?.value?.trim() || ''
+    };
+
+    try {
+        const response = await apiFetch(`companies/${currentUser.company_id}/invoice-settings`, {
+            method: 'PUT',
+            body: payload
+        });
+
+        if (response.ok) {
+            Object.assign(currentUser, {
+                company_iban: payload.iban,
+                company_bank: payload.bank_name
+            });
+            setCurrentUser(currentUser);
+            showToast("Paramètres de facturation mis à jour avec succès", "success");
+            router('sales_invoices');
+        } else {
+            const err = await response.json().catch(() => ({}));
+            showToast(err.error || "Échec de la sauvegarde", "error");
+        }
+    } catch (err) {
+        showToast("Erreur de communication avec le serveur", "error");
+    }
 };
 
 // Optimisation de renderCreateInvoice 
@@ -1348,11 +1430,26 @@ async function saveDraft() {
     if (!data) return;
 
     try {
-        const res = await apiFetch('sales-invoices', { method: 'POST', body: data });
+        let res;
+        if (editingInvoiceId) {
+            res = await apiFetch(`sales-invoices/${editingInvoiceId}`, {
+                method: 'PUT',
+                body: {
+                    client_id: data.client_id,
+                    date: data.date,
+                    amount: data.amount,
+                    items: data.items
+                }
+            });
+        } else {
+            res = await apiFetch('sales-invoices', { method: 'POST', body: data });
+        }
+
         if (res.ok) {
             await fetchAllData();
-            // Ouvre la prévisualisation après la sauvegarde du brouillon
-            openInvoiceModal(data.number);
+            const invoiceId = editingInvoiceId || data.number;
+            editingInvoiceId = null;
+            openInvoiceModal(invoiceId);
             showToast("Brouillon sauvegardé avec succès", "success");
         } else {
             const err = await res.json().catch(() => ({}));
@@ -1373,9 +1470,30 @@ async function validateInvoice() {
     if (!isConfirmed) return;
 
     try {
-        const res = await apiFetch('sales-invoices', { method: 'POST', body: data });
+        let res;
+        if (editingInvoiceId) {
+            const updateRes = await apiFetch(`sales-invoices/${editingInvoiceId}`, {
+                method: 'PUT',
+                body: {
+                    client_id: data.client_id,
+                    date: data.date,
+                    amount: data.amount,
+                    items: data.items
+                }
+            });
+            if (!updateRes.ok) {
+                const err = await updateRes.json().catch(() => ({}));
+                showToast(err.error || "Erreur lors de la mise à jour du brouillon", "error");
+                return;
+            }
+            res = await apiFetch(`sales-invoices/${editingInvoiceId}/validate`, { method: 'POST' });
+        } else {
+            res = await apiFetch('sales-invoices', { method: 'POST', body: data });
+        }
+
         if (res.ok) {
             await fetchAllData();
+            editingInvoiceId = null;
             showToast("Facture validée et enregistrée !", "success");
             router('sales_invoices');
         } else {
@@ -1422,9 +1540,11 @@ function generateCreditNote(invoiceId, isTotal = true) {
 
 function getInvoiceFormData(status) {
     const clientId = document.getElementById('invoice-client').value;
-    const date = document.getElementById('invoice-date').value;
+    const dateInput = document.getElementById('invoice-date');
+    const date = dateInput?.value ? dateInput.value : formatDateForInput(new Date());
     const number = document.getElementById('invoice-number').value;
-    const due = document.getElementById('invoice-due').value;
+    const dueInput = document.getElementById('invoice-due');
+    const due = dueInput?.value ? dueInput.value : formatDateForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
     
     // Filtrer les lignes vides pour ne pas polluer la base de données
     const validLines = invoiceLines.filter(l => l.desc && l.desc.trim() !== "");
@@ -1454,9 +1574,63 @@ function getInvoiceFormData(status) {
     };
 }
 
+function resolveCompanyLogoUrl(logoPath) {
+    if (!logoPath) return 'assets/transfact_icon_512.jpg';
+    if (logoPath.startsWith('http://') || logoPath.startsWith('https://') || logoPath.startsWith('/')) return logoPath;
+    return logoPath;
+}
+window.resolveCompanyLogoUrl = resolveCompanyLogoUrl;
+
+window.previewCompanyLogo = function(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('Le logo ne doit pas dépasser 2 Mo', 'error');
+        input.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('admin-company-logo-preview');
+        if (preview) preview.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+window.uploadCompanyLogo = async function() {
+    const input = document.getElementById('admin-company-logo-input');
+    if (!input?.files?.[0]) {
+        showToast('Sélectionnez une image (PNG, JPG, WEBP ou SVG)', 'error');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('logo', input.files[0]);
+    try {
+        const response = await apiFetch(`companies/${currentUser.company_id}/logo`, {
+            method: 'POST',
+            body: formData
+        });
+        if (response.ok) {
+            const data = await response.json();
+            currentUser.company_logo = data.logo_url;
+            setCurrentUser(currentUser);
+            const preview = document.getElementById('admin-company-logo-preview');
+            if (preview) preview.src = resolveCompanyLogoUrl(data.logo_url);
+            input.value = '';
+            showToast('Logo enregistré — visible sur vos factures', 'success');
+        } else {
+            const err = await response.json().catch(() => ({}));
+            showToast(err.error || 'Échec du téléversement', 'error');
+        }
+    } catch (e) {
+        showToast('Erreur de communication avec le serveur', 'error');
+    }
+};
+
 function renderAdmin() {
-    const isAdmin = currentUser && currentUser.role === 'admin';
+    const isAdminUser = typeof canManageUsers === 'function' && canManageUsers();
     const emailEnabled = currentUser?.company_notifications === 1;
+    const logoSrc = resolveCompanyLogoUrl(currentUser?.company_logo);
 
     return `<div class="space-y-6 fade-in">
         <h2 class="text-2xl font-bold text-gray-800">Paramètres de l'Entreprise</h2>
@@ -1473,7 +1647,7 @@ function renderAdmin() {
                         </tr>`).join('')}
                     </tbody>
                 </table>
-                ${isAdmin ? `<button onclick="openAddUserModal()" class="mt-4 w-full py-2 border border-dashed rounded text-gray-500 hover:bg-gray-50 text-sm">+ Ajouter utilisateur</button>` : ''}
+                ${isAdminUser ? `<button onclick="openAddUserModal()" class="mt-4 w-full py-2 border border-dashed rounded text-gray-500 hover:bg-gray-50 text-sm">+ Ajouter utilisateur</button>` : ''}
             </div>
 
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
@@ -1497,6 +1671,33 @@ function renderAdmin() {
                         <button onclick="updateCompanyInfo()" class="w-full py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 transition shadow-sm">
                             <i class="fa-solid fa-save mr-2"></i>Sauvegarder les informations
                         </button>
+                    </div>
+                </div>
+
+                <div class="pt-6 border-t">
+                    <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Logo de l'entreprise</h3>
+                    <p class="text-xs text-gray-500 mb-4">Ce logo apparaît sur vos factures clients, brouillons et documents PDF.</p>
+                    <div class="flex flex-col sm:flex-row items-start gap-4">
+                        <div class="w-28 h-28 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
+                            <img id="admin-company-logo-preview" src="${logoSrc}" alt="Logo entreprise"
+                                 class="max-w-full max-h-full object-contain p-2"
+                                 onerror="this.src='assets/transfact_icon_512.jpg'">
+                        </div>
+                        <div class="flex-1 space-y-3">
+                            <input type="file" id="admin-company-logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                   class="hidden" onchange="previewCompanyLogo(this)">
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="document.getElementById('admin-company-logo-input').click()"
+                                        class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition">
+                                    <i class="fa-solid fa-image mr-2"></i>Choisir une image
+                                </button>
+                                <button type="button" onclick="uploadCompanyLogo()"
+                                        class="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
+                                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i>Enregistrer le logo
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-gray-400">PNG, JPG, WEBP ou SVG — 2 Mo max. Fond transparent recommandé.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -1554,7 +1755,7 @@ window.toggleEmailNotifications = async function() {
     
     try {
         const response = await apiFetch(`companies/${currentUser.company_id}/notifications`, {
-            method: 'PATCH',
+            method: 'PUT',
             body: { email_notifications: newVal }
         });
 
@@ -1948,6 +2149,14 @@ function destroyAllChartInstances() {
 }
 // --- ROUTER ---
 async function router(route) {
+    if (typeof canAccessRoute === 'function' && !canAccessRoute(route)) {
+        showToast("Accès refusé pour votre rôle", "error");
+        if (route !== 'dashboard' && canAccessRoute('dashboard')) {
+            route = 'dashboard';
+        } else {
+            return;
+        }
+    }
     const appContent = document.getElementById('app-content');
     const pageTitle = document.getElementById('page-title');
     const navItems = document.querySelectorAll('.nav-item');
@@ -1988,6 +2197,14 @@ async function router(route) {
                 })
                 .catch(err => console.warn("Statistiques indisponibles, affichage par défaut", err));
             break;
+        case 'transports':
+            title = 'Transports';
+            content = renderTransportList();
+            break;
+        case 'preinvoicing':
+            title = 'Préfacturation';
+            content = renderPreInvoicing();
+            break;
         case 'planning':
             title = 'Planning Hebdomadaire';
             content = renderPlanning();
@@ -1998,11 +2215,11 @@ async function router(route) {
             break;
         case 'completed_transports':
             title = 'Transports Réalisés';
-            content = renderCompletedTransports();
+            content = typeof renderOrdersCompleted === 'function' ? renderOrdersCompleted() : renderCompletedTransports();
             break;
         case 'inprogress_transports':
             title = 'Transports En cours';
-            content = renderInProgressTransports();
+            content = typeof renderOrdersInProgress === 'function' ? renderOrdersInProgress() : renderInProgressTransports();
             break;
         case 'clients':
             title = 'Clients';
@@ -2045,9 +2262,11 @@ case 'fleet':
             break;
         case 'create_invoice':
             title = 'Nouvelle Facture';
-            invoiceLines = [{ desc: '', qty: 1, price: 0 }]; // On démarre avec une ligne vide
+            if (!editingInvoiceId) {
+                invoiceLines = [{ desc: '', qty: 1, price: 0 }];
+            }
             content = renderCreateInvoice();
-            setTimeout(renderLines, 50); // Attendre l'injection du DOM
+            setTimeout(renderLines, 50);
             break;
         case 'admin':
             title = 'Administration';
@@ -2102,6 +2321,7 @@ case 'fleet':
     }
     
     pageTitle.textContent = title;
+    if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
 }
 
 // --- TOAST NOTIFICATIONS ---
@@ -2686,7 +2906,7 @@ function openEditSubcontractorModal(subcontractorId) {
     
     const viewLink = document.getElementById('subcontractor-insurance-view');
     if (subcontractor.insurance_doc_url) {
-        viewLink.href = subcontractor.insurance_doc_url;
+        viewLink.href = normalizeUploadUrl(subcontractor.insurance_doc_url);
         viewLink.classList.remove('hidden');
     } else {
         viewLink.classList.add('hidden');
@@ -3113,9 +3333,22 @@ function openAddUserModal() {
     hideAllModals();
     document.getElementById('add-user-name').value = '';
     document.getElementById('add-user-email').value = '';
-    document.getElementById('add-user-role').value = 'user';
+    document.getElementById('add-user-role').value = 'lecture';
     document.getElementById('add-user-password').value = '';
+    toggleAddUserDriverField();
     document.getElementById('add-user-modal').classList.remove('hidden');
+}
+
+function toggleAddUserDriverField() {
+    const role = document.getElementById('add-user-role')?.value;
+    const wrap = document.getElementById('add-user-driver-wrap');
+    const select = document.getElementById('add-user-driver');
+    if (!wrap || !select) return;
+    const show = role === 'chauffeur';
+    wrap.classList.toggle('hidden', !show);
+    if (show && db.drivers?.length) {
+        select.innerHTML = db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    }
 }
 
 function closeAddUserModal() {
@@ -3127,15 +3360,15 @@ async function submitAddUser() {
     const email = document.getElementById('add-user-email').value;
     const role = document.getElementById('add-user-role').value;
     const password = document.getElementById('add-user-password').value;
+    const driverId = document.getElementById('add-user-driver')?.value;
     
     if (name && email && password) {
-        const newUser = {
-            id: Math.max(...db.users.map(u => u.id)) + 1,
-            name: name,
-            email: email,
-            role: role,
-            password: password
-        };
+        if (role === 'chauffeur' && !driverId) {
+            showToast('Sélectionnez le conducteur lié au compte chauffeur', 'error');
+            return;
+        }
+        const newUser = { name, email, role, password };
+        if (role === 'chauffeur') newUser.driver_id = parseInt(driverId, 10);
         await apiFetch('users', { method: 'POST', body: newUser });
         await fetchAllData();
         showToast('Utilisateur créé avec succès', 'success');
@@ -3149,14 +3382,25 @@ async function submitAddUser() {
 window.editDraft = function(invoiceId) {
     const invoice = db.sales_invoices.find(inv => inv.id === invoiceId);
     if (!invoice) return;
-    
+
+    editingInvoiceId = invoiceId;
     router('create_invoice');
     setTimeout(() => {
         document.getElementById('invoice-client').value = invoice.client_id;
-        document.getElementById('invoice-date').value = invoice.date;
+        document.getElementById('invoice-date').value = formatDateForInput(invoice.date);
+        document.getElementById('invoice-due').value = formatDateForInput(invoice.due_date || invoice.sent_date || invoice.date);
         document.getElementById('invoice-number').value = invoice.id;
-        invoiceLines = invoice.items || [];
+        invoiceLines = (invoice.items || []).map(item => ({
+            desc: item.desc || item.description || '',
+            qty: item.qty ?? 1,
+            price: item.price ?? 0,
+            tva: item.tva ?? 0.20
+        }));
+        if (invoiceLines.length === 0) {
+            invoiceLines = [{ desc: '', qty: 1, price: 0 }];
+        }
         renderLines();
+        previewInvoice();
         showToast("Reprise du brouillon", "info");
     }, 100);
 };
@@ -3347,11 +3591,11 @@ async function submitAddOrder() {
         pallet_type: document.getElementById('add-order-pallet-type').value,
         pallet_exchange: document.getElementById('add-order-pallet-exchange').checked,
         price: parseFloat(document.getElementById('add-order-price').value) || 0,
-        status: 'Planifié'
+        status: 'Brouillon'
     };
     
     if (newOrder.client_id && newOrder.origin && newOrder.dest && newOrder.load_date) {
-        await apiFetch('orders', { method: 'POST', body: newOrder });
+        await apiFetch('transport-orders', { method: 'POST', body: newOrder });
         await fetchAllData();
         showToast('Commande créée avec succès ! Elle apparaît maintenant dans le planning.', 'success');
         closeAddOrderModal();
@@ -3429,7 +3673,24 @@ async function submitEditOrder() {
             status: document.getElementById('edit-order-status').value
         };
 
-        await apiFetch(`orders/${orderId}`, { method: 'PUT', body: updatedOrder });
+        await apiFetch(`transport-orders/${orderId}`, { method: 'PATCH', body: {
+            ref: updatedOrder.ref,
+            client_id: updatedOrder.client_id,
+            cargo: updatedOrder.cargo,
+            origin: updatedOrder.origin,
+            dest: updatedOrder.dest,
+            load_date: updatedOrder.load_date,
+            delivery_date: updatedOrder.delivery_date,
+            vehicle_id: updatedOrder.vehicle_id,
+            driver_id: updatedOrder.driver_id,
+            weight: updatedOrder.weight,
+            pallet_type: updatedOrder.pallet_type,
+            pallet_exchange: updatedOrder.pallet_exchange,
+            price: updatedOrder.price
+        }});
+        if (updatedOrder.status !== order.status) {
+            await apiFetch(`transport-orders/${orderId}/status`, { method: 'POST', body: { status: updatedOrder.status } });
+        }
         await fetchAllData();
         
         showToast('Commande mise à jour avec succès', 'success');

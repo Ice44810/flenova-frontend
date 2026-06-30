@@ -32,7 +32,7 @@
             <nav class="flex-1 overflow-y-auto py-4">
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Général</p>
                 <ul class="space-y-1 mb-6">
-                    <li><a href="#" onclick="router('dashboard')"
+                    <li data-nav-route="dashboard"><a href="#" onclick="router('dashboard')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-chart-pie w-6"></i>
                             <span>Tableau de bord</span>
@@ -42,27 +42,33 @@
 
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Opérations</p>
                 <ul class="space-y-1 mb-6">
-                    <li><a href="#" onclick="router('planning')"
+                    <li data-nav-route="transports"><a href="#" onclick="router('transports')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-list w-6"></i>
+                            <span>Transports</span>
+                        </a>
+                    </li>
+                    <li data-nav-route="planning"><a href="#" onclick="router('planning')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-calendar-days w-6"></i>
                             <span>Planning</span>
                         </a>
                     </li>
 
-                    <li><a href="#" onclick="router('inprogress_transports')"
+                    <li data-nav-route="inprogress_transports"><a href="#" onclick="router('inprogress_transports')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-truck-moving w-6"></i>
                             <span>Transports En cours</span>
                         </a>
                     </li>
 
-                    <li><a href="#" onclick="router('completed_transports')"
+                    <li data-nav-route="completed_transports"><a href="#" onclick="router('completed_transports')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-truck-moving w-6"></i>
                             <span>Transports Réalisés</span>
                         </a>
                     </li>
-                    <li><a href="#" onclick="router('clients')"
+                    <li data-nav-route="clients"><a href="#" onclick="router('clients')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-building-user w-6"></i>
                             <span>Clients</span>
@@ -72,19 +78,19 @@
 
 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Ressources</p>
                 <ul class="space-y-1 mb-6">
-                    <li><a href="#" onclick="router('drivers')"
+                    <li data-nav-route="drivers"><a href="#" onclick="router('drivers')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-id-card w-6"></i>
                             <span>Chauffeurs</span>
                         </a>
                     </li>
-                    <li><a href="#" onclick="router('fleet')"
+                    <li data-nav-route="fleet"><a href="#" onclick="router('fleet')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-truck w-6"></i>
                             <span>Flotte</span>
                         </a>
                     </li>
-                    <li><a href="#" onclick="router('subcontractors')"
+                    <li data-nav-route="subcontractors"><a href="#" onclick="router('subcontractors')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-handshake w-6"></i>
                             <span>Sous-traitants</span>
@@ -94,21 +100,28 @@
 
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Finances & Admin</p>
                 <ul class="space-y-1 mb-6">
-                    <li>
+                    <li data-nav-route="preinvoicing">
+                        <a href="#" onclick="router('preinvoicing')"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-file-circle-check w-6"></i>
+                            <span>Préfacturation</span>
+                        </a>
+                    </li>
+                    <li data-nav-route="sales_invoices">
                         <a href="#" onclick="router('sales_invoices')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-file-invoice-dollar w-6"></i>
                             <span>Factures Ventes</span>
                         </a>
                     </li>
-                    <li>
+                    <li data-nav-route="purchase_invoices">
                         <a href="#" onclick="router('purchase_invoices')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-file-invoice w-6"></i>
                             <span>Factures Achats</span>
                         </a>
                     </li>
-                    <li>
+                    <li data-nav-route="admin">
                         <a href="#" onclick="router('admin')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-lock w-6"></i>
@@ -119,13 +132,13 @@
 
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Analyse</p>
                 <ul class="space-y-1 mb-6">
-                    <li><a href="#" onclick="router('margin_dashboard')"
+                    <li data-nav-route="margin_dashboard"><a href="#" onclick="router('margin_dashboard')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-chart-line w-6"></i>
                             <span>Marge</span>
                         </a>
                     </li>
-                    <li><a href="#" onclick="router('quotation')"
+                    <li data-nav-route="quotation"><a href="#" onclick="router('quotation')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-calculator w-6"></i>
                             <span>Calculateur</span>
@@ -391,10 +404,13 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
                     <select id="edit-order-status" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="Planifié">Planifié</option>
+                        <option value="Brouillon">Brouillon</option>
+                        <option value="À planifier">À planifier</option>
+                        <option value="Pris en charge">Pris en charge</option>
                         <option value="En cours">En cours</option>
-                        <option value="Terminé">Terminé</option>
-                        <option value="Annulé">Annulé</option>
+                        <option value="Livré">Livré</option>
+                        <option value="Validé">Validé</option>
+                        <option value="Clôturé">Clôturé</option>
                     </select>
                 </div>
             </div>
@@ -671,6 +687,7 @@
             <div class="mt-8 grid grid-cols-2 gap-12 mb-8">
                 <div>
                     <h3 class="font-bold text-gray-400 border-b pb-1 mb-3 text-[10px] uppercase tracking-widest">Émetteur</h3>
+                    <img id="modal-company-logo" src="" alt="Logo entreprise" class="hidden max-h-16 max-w-[160px] object-contain mb-3" />
                     <p class="font-bold text-gray-800" id="modal-issuer-name"></p>
                     <p class="text-sm text-gray-600" id="modal-issuer-address"></p>
                     <div class="mt-2 text-[11px] text-gray-500 font-mono">
@@ -954,11 +971,17 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
-                    <select id="add-user-role" class="w-full border border-gray-300 rounded-md p-2">
-                        <option value="manager">Manager</option>
+                    <select id="add-user-role" class="w-full border border-gray-300 rounded-md p-2" onchange="toggleAddUserDriverField()">
                         <option value="admin">Administrateur</option>
-                        <option value="user">Utilisateur</option>
+                        <option value="exploitant">Exploitant</option>
+                        <option value="chauffeur">Chauffeur</option>
+                        <option value="comptabilite">Comptabilité</option>
+                        <option value="lecture">Lecture seule</option>
                     </select>
+                </div>
+                <div id="add-user-driver-wrap" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Conducteur associé</label>
+                    <select id="add-user-driver" class="w-full border border-gray-300 rounded-md p-2"></select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Mot de passe temporaire</label>
@@ -1001,12 +1024,59 @@
         </div>
     </div>
 
+    <!-- MODAL: TRANSPORT DETAIL (MVP) -->
+    <div id="transport-detail-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b bg-gray-50 rounded-t-xl">
+                <div>
+                    <h3 class="font-bold text-lg text-gray-800">Transport <span id="td-ref"></span></h3>
+                    <div id="td-status" class="mt-1"></div>
+                </div>
+                <button onclick="closeTransportDetail()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 space-y-6">
+                <input type="hidden" id="td-order-id">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div><span class="text-gray-400 text-xs uppercase">Client</span><p id="td-client" class="font-medium"></p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Chauffeur</span><p id="td-driver" class="font-medium"></p></div>
+                    <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Trajet</span><p id="td-route"></p></div>
+                    <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Dates</span><p id="td-dates"></p></div>
+                    <div class="td-price-row"><span class="text-gray-400 text-xs uppercase">Montant</span><p id="td-price" class="font-bold text-blue-700"></p></div>
+                </div>
+                <div id="td-actions" class="flex flex-wrap gap-2 border-t pt-4"></div>
+                <div>
+                    <h4 class="font-bold text-xs uppercase text-gray-500 mb-2">Historique des statuts</h4>
+                    <div id="td-history" class="max-h-32 overflow-y-auto"></div>
+                </div>
+                <div id="td-upload-section">
+                    <h4 class="font-bold text-xs uppercase text-gray-500 mb-2">Documents / POD</h4>
+                    <div id="td-documents" class="mb-3"></div>
+                    <div class="flex gap-2 items-end">
+                        <select id="td-doc-type" class="border rounded px-2 py-1 text-sm"><option value="POD">Preuve livraison (POD)</option><option value="CMR">CMR</option><option value="OTHER">Autre</option></select>
+                        <input type="file" id="td-doc-file" accept=".pdf,.jpg,.jpeg,.png" class="text-sm">
+                        <button onclick="uploadTransportDocument()" class="px-3 py-1 bg-blue-600 text-white rounded text-sm">Joindre</button>
+                    </div>
+                </div>
+                <div id="td-comment-section">
+                    <h4 class="font-bold text-xs uppercase text-gray-500 mb-2">Commentaires</h4>
+                    <div id="td-comments" class="mb-3 max-h-32 overflow-y-auto"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="td-comment-input" placeholder="Ajouter un commentaire…" class="flex-1 border rounded px-3 py-2 text-sm">
+                        <button onclick="submitTransportComment()" class="px-3 py-2 bg-gray-800 text-white rounded text-sm">Envoyer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST CONTAINER -->
     <div id="toast-container"></div>
 
     <!-- JAVASCRIPT -->
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/permissions.js"></script>
+    <script src="js/mvp-transport.js"></script>
 </body>
 
 </html>
