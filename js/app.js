@@ -256,6 +256,7 @@ function renderDashboard(stats = {}) {
             <button onclick="window.switchDashboardTab('general')" class="px-6 py-2 ${activeTab === 'general' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Général</button>
             <button onclick="window.switchDashboardTab('quotations')" class="px-6 py-2 ${activeTab === 'quotations' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Cotations</button>
             <button onclick="window.switchDashboardTab('invoicing')" class="px-6 py-2 ${activeTab === 'invoicing' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Facturation</button>
+            <button onclick="window.switchDashboardTab('pallets')" class="px-6 py-2 ${activeTab === 'pallets' ? 'bg-gray-100 border-t-2 border-teal-500 font-bold text-teal-700' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</button>
         </div>
     `;
 
@@ -363,6 +364,72 @@ function renderDashboard(stats = {}) {
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h4 class="text-center font-bold text-gray-700 mb-4">Répartition des règlements</h4>
             <div class="h-80"><canvas id="invoicingStatusChart"></canvas></div>
+        </div>`;
+    } else if (activeTab === 'pallets') {
+        tabContent = `
+        <div id="dashboard-pallets-root" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                    <h3 id="pallet-kpi-delivered" class="text-3xl font-bold text-teal-600">—</h3>
+                    <p class="text-gray-400 text-sm">Palettes livrées (échange)</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                    <h3 id="pallet-kpi-returned" class="text-3xl font-bold text-blue-600">—</h3>
+                    <p class="text-gray-400 text-sm">Palettes rendues</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                    <h3 id="pallet-kpi-balance" class="text-3xl font-bold text-orange-600">—</h3>
+                    <p class="text-gray-400 text-sm">Solde global (dues par clients)</p>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <h4 class="font-bold text-gray-800"><i class="fa-solid fa-pallet mr-2 text-teal-600"></i>Soldes par client</h4>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-gray-600">Filtrer :</label>
+                        <select id="dashboard-pallet-client-filter" onchange="loadDashboardPallets()" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm">
+                            <option value="">Tous les clients</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3">Client</th>
+                                <th class="px-4 py-3 text-right">Livrées</th>
+                                <th class="px-4 py-3 text-right">Rendues</th>
+                                <th class="px-4 py-3 text-right">Solde</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboard-pallet-balance-body">
+                            <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 italic">Chargement…</td></tr>
+                        </tbody>
+                        <tfoot id="dashboard-pallet-balance-foot" class="bg-gray-50 font-bold border-t"></tfoot>
+                    </table>
+                </div>
+                <p class="text-xs text-gray-400 mt-3">Solde = palettes livrées − palettes rendues (commandes avec échange activé). Solde positif = palettes encore dues par le client.</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h4 class="font-bold text-gray-800 mb-4">Derniers mouvements</h4>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3">Réf.</th>
+                                <th class="px-4 py-3">Client</th>
+                                <th class="px-4 py-3">Date</th>
+                                <th class="px-4 py-3 text-right">Livrées</th>
+                                <th class="px-4 py-3 text-right">Rendues</th>
+                                <th class="px-4 py-3">Échange</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboard-pallet-movements-body">
+                            <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400 italic">Chargement…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>`;
     }
 
@@ -2193,9 +2260,16 @@ async function router(route) {
                 .then(res => res.json())
                 .then(stats => {
                     document.getElementById('app-content').innerHTML = renderDashboard(stats);
-                    initDashboardCharts(stats); // Pass stats to initDashboardCharts
+                    if (window.activeDashboardTab === 'pallets') {
+                        loadDashboardPallets();
+                    } else {
+                        initDashboardCharts(stats);
+                    }
                 })
                 .catch(err => console.warn("Statistiques indisponibles, affichage par défaut", err));
+            if (window.activeDashboardTab === 'pallets') {
+                setTimeout(() => loadDashboardPallets(), 0);
+            }
             break;
         case 'transports':
             title = 'Transports';
@@ -2310,9 +2384,16 @@ case 'fleet':
                 .then(res => res.json())
                 .then(stats => {
                     document.getElementById('app-content').innerHTML = renderDashboard(stats);
-                    initDashboardCharts(stats); // Pass stats to initDashboardCharts
+                    if (window.activeDashboardTab === 'pallets') {
+                        loadDashboardPallets();
+                    } else {
+                        initDashboardCharts(stats);
+                    }
                 })
                 .catch(err => console.warn("Statistiques indisponibles (default)", err));
+            if (window.activeDashboardTab === 'pallets') {
+                setTimeout(() => loadDashboardPallets(), 0);
+            }
             break;
     }
     
@@ -3544,56 +3625,275 @@ function exportAccounting(type) {
 }
 
 // --- ORDER FUNCTIONS ---
+
+function populateSubcontractorSelect(selectEl, selectedId) {
+    if (!selectEl) return;
+    const validSubcontractors = (db.subcontractors || []).filter(s =>
+        s.status === 'ACTIF' && (!s.rc_pro_expiry || new Date(s.rc_pro_expiry) >= new Date())
+    );
+    const expired = (db.subcontractors || []).filter(s =>
+        s.status === 'ACTIF' && s.rc_pro_expiry && new Date(s.rc_pro_expiry) < new Date()
+    );
+    selectEl.innerHTML = '<option value="">-- Sélectionner --</option>' +
+        validSubcontractors.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    if (expired.length) {
+        selectEl.innerHTML += '<option disabled>--- Expirés ---</option>' +
+            expired.map(s => `<option value="${s.id}">${s.name} ⚠️</option>`).join('');
+    }
+    if (selectedId) selectEl.value = String(selectedId);
+}
+
+window.toggleOrderPalletFields = function(prefix) {
+    const isEu = document.getElementById(`${prefix}-pallet-type`)?.value === 'palette_europe';
+    document.getElementById(`${prefix}-pallet-fields`)?.classList.toggle('hidden', !isEu);
+    if (!isEu) {
+        const exchangeEl = document.getElementById(`${prefix}-pallet-exchange`);
+        if (exchangeEl) exchangeEl.checked = false;
+        toggleOrderPalletExchange(prefix);
+    }
+};
+
+window.toggleOrderPalletExchange = function(prefix) {
+    const checked = document.getElementById(`${prefix}-pallet-exchange`)?.checked;
+    document.getElementById(`${prefix}-pallets-returned-wrap`)?.classList.toggle('hidden', !checked);
+    if (!checked) {
+        const returnedEl = document.getElementById(`${prefix}-pallets-returned`);
+        if (returnedEl) returnedEl.value = '0';
+    }
+};
+
+window.toggleAddOrderAssignment = function() {
+    const isSub = document.querySelector('input[name="add-order-assignment"]:checked')?.value === 'SUBCONTRACTED';
+    document.getElementById('add-order-internal-fields')?.classList.toggle('hidden', isSub);
+    document.getElementById('add-order-subcontractor-fields')?.classList.toggle('hidden', !isSub);
+    if (isSub) updateAddOrderMargin();
+};
+
+window.toggleEditOrderAssignment = function() {
+    const isSub = document.querySelector('input[name="edit-order-assignment"]:checked')?.value === 'SUBCONTRACTED';
+    document.getElementById('edit-order-internal-fields')?.classList.toggle('hidden', isSub);
+    document.getElementById('edit-order-subcontractor-fields')?.classList.toggle('hidden', !isSub);
+    if (isSub) updateEditOrderMargin();
+};
+
+window.updateAddOrderMargin = function() {
+    const price = parseFloat(document.getElementById('add-order-price')?.value) || 0;
+    const purchase = parseFloat(document.getElementById('add-order-purchase-price')?.value) || 0;
+    const margin = price - purchase;
+    const el = document.getElementById('add-order-margin-display');
+    if (el) {
+        el.textContent = `${margin.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+        el.classList.toggle('text-red-600', margin < 0);
+        el.classList.toggle('text-green-700', margin >= 0);
+    }
+};
+
+window.updateEditOrderMargin = function() {
+    const price = parseFloat(document.getElementById('edit-order-price')?.value) || 0;
+    const purchase = parseFloat(document.getElementById('edit-order-purchase-price')?.value) || 0;
+    const margin = price - purchase;
+    const el = document.getElementById('edit-order-margin-display');
+    if (el) {
+        el.textContent = `${margin.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+        el.classList.toggle('text-red-600', margin < 0);
+        el.classList.toggle('text-green-700', margin >= 0);
+    }
+};
+
+function getOrderAssignmentPayload(prefix) {
+    const isSub = document.querySelector(`input[name="${prefix}-assignment"]:checked`)?.value === 'SUBCONTRACTED';
+    const price = parseFloat(document.getElementById(`${prefix}-price`)?.value) || 0;
+    if (isSub) {
+        const subcontractorId = parseInt(document.getElementById(`${prefix}-subcontractor`)?.value, 10);
+        const purchasePrice = parseFloat(document.getElementById(`${prefix}-purchase-price`)?.value) || 0;
+        return {
+            assignment_type: 'SUBCONTRACTED',
+            subcontractor_id: subcontractorId || null,
+            purchase_price: purchasePrice,
+            margin: price - purchasePrice,
+            driver_id: null,
+            vehicle_id: null
+        };
+    }
+    const driverVal = document.getElementById(`${prefix}-driver`)?.value;
+    const vehicleVal = document.getElementById(`${prefix}-vehicle`)?.value;
+    return {
+        assignment_type: 'INTERNAL',
+        subcontractor_id: null,
+        purchase_price: 0,
+        margin: 0,
+        driver_id: driverVal ? parseInt(driverVal, 10) : null,
+        vehicle_id: vehicleVal ? parseInt(vehicleVal, 10) : null
+    };
+}
+
+function getOrderPalletPayload(prefix) {
+    const palletType = document.getElementById(`${prefix}-pallet-type`)?.value;
+    const isEu = palletType === 'palette_europe';
+    const exchange = isEu && document.getElementById(`${prefix}-pallet-exchange`)?.checked;
+    return {
+        pallet_type: palletType,
+        pallet_exchange: !!exchange,
+        pallet_count: isEu ? (parseInt(document.getElementById(`${prefix}-pallet-count`)?.value, 10) || 0) : 0,
+        pallets_returned: exchange ? (parseInt(document.getElementById(`${prefix}-pallets-returned`)?.value, 10) || 0) : 0
+    };
+}
+
+function renderDashboardPalletTable(byClient, totals, highlightClientId) {
+    const body = document.getElementById('dashboard-pallet-balance-body');
+    const foot = document.getElementById('dashboard-pallet-balance-foot');
+    if (!body) return;
+
+    if (!byClient || byClient.length === 0) {
+        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 italic">Aucun mouvement palette enregistré</td></tr>';
+        if (foot) foot.innerHTML = '';
+        return;
+    }
+
+    body.innerHTML = byClient.map(row => {
+        const highlight = highlightClientId && String(row.client_id) === String(highlightClientId);
+        const balance = Number(row.balance || 0);
+        return `<tr class="${highlight ? 'bg-teal-50 ring-1 ring-teal-300' : 'hover:bg-gray-50'}">
+            <td class="px-4 py-3 font-medium ${highlight ? 'text-teal-800' : 'text-gray-900'}">${row.client_name || '—'}${highlight ? ' <span class="text-xs text-teal-600">(sélectionné)</span>' : ''}</td>
+            <td class="px-4 py-3 text-right">${Number(row.delivered || 0)}</td>
+            <td class="px-4 py-3 text-right">${Number(row.returned || 0)}</td>
+            <td class="px-4 py-3 text-right font-bold ${balance > 0 ? 'text-orange-600' : balance < 0 ? 'text-blue-600' : 'text-gray-600'}">${balance}</td>
+        </tr>`;
+    }).join('');
+
+    if (foot) {
+        foot.innerHTML = `<tr>
+            <td class="px-4 py-3">TOTAL</td>
+            <td class="px-4 py-3 text-right">${Number(totals?.delivered || 0)}</td>
+            <td class="px-4 py-3 text-right">${Number(totals?.returned || 0)}</td>
+            <td class="px-4 py-3 text-right text-orange-600">${Number(totals?.balance || 0)}</td>
+        </tr>`;
+    }
+}
+
+function renderDashboardPalletMovements(movements) {
+    const body = document.getElementById('dashboard-pallet-movements-body');
+    if (!body) return;
+    if (!movements || movements.length === 0) {
+        body.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-center text-gray-400 italic">Aucun mouvement récent</td></tr>';
+        return;
+    }
+    body.innerHTML = movements.map(m => `<tr class="hover:bg-gray-50 border-b">
+        <td class="px-4 py-2 font-medium text-gray-900">${m.ref || '#' + m.order_id}</td>
+        <td class="px-4 py-2">${m.client_name || '—'}</td>
+        <td class="px-4 py-2">${m.load_date ? new Date(m.load_date).toLocaleDateString('fr-FR') : '—'}</td>
+        <td class="px-4 py-2 text-right">${Number(m.pallet_count || 0)}</td>
+        <td class="px-4 py-2 text-right">${Number(m.pallets_returned || 0)}</td>
+        <td class="px-4 py-2">${m.pallet_exchange ? '<span class="text-teal-600">Oui</span>' : '—'}</td>
+    </tr>`).join('');
+}
+
+window.loadDashboardPallets = async function(highlightClientId) {
+    const filterEl = document.getElementById('dashboard-pallet-client-filter');
+    const clientId = filterEl?.value || '';
+    const query = clientId ? `?client_id=${clientId}` : '';
+
+    if (filterEl && filterEl.options.length <= 1) {
+        filterEl.innerHTML = '<option value="">Tous les clients</option>' +
+            (db.clients || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        if (clientId) filterEl.value = clientId;
+    }
+
+    try {
+        const res = await apiFetch(`transport-orders/pallets/balance${query}`);
+        if (!res.ok) throw new Error('API indisponible');
+        const json = await res.json();
+        const { byClient, totals, recentMovements } = json.data || {};
+
+        const deliveredEl = document.getElementById('pallet-kpi-delivered');
+        const returnedEl = document.getElementById('pallet-kpi-returned');
+        const balanceEl = document.getElementById('pallet-kpi-balance');
+        if (deliveredEl) deliveredEl.textContent = Number(totals?.delivered || 0);
+        if (returnedEl) returnedEl.textContent = Number(totals?.returned || 0);
+        if (balanceEl) balanceEl.textContent = Number(totals?.balance || 0);
+
+        renderDashboardPalletTable(byClient, totals, highlightClientId || clientId);
+        renderDashboardPalletMovements(recentMovements);
+    } catch (err) {
+        console.warn('Soldes palettes indisponibles', err);
+        const body = document.getElementById('dashboard-pallet-balance-body');
+        if (body) body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400">Erreur de chargement</td></tr>';
+    }
+};
+
 function openAddOrderModal() {
     hideAllModals();
-    // Populate clients
     const clientSelect = document.getElementById('add-order-client');
-    clientSelect.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    
-    // Populate vehicles
+    if (clientSelect) {
+        clientSelect.innerHTML = (db.clients || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
     const vehicleSelect = document.getElementById('add-order-vehicle');
-    vehicleSelect.innerHTML = '<option value="">-- Sélectionner un véhicule --</option>' + 
-        db.vehicles.map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
-    
-    // Populate drivers
+    if (vehicleSelect) {
+        vehicleSelect.innerHTML = '<option value="">-- Sélectionner un véhicule --</option>' +
+            (db.vehicles || []).map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+    }
+
     const driverSelect = document.getElementById('add-order-driver');
-    driverSelect.innerHTML = '<option value="">-- Sélectionner un chauffeur --</option>' + 
-        db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-    
-    // Set default dates
+    if (driverSelect) {
+        driverSelect.innerHTML = '<option value="">-- Sélectionner un chauffeur --</option>' +
+            (db.drivers || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    }
+
+    populateSubcontractorSelect(document.getElementById('add-order-subcontractor'));
+
+    const internalRadio = document.querySelector('input[name="add-order-assignment"][value="INTERNAL"]');
+    if (internalRadio) internalRadio.checked = true;
+    toggleAddOrderAssignment();
+
     document.getElementById('add-order-load-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('add-order-delivery-date').value = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    
-    // Set default reference
-    const nextNum = db.orders.length + 1;
+
+    const nextNum = (db.orders || []).length + 1;
     document.getElementById('add-order-ref').value = `CMD-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`;
-    
-    document.getElementById('add-order-modal').classList.remove('hidden');
+
+    document.getElementById('add-order-pallet-type').value = 'palette_europe';
+    document.getElementById('add-order-pallet-count').value = '0';
+    document.getElementById('add-order-pallet-exchange').checked = false;
+    document.getElementById('add-order-pallets-returned').value = '0';
+    document.getElementById('add-order-purchase-price').value = '';
+    toggleOrderPalletFields('add-order');
+    toggleOrderPalletExchange('add-order');
+    updateAddOrderMargin();
+
+    const modal = document.getElementById('add-order-modal');
+    modal.classList.remove('hidden');
+    if (!modal.classList.contains('flex')) modal.classList.add('flex', 'items-center', 'justify-center');
 }
+window.openAddOrderModal = openAddOrderModal;
 
 function closeAddOrderModal() {
     hideAllModals();
 }
 
 async function submitAddOrder() {
+    const assignment = getOrderAssignmentPayload('add-order');
+    const pallet = getOrderPalletPayload('add-order');
     const newOrder = {
-        id: Math.max(...db.orders.map(o => o.id), 0) + 1,
         ref: document.getElementById('add-order-ref').value,
-        client_id: parseInt(document.getElementById('add-order-client').value),
+        client_id: parseInt(document.getElementById('add-order-client').value, 10),
         cargo: document.getElementById('add-order-cargo').value,
         origin: document.getElementById('add-order-origin').value,
         dest: document.getElementById('add-order-dest').value,
         load_date: document.getElementById('add-order-load-date').value,
         delivery_date: document.getElementById('add-order-delivery-date').value,
-        vehicle_id: document.getElementById('add-order-vehicle').value ? parseInt(document.getElementById('add-order-vehicle').value) : null,
-        driver_id: document.getElementById('add-order-driver').value ? parseInt(document.getElementById('add-order-driver').value) : null,
         weight: parseFloat(document.getElementById('add-order-weight').value) || 0,
-        pallet_type: document.getElementById('add-order-pallet-type').value,
-        pallet_exchange: document.getElementById('add-order-pallet-exchange').checked,
         price: parseFloat(document.getElementById('add-order-price').value) || 0,
-        status: 'Brouillon'
+        status: 'Brouillon',
+        ...assignment,
+        ...pallet
     };
-    
+
+    if (assignment.assignment_type === 'SUBCONTRACTED' && !assignment.subcontractor_id) {
+        showToast('Veuillez sélectionner un sous-traitant', 'error');
+        return;
+    }
+
     if (newOrder.client_id && newOrder.origin && newOrder.dest && newOrder.load_date) {
         await apiFetch('transport-orders', { method: 'POST', body: newOrder });
         await fetchAllData();
@@ -3605,94 +3905,95 @@ async function submitAddOrder() {
     }
 }
 
-// --- EDIT ORDER FUNCTIONS ---
 function openEditOrderModal(orderId) {
     hideAllModals();
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return;
-    
+
     document.getElementById('edit-order-id').value = orderId;
     document.getElementById('edit-order-ref-display').textContent = order.ref || orderId;
     document.getElementById('edit-order-ref').value = order.ref || '';
-    
-    // Populate clients
+
     const clientSelect = document.getElementById('edit-order-client');
-    clientSelect.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    clientSelect.innerHTML = (db.clients || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     clientSelect.value = order.client_id || '';
-    
-    // Populate vehicles
+
     const vehicleSelect = document.getElementById('edit-order-vehicle');
-    vehicleSelect.innerHTML = '<option value="">-- Sélectionner un véhicule --</option>' + 
-        db.vehicles.map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+    vehicleSelect.innerHTML = '<option value="">-- Sélectionner un véhicule --</option>' +
+        (db.vehicles || []).map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
     vehicleSelect.value = order.vehicle_id || '';
-    
-    // Populate drivers
+
     const driverSelect = document.getElementById('edit-order-driver');
-    driverSelect.innerHTML = '<option value="">-- Sélectionner un chauffeur --</option>' + 
-        db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    driverSelect.innerHTML = '<option value="">-- Sélectionner un chauffeur --</option>' +
+        (db.drivers || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
     driverSelect.value = order.driver_id || '';
-    
+
+    populateSubcontractorSelect(document.getElementById('edit-order-subcontractor'), order.subcontractor_id);
+
+    const isSub = order.assignment_type === 'SUBCONTRACTED';
+    const assignRadio = document.querySelector(`input[name="edit-order-assignment"][value="${isSub ? 'SUBCONTRACTED' : 'INTERNAL'}"]`);
+    if (assignRadio) assignRadio.checked = true;
+    document.getElementById('edit-order-purchase-price').value = order.purchase_price || '';
+    toggleEditOrderAssignment();
+    updateEditOrderMargin();
+
     document.getElementById('edit-order-cargo').value = order.cargo || '';
     document.getElementById('edit-order-origin').value = order.origin || '';
     document.getElementById('edit-order-dest').value = order.dest || '';
-    document.getElementById('edit-order-load-date').value = order.load_date || '';
-    document.getElementById('edit-order-delivery-date').value = order.delivery_date || '';
+    document.getElementById('edit-order-load-date').value = order.load_date ? String(order.load_date).slice(0, 10) : '';
+    document.getElementById('edit-order-delivery-date').value = order.delivery_date ? String(order.delivery_date).slice(0, 10) : '';
     document.getElementById('edit-order-weight').value = order.weight || '';
     document.getElementById('edit-order-pallet-type').value = order.pallet_type || 'palette_europe';
+    document.getElementById('edit-order-pallet-count').value = order.pallet_count || 0;
+    document.getElementById('edit-order-pallet-exchange').checked = !!order.pallet_exchange;
+    document.getElementById('edit-order-pallets-returned').value = order.pallets_returned || 0;
     document.getElementById('edit-order-price').value = order.price || '';
-    document.getElementById('edit-order-pallet-exchange').checked = order.pallet_exchange || false;
-    document.getElementById('edit-order-status').value = order.status || 'Planifié';
-    
-    document.getElementById('edit-order-modal').classList.remove('hidden');
+    document.getElementById('edit-order-status').value = order.status || 'Brouillon';
+    toggleOrderPalletFields('edit-order');
+    toggleOrderPalletExchange('edit-order');
+
+    const modal = document.getElementById('edit-order-modal');
+    modal.classList.remove('hidden');
+    if (!modal.classList.contains('flex')) modal.classList.add('flex', 'items-center', 'justify-center');
 }
+window.openEditOrderModal = openEditOrderModal;
 
 function closeEditOrderModal() {
     hideAllModals();
 }
 
 async function submitEditOrder() {
-    const orderId = parseInt(document.getElementById('edit-order-id').value);
+    const orderId = parseInt(document.getElementById('edit-order-id').value, 10);
     const order = db.orders.find(o => o.id === orderId);
-    
+
     if (order) {
-        const updatedOrder = {
-            ...order,
+        const assignment = getOrderAssignmentPayload('edit-order');
+        const pallet = getOrderPalletPayload('edit-order');
+        const updatedStatus = document.getElementById('edit-order-status').value;
+
+        if (assignment.assignment_type === 'SUBCONTRACTED' && !assignment.subcontractor_id) {
+            showToast('Veuillez sélectionner un sous-traitant', 'error');
+            return;
+        }
+
+        await apiFetch(`transport-orders/${orderId}`, { method: 'PATCH', body: {
             ref: document.getElementById('edit-order-ref').value,
-            client_id: parseInt(document.getElementById('edit-order-client').value),
+            client_id: parseInt(document.getElementById('edit-order-client').value, 10),
             cargo: document.getElementById('edit-order-cargo').value,
             origin: document.getElementById('edit-order-origin').value,
             dest: document.getElementById('edit-order-dest').value,
             load_date: document.getElementById('edit-order-load-date').value,
             delivery_date: document.getElementById('edit-order-delivery-date').value,
-            vehicle_id: document.getElementById('edit-order-vehicle').value ? parseInt(document.getElementById('edit-order-vehicle').value) : null,
-            driver_id: document.getElementById('edit-order-driver').value ? parseInt(document.getElementById('edit-order-driver').value) : null,
             weight: parseFloat(document.getElementById('edit-order-weight').value) || 0,
-            pallet_type: document.getElementById('edit-order-pallet-type').value,
-            pallet_exchange: document.getElementById('edit-order-pallet-exchange').checked,
             price: parseFloat(document.getElementById('edit-order-price').value) || 0,
-            status: document.getElementById('edit-order-status').value
-        };
-
-        await apiFetch(`transport-orders/${orderId}`, { method: 'PATCH', body: {
-            ref: updatedOrder.ref,
-            client_id: updatedOrder.client_id,
-            cargo: updatedOrder.cargo,
-            origin: updatedOrder.origin,
-            dest: updatedOrder.dest,
-            load_date: updatedOrder.load_date,
-            delivery_date: updatedOrder.delivery_date,
-            vehicle_id: updatedOrder.vehicle_id,
-            driver_id: updatedOrder.driver_id,
-            weight: updatedOrder.weight,
-            pallet_type: updatedOrder.pallet_type,
-            pallet_exchange: updatedOrder.pallet_exchange,
-            price: updatedOrder.price
+            ...assignment,
+            ...pallet
         }});
-        if (updatedOrder.status !== order.status) {
-            await apiFetch(`transport-orders/${orderId}/status`, { method: 'POST', body: { status: updatedOrder.status } });
+        if (updatedStatus !== order.status) {
+            await apiFetch(`transport-orders/${orderId}/status`, { method: 'POST', body: { status: updatedStatus } });
         }
         await fetchAllData();
-        
+
         showToast('Commande mise à jour avec succès', 'success');
         closeEditOrderModal();
         router('planning');

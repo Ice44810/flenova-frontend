@@ -236,7 +236,7 @@
 
     <!-- MODAL: ADD ORDER -->
     <div id="add-order-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Nouvelle Commande</h3>
                 <button onclick="closeAddOrderModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
@@ -276,18 +276,50 @@
                         <input type="date" id="add-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule assigné</label>
-                        <select id="add-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">-- Sélectionner un véhicule --</option>
-                        </select>
+                <!-- Affectation transport -->
+                <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Affectation transport</h4>
+                    <div class="flex flex-wrap gap-4 mb-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="add-order-assignment" value="INTERNAL" checked onchange="toggleAddOrderAssignment()" class="text-blue-600 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700">Flotte interne</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="add-order-assignment" value="SUBCONTRACTED" onchange="toggleAddOrderAssignment()" class="text-blue-600 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700">Sous-traitant</span>
+                        </label>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
-                        <select id="add-order-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">-- Sélectionner un chauffeur --</option>
-                        </select>
+                    <div id="add-order-internal-fields" class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule assigné</label>
+                            <select id="add-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Sélectionner un véhicule --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                            <select id="add-order-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Sélectionner un chauffeur --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="add-order-subcontractor-fields" class="hidden space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant</label>
+                            <select id="add-order-subcontractor" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Sélectionner --</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€)</label>
+                                <input type="number" id="add-order-purchase-price" min="0" step="0.01" oninput="updateAddOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Marge estimée</label>
+                                <div id="add-order-margin-display" class="w-full border border-gray-200 rounded-md p-2 bg-white text-green-700 font-bold">0,00 €</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-4">
@@ -297,7 +329,7 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
-                        <select id="add-order-pallet-type" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <select id="add-order-pallet-type" onchange="toggleOrderPalletFields('add-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="palette_europe">Palette Europe</option>
                             <option value="palette_classique">Palette Classique</option>
                             <option value="caisse">Caisse</option>
@@ -306,12 +338,27 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
-                        <input type="number" id="add-order-price" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                        <input type="number" id="add-order-price" oninput="updateAddOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                     </div>
                 </div>
-                <div class="flex items-center gap-4">
-                    <input type="checkbox" id="add-order-pallet-exchange" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
-                    <label for="add-order-pallet-exchange" class="text-sm text-gray-700">Échange palette Europe</label>
+                <div id="add-order-pallet-fields" class="border border-teal-200 rounded-lg p-4 bg-teal-50 space-y-3">
+                    <h4 class="text-sm font-bold text-teal-800"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre de palettes</label>
+                            <input type="number" id="add-order-pallet-count" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
+                        </div>
+                        <div class="flex items-end pb-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="add-order-pallet-exchange" onchange="toggleOrderPalletExchange('add-order')" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                                <span class="text-sm text-gray-700">Échange palette Europe</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="add-order-pallets-returned-wrap" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Palettes rendues</label>
+                        <input type="number" id="add-order-pallets-returned" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
+                    </div>
                 </div>
             </div>
             <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
@@ -323,7 +370,7 @@
 
     <!-- MODAL: EDIT ORDER -->
     <div id="edit-order-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Modifier la Commande #<span id="edit-order-ref-display"></span></h3>
                 <button onclick="closeEditOrderModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
@@ -364,18 +411,50 @@
                         <input type="date" id="edit-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule assigné</label>
-                        <select id="edit-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">-- Sélectionner un véhicule --</option>
-                        </select>
+                <!-- Affectation transport -->
+                <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Affectation transport</h4>
+                    <div class="flex flex-wrap gap-4 mb-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="edit-order-assignment" value="INTERNAL" checked onchange="toggleEditOrderAssignment()" class="text-blue-600 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700">Flotte interne</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="edit-order-assignment" value="SUBCONTRACTED" onchange="toggleEditOrderAssignment()" class="text-blue-600 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700">Sous-traitant</span>
+                        </label>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
-                        <select id="edit-order-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">-- Sélectionner un chauffeur --</option>
-                        </select>
+                    <div id="edit-order-internal-fields" class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule assigné</label>
+                            <select id="edit-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Sélectionner un véhicule --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                            <select id="edit-order-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Sélectionner un chauffeur --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="edit-order-subcontractor-fields" class="hidden space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant</label>
+                            <select id="edit-order-subcontractor" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Sélectionner --</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€)</label>
+                                <input type="number" id="edit-order-purchase-price" min="0" step="0.01" oninput="updateEditOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Marge estimée</label>
+                                <div id="edit-order-margin-display" class="w-full border border-gray-200 rounded-md p-2 bg-white text-green-700 font-bold">0,00 €</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-4">
@@ -385,7 +464,7 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
-                        <select id="edit-order-pallet-type" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <select id="edit-order-pallet-type" onchange="toggleOrderPalletFields('edit-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="palette_europe">Palette Europe</option>
                             <option value="palette_classique">Palette Classique</option>
                             <option value="caisse">Caisse</option>
@@ -394,12 +473,27 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
-                        <input type="number" id="edit-order-price" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <input type="number" id="edit-order-price" oninput="updateEditOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
-                <div class="flex items-center gap-4">
-                    <input type="checkbox" id="edit-order-pallet-exchange" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
-                    <label for="edit-order-pallet-exchange" class="text-sm text-gray-700">Échange palette Europe</label>
+                <div id="edit-order-pallet-fields" class="border border-teal-200 rounded-lg p-4 bg-teal-50 space-y-3">
+                    <h4 class="text-sm font-bold text-teal-800"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre de palettes</label>
+                            <input type="number" id="edit-order-pallet-count" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
+                        </div>
+                        <div class="flex items-end pb-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="edit-order-pallet-exchange" onchange="toggleOrderPalletExchange('edit-order')" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                                <span class="text-sm text-gray-700">Échange palette Europe</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="edit-order-pallets-returned-wrap" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Palettes rendues</label>
+                        <input type="number" id="edit-order-pallets-returned" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
