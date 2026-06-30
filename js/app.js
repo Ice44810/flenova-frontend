@@ -955,6 +955,12 @@ window.openInvoiceModal = function(invoiceId) {
     const dueEl = document.getElementById('modal-inv-due');
     if (dueEl) dueEl.innerText = (inv.due_date || inv.date) ? new Date(inv.due_date || inv.date).toLocaleDateString('fr-FR') : "";
 
+    const statusEl = document.getElementById('modal-inv-status');
+    if (statusEl) statusEl.innerText = inv.status || 'Brouillon';
+
+    const refEl = document.getElementById('modal-inv-reference');
+    if (refEl) refEl.innerText = inv.order_ref || inv.number || inv.id || '—';
+
     // 2. Émetteur
     const issuerName = document.getElementById('modal-issuer-name');
     if (issuerName) issuerName.innerText = (user?.company_name || currentUser?.company_name || "VOTRE ENTREPRISE").toUpperCase();
@@ -970,12 +976,16 @@ window.openInvoiceModal = function(invoiceId) {
 
     const logoEl = document.getElementById('modal-company-logo');
     if (logoEl) {
-        const logoUrl = resolveCompanyLogoUrl(user?.company_logo || currentUser?.company_logo);
-        logoEl.src = logoUrl;
-        logoEl.classList.remove('hidden');
-        logoEl.onerror = () => {
-            logoEl.src = 'assets/transfact_icon_512.jpg';
-        };
+        const rawLogo = user?.company_logo || currentUser?.company_logo;
+        const logoUrl = rawLogo ? resolveCompanyLogoUrl(rawLogo) : '';
+        if (logoUrl) {
+            logoEl.src = logoUrl;
+            logoEl.classList.remove('hidden');
+            logoEl.onerror = () => logoEl.classList.add('hidden');
+        } else {
+            logoEl.src = '';
+            logoEl.classList.add('hidden');
+        }
     }
 
     // 3. Client
@@ -1024,12 +1034,12 @@ window.openInvoiceModal = function(invoiceId) {
 
         if (!itemsBody) return;
         const tr = document.createElement('tr');
-        tr.className = "border-b border-gray-50 hover:bg-gray-50 transition-colors";
+        tr.className = "hover:bg-gray-50/80 transition-colors even:bg-gray-50/40";
         tr.innerHTML = `
-            <td class="p-4 font-medium text-gray-800">${l.desc || ''}</td>
-            <td class="p-4 text-center font-mono">${qty}</td>
-            <td class="p-4 text-right font-mono">${price.toLocaleString('fr-FR')} €</td>
-            <td class="p-4 text-right font-bold">${lineHT.toLocaleString('fr-FR')} €</td>
+            <td class="px-5 py-4 font-medium text-gray-800">${l.desc || ''}</td>
+            <td class="px-5 py-4 text-center font-mono tabular-nums">${qty}</td>
+            <td class="px-5 py-4 text-right font-mono tabular-nums">${price.toLocaleString('fr-FR')} €</td>
+            <td class="px-5 py-4 text-right font-semibold font-mono tabular-nums">${lineHT.toLocaleString('fr-FR')} €</td>
         `;
         itemsBody.appendChild(tr);
     });
@@ -1046,7 +1056,7 @@ window.openInvoiceModal = function(invoiceId) {
         for (let rate in taxes) {
             totalTVA += taxes[rate];
             taxRows.innerHTML += `
-                <div class="flex justify-between">
+                <div class="flex justify-between font-mono tabular-nums">
                     <span>TVA (${(Number(rate) * 100).toFixed(1)}%)</span>
                     <span>${taxes[rate].toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
                 </div>
@@ -1056,8 +1066,12 @@ window.openInvoiceModal = function(invoiceId) {
         totalTVA = Object.values(taxes).reduce((a, b) => a + b, 0);
     }
 
-    const totalTTCEI = document.getElementById('modal-total-ttc');
-    if (totalTTCEI) totalTTCEI.innerText = (totalHT + totalTVA).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    const totalTTC = (totalHT + totalTVA).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    const summaryTTCEl = document.getElementById('modal-summary-ttc');
+    if (summaryTTCEl) summaryTTCEl.innerText = totalTTC;
+
+    const totalTTCEl = document.getElementById('modal-total-ttc');
+    if (totalTTCEl) totalTTCEl.innerText = totalTTC;
 
     // 6. Banque / IBAN
     const bankEl = document.getElementById('modal-bank-name');
@@ -1086,7 +1100,9 @@ window.openInvoiceModal = function(invoiceId) {
     const modal = document.getElementById('invoice-modal');
     if (modal) {
         modal.classList.remove('hidden');
-        modal.classList.add('flex');
+        if (!modal.classList.contains('flex')) {
+            modal.classList.add('flex', 'items-center', 'justify-center');
+        }
     }
 };
 window.openInvoiceModal = openInvoiceModal;

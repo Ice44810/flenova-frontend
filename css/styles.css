@@ -87,8 +87,8 @@ body {
         width: 100%;
     }
 
-    #invoice-modal .bg-gray-50.px-6,
-    #invoice-modal > div > .bg-gray-50 {
+    #invoice-modal > div > .border-b.bg-gray-50,
+    #invoice-modal > div > div:first-child {
         display: none !important;
     }
 }
