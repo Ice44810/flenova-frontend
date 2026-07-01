@@ -108,6 +108,71 @@ body {
     scrollbar-color: #9ca3af #e5e7eb;
 }
 
+#invoice-modal {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+#invoice-modal .invoice-modal-banner {
+    background: linear-gradient(to right, #042f2e, #115e59);
+    color: #fff;
+}
+
+#invoice-modal .invoice-modal-banner-kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.35em;
+    color: rgba(204, 251, 241, 0.8);
+}
+
+#invoice-modal .invoice-modal-banner-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+}
+
+#invoice-modal .invoice-modal-banner-card-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(204, 251, 241, 0.8);
+}
+
+#invoice-modal .invoice-modal-banner-card-date {
+    color: #f0fdfa;
+}
+
+#invoice-modal .invoice-modal-banner-card-due {
+    font-size: 0.75rem;
+    color: rgba(204, 251, 241, 0.8);
+}
+
+#invoice-modal .invoice-modal-summary-ttc {
+    color: #134e4a;
+}
+
+#invoice-modal .invoice-modal-totals-panel {
+    background: #042f2e;
+    color: #fff;
+}
+
+#invoice-modal .invoice-modal-totals-muted {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+#invoice-modal .invoice-modal-totals-tax {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+#invoice-modal .invoice-modal-totals-divider {
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+#invoice-modal .invoice-modal-info {
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1e40af;
+}
+
 /* Print styles for invoice modal */
 @media print {
     body * {

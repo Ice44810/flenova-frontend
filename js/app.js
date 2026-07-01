@@ -933,10 +933,19 @@ function renderSalesInvoices() {
     </div>`;
 }
 
-window.openInvoiceModal = function(invoiceId) {
-    // Recherche par ID (numérique) ou par Numéro de facture (FAC-...)
-    const inv = db.sales_invoices.find(i => String(i.id) === String(invoiceId) || i.number === invoiceId);
+window.openInvoiceModal = async function(invoiceId) {
+    let inv = db.sales_invoices.find(i => String(i.id) === String(invoiceId) || i.number === invoiceId);
     if (!inv) return showToast("Facture introuvable", "error");
+
+    try {
+        const res = await apiFetch(`sales-invoices/${inv.id}`);
+        if (res.ok) {
+            const payload = await res.json();
+            if (payload.data) inv = { ...inv, ...payload.data };
+        }
+    } catch (e) {
+        console.warn('Chargement détail facture indisponible', e);
+    }
 
     const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
     const user = currentUser || getCurrentUser();
@@ -1008,15 +1017,9 @@ window.openInvoiceModal = function(invoiceId) {
     let totalHT = 0;
     let taxes = {}; // taux TVA => montant TVA
 
-    let lines = inv.items || inv.lines;
-    if (!Array.isArray(lines)) {
-        // si items stockés en string JSON côté backend
-        if (typeof lines === 'string') {
-            try { lines = JSON.parse(lines); } catch { lines = null; }
-        }
-    }
-    if (!Array.isArray(lines)) {
-        lines = [{ desc: "Prestation de transport", qty: 1, price: inv.amount, tva: 0.20 }];
+    let lines = normalizeInvoiceItems(inv.items);
+    if (lines.length === 1 && !lines[0].desc && Number(inv.amount) > 0) {
+        lines = [{ desc: 'Prestation de transport', qty: 1, price: Number(inv.amount), tva: 0.20 }];
     }
 
     lines.forEach(l => {
@@ -1295,13 +1298,15 @@ window.saveInvoiceSettings = async function(e) {
 
 // Optimisation de renderCreateInvoice 
 function renderCreateInvoice() {
+    const isEdit = !!editingInvoiceId;
+    const displayNumber = isEdit ? editingInvoiceId : generateInvoiceNumber();
     return `
     <div class="h-full flex flex-col bg-gray-50 -m-6 fade-in">
         <div class="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-            <input type="hidden" id="invoice-number" value="${generateInvoiceNumber()}">
+            <input type="hidden" id="invoice-number" value="${displayNumber}">
             <div>
-                <h3 class="text-xl font-bold text-gray-800">Édition Facture</h3>
-                <p class="text-xs text-gray-500 font-medium">${generateInvoiceNumber()} • <span class="text-blue-600">Nouveau document</span></p>
+                <h3 class="text-xl font-bold text-gray-800">${isEdit ? 'Modifier le brouillon' : 'Édition Facture'}</h3>
+                <p class="text-xs text-gray-500 font-medium"><span id="invoice-editor-number">${displayNumber}</span> • <span id="invoice-editor-subtitle" class="text-blue-600">${isEdit ? 'Reprise du brouillon' : 'Nouveau document'}</span></p>
             </div>
             <div class="flex gap-3">
                 <button onclick="router('sales_invoices')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all font-medium">Annuler</button>
@@ -2351,12 +2356,16 @@ case 'fleet':
             content = renderSettingInvoices();
             break;
         case 'create_invoice':
-            title = 'Nouvelle Facture';
+            title = editingInvoiceId ? 'Modifier le brouillon' : 'Nouvelle Facture';
             if (!editingInvoiceId) {
                 invoiceLines = [{ desc: '', qty: 1, price: 0 }];
             }
             content = renderCreateInvoice();
-            setTimeout(renderLines, 50);
+            if (editingInvoiceId) {
+                setTimeout(() => loadInvoiceDraftForm(editingInvoiceId), 0);
+            } else {
+                setTimeout(renderLines, 50);
+            }
             break;
         case 'admin':
             title = 'Administration';
@@ -3476,30 +3485,58 @@ async function submitAddUser() {
     }
 }
 
-window.editDraft = function(invoiceId) {
-    const invoice = db.sales_invoices.find(inv => inv.id === invoiceId);
-    if (!invoice) return;
+function normalizeInvoiceItems(items) {
+    let lines = items;
+    if (typeof lines === 'string') {
+        try { lines = JSON.parse(lines); } catch { lines = []; }
+    }
+    if (!Array.isArray(lines)) return [{ desc: '', qty: 1, price: 0, tva: 0.20 }];
+    const mapped = lines.map(item => ({
+        desc: item.desc || item.description || '',
+        qty: Number(item.qty ?? 1) || 1,
+        price: Number(item.price ?? 0) || 0,
+        tva: item.tva ?? 0.20
+    }));
+    return mapped.length ? mapped : [{ desc: '', qty: 1, price: 0, tva: 0.20 }];
+}
 
-    editingInvoiceId = invoiceId;
-    router('create_invoice');
-    setTimeout(() => {
-        document.getElementById('invoice-client').value = invoice.client_id;
-        document.getElementById('invoice-date').value = formatDateForInput(invoice.date);
-        document.getElementById('invoice-due').value = formatDateForInput(invoice.due_date || invoice.sent_date || invoice.date);
-        document.getElementById('invoice-number').value = invoice.id;
-        invoiceLines = (invoice.items || []).map(item => ({
-            desc: item.desc || item.description || '',
-            qty: item.qty ?? 1,
-            price: item.price ?? 0,
-            tva: item.tva ?? 0.20
-        }));
-        if (invoiceLines.length === 0) {
-            invoiceLines = [{ desc: '', qty: 1, price: 0 }];
-        }
+async function loadInvoiceDraftForm(invoiceId) {
+    try {
+        const res = await apiFetch(`sales-invoices/${invoiceId}`);
+        if (!res.ok) throw new Error('fetch failed');
+        const payload = await res.json();
+        const invoice = payload.data || payload;
+
+        const clientEl = document.getElementById('invoice-client');
+        const dateEl = document.getElementById('invoice-date');
+        const dueEl = document.getElementById('invoice-due');
+        const numberEl = document.getElementById('invoice-number');
+        const numberDisplayEl = document.getElementById('invoice-editor-number');
+        const subtitleEl = document.getElementById('invoice-editor-subtitle');
+
+        const invoiceRef = invoice.id || invoice.number || invoiceId;
+        if (clientEl) clientEl.value = invoice.client_id;
+        if (dateEl) dateEl.value = formatDateForInput(invoice.date);
+        if (dueEl) dueEl.value = formatDateForInput(invoice.due_date || invoice.sent_date || invoice.date);
+        if (numberEl) numberEl.value = invoiceRef;
+        if (numberDisplayEl) numberDisplayEl.textContent = invoiceRef;
+        if (subtitleEl) subtitleEl.textContent = 'Reprise du brouillon';
+
+        invoiceLines = normalizeInvoiceItems(invoice.items);
         renderLines();
         previewInvoice();
-        showToast("Reprise du brouillon", "info");
-    }, 100);
+        showToast('Reprise du brouillon', 'info');
+    } catch (err) {
+        console.error(err);
+        showToast('Impossible de charger le brouillon', 'error');
+        invoiceLines = [{ desc: '', qty: 1, price: 0 }];
+        renderLines();
+    }
+}
+
+window.editDraft = function(invoiceId) {
+    editingInvoiceId = String(invoiceId);
+    router('create_invoice');
 };
 
 function closeModal() {

@@ -781,18 +781,18 @@
     <div id="printable-invoice" class="invoice-modal-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-gray-50 px-5 pt-3 pb-5 lg:px-6 lg:pt-3 lg:pb-6">
 
       <!-- Invoice header -->
-      <div class="rounded-2xl bg-gradient-to-r from-teal-950 to-teal-800 p-6 text-white shadow-sm">
+      <div class="invoice-modal-banner rounded-2xl p-6 shadow-sm">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p class="text-[10px] uppercase tracking-[0.35em] text-teal-100/80">Standard Factur-X / EN 16931</p>
+            <p class="invoice-modal-banner-kicker">Standard Factur-X / EN 16931</p>
             <h1 class="mt-2 text-2xl font-black tracking-tight">Facture électronique conforme</h1>
           </div>
 
-          <div class="rounded-xl bg-white/10 px-5 py-4 text-right backdrop-blur-sm">
-            <p class="text-xs uppercase tracking-widest text-teal-100/80">Numéro</p>
+          <div class="invoice-modal-banner-card text-right">
+            <p class="invoice-modal-banner-card-label">Numéro</p>
             <p class="mt-1 text-3xl font-black font-mono" id="modal-inv-number"></p>
-            <p class="mt-2 text-sm text-teal-50">Émise le : <span id="modal-inv-date"></span></p>
-            <p class="mt-1 text-xs text-teal-100/80">Échéance : <span id="modal-inv-due"></span></p>
+            <p class="mt-2 text-sm invoice-modal-banner-card-date">Émise le : <span id="modal-inv-date"></span></p>
+            <p class="mt-1 invoice-modal-banner-card-due">Échéance : <span id="modal-inv-due"></span></p>
           </div>
         </div>
       </div>
@@ -806,7 +806,7 @@
 
         <div class="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
           <p class="text-xs uppercase tracking-widest text-gray-400">Total TTC</p>
-          <p class="mt-2 text-2xl font-black text-teal-900 font-mono" id="modal-summary-ttc">0,00 €</p>
+          <p class="mt-2 text-2xl font-black font-mono invoice-modal-summary-ttc" id="modal-summary-ttc">0,00 €</p>
         </div>
 
         <div class="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
@@ -844,9 +844,9 @@
       </div>
 
       <!-- Info banner -->
-      <div class="mt-6 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 flex items-start gap-3">
+      <div class="mt-6 rounded-xl invoice-modal-info px-4 py-3 flex items-start gap-3">
         <i class="fa-solid fa-circle-info mt-0.5 text-blue-500"></i>
-        <p class="text-sm text-blue-800">
+        <p class="text-sm">
           Ce document est un aperçu hybride Factur-X comprenant une facture lisible et des données structurées conformes à EN 16931.
         </p>
       </div>
@@ -880,16 +880,16 @@
           </div>
         </div>
 
-        <div class="rounded-2xl bg-teal-950 p-6 text-white shadow-sm">
+        <div class="rounded-2xl invoice-modal-totals-panel p-6 shadow-sm">
           <div class="space-y-2 text-sm">
-            <div class="flex justify-between text-white/80">
+            <div class="flex justify-between invoice-modal-totals-muted">
               <span>Total HT</span>
               <span id="modal-total-ht" class="font-semibold font-mono">0,00 €</span>
             </div>
-            <div id="modal-tax-rows" class="space-y-1 text-white/70"></div>
+            <div id="modal-tax-rows" class="space-y-1 invoice-modal-totals-tax"></div>
           </div>
-          <div class="mt-5 border-t border-white/15 pt-4 flex items-end justify-between">
-            <span class="text-sm uppercase tracking-widest text-white/80">Net à payer</span>
+          <div class="mt-5 invoice-modal-totals-divider pt-4 flex items-end justify-between">
+            <span class="text-sm uppercase tracking-widest invoice-modal-totals-muted">Net à payer</span>
             <span id="modal-total-ttc" class="text-3xl font-black font-mono">0,00 €</span>
           </div>
         </div>
