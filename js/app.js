@@ -937,6 +937,9 @@ window.openInvoiceModal = async function(invoiceId) {
     let inv = db.sales_invoices.find(i => String(i.id) === String(invoiceId) || i.number === invoiceId);
     if (!inv) return showToast("Facture introuvable", "error");
 
+    const userRefreshPromise = refreshCompanyProfileForInvoice();
+    const bankSettingsPromise = fetchBankSettingsForInvoice();
+
     try {
         const res = await apiFetch(`sales-invoices/${inv.id}`);
         if (res.ok) {
@@ -948,7 +951,8 @@ window.openInvoiceModal = async function(invoiceId) {
     }
 
     const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
-    const user = currentUser || getCurrentUser();
+    const user = await userRefreshPromise;
+    const bankSettings = await bankSettingsPromise;
 
     // Normalisation statut pour rendre les boutons fiables
     const normalizedStatus = (inv.status ?? '').toString().trim().toLowerCase();
@@ -1076,12 +1080,18 @@ window.openInvoiceModal = async function(invoiceId) {
     const totalTTCEl = document.getElementById('modal-total-ttc');
     if (totalTTCEl) totalTTCEl.innerText = totalTTC;
 
-    // 6. Banque / IBAN
+    // 6. Coordonnées bancaires (table bank_settings)
+    const methodEl = document.getElementById('modal-payment-method');
+    if (methodEl) methodEl.innerText = (bankSettings?.method || '').trim() || 'Non renseigné';
+
     const bankEl = document.getElementById('modal-bank-name');
-    if (bankEl) bankEl.innerText = user?.company_bank || currentUser?.company_bank || "-";
+    if (bankEl) bankEl.innerText = (bankSettings?.bank_name || '').trim() || 'Non renseigné';
+
+    const bicEl = document.getElementById('modal-bic');
+    if (bicEl) bicEl.innerText = (bankSettings?.bic || '').trim() || 'Non renseigné';
 
     const ibanEl = document.getElementById('modal-iban');
-    if (ibanEl) ibanEl.innerText = user?.company_iban || currentUser?.company_iban || "-";
+    if (ibanEl) ibanEl.innerText = (bankSettings?.iban || '').trim() || 'Non renseigné';
 
     // 7. Actions
     const editBtn = document.getElementById('edit-draft-btn');
@@ -1109,6 +1119,36 @@ window.openInvoiceModal = async function(invoiceId) {
     }
 };
 window.openInvoiceModal = openInvoiceModal;
+
+async function fetchBankSettingsForInvoice() {
+    try {
+        const res = await apiFetch('bank-settings');
+        if (res.ok) {
+            const payload = await res.json();
+            return payload.data || null;
+        }
+    } catch (e) {
+        console.warn('Chargement bank_settings indisponible', e);
+    }
+    return null;
+}
+
+async function refreshCompanyProfileForInvoice() {
+    try {
+        const res = await apiFetch('auth/me');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.user) {
+                currentUser = data.user;
+                setCurrentUser(data.user);
+                return data.user;
+            }
+        }
+    } catch (e) {
+        console.warn('Refresh profil entreprise indisponible', e);
+    }
+    return currentUser || getCurrentUser();
+}
 
 
 window.closeInvoiceModal = function() {
@@ -1173,16 +1213,20 @@ function renderSettingInvoices() {
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mode de règlement</label>
+                            <input type="text" name="method" id="bank-settings-method" class="w-full border-gray-200 border p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="Virement Bancaire" placeholder="Virement Bancaire">
+                        </div>
+                        <div class="md:col-span-2">
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">IBAN</label>
-                            <input type="text" name="iban" class="w-full border-gray-200 border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="${currentUser?.company_iban || ''}" placeholder="FR76 3000 6000 0001 2345 6789 X01">
+                            <input type="text" name="iban" id="bank-settings-iban" class="w-full border-gray-200 border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="" placeholder="FR76 3000 6000 0001 2345 6789 X01">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Code BIC / SWIFT</label>
-                            <input type="text" name="bic" class="w-full border-gray-200 border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="AGRIFRPPXXX">
+                            <input type="text" name="bic" id="bank-settings-bic" class="w-full border-gray-200 border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="" placeholder="BNPAFRPP">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nom de la Banque</label>
-                            <input type="text" name="bank_name" class="w-full border-gray-200 border p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="${currentUser?.company_bank || ''}" placeholder="Crédit Agricole">
+                            <input type="text" name="bank_name" id="bank-settings-bank-name" class="w-full border-gray-200 border p-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-gray-50 focus:bg-white" value="" placeholder="BNP Paribas">
                         </div>
                     </div>
                 </div>
@@ -1269,23 +1313,25 @@ window.saveInvoiceSettings = async function(e) {
     if (!form || !currentUser?.company_id) return;
 
     const payload = {
+        method: form.method?.value?.trim() || 'Virement Bancaire',
         iban: form.iban?.value?.trim() || '',
+        bic: form.bic?.value?.trim() || '',
         bank_name: form.bank_name?.value?.trim() || ''
     };
 
+    if (!payload.iban) {
+        showToast('IBAN requis', 'error');
+        return;
+    }
+
     try {
-        const response = await apiFetch(`companies/${currentUser.company_id}/invoice-settings`, {
+        const response = await apiFetch('bank-settings', {
             method: 'PUT',
             body: payload
         });
 
         if (response.ok) {
-            Object.assign(currentUser, {
-                company_iban: payload.iban,
-                company_bank: payload.bank_name
-            });
-            setCurrentUser(currentUser);
-            showToast("Paramètres de facturation mis à jour avec succès", "success");
+            showToast("Paramètres bancaires mis à jour avec succès", "success");
             router('sales_invoices');
         } else {
             const err = await response.json().catch(() => ({}));
@@ -1293,6 +1339,27 @@ window.saveInvoiceSettings = async function(e) {
         }
     } catch (err) {
         showToast("Erreur de communication avec le serveur", "error");
+    }
+};
+
+window.loadBankSettingsIntoForm = async function() {
+    try {
+        const res = await apiFetch('bank-settings');
+        if (!res.ok) return;
+        const payload = await res.json();
+        const bank = payload.data;
+        if (!bank) return;
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val || '';
+        };
+        setVal('bank-settings-method', bank.method);
+        setVal('bank-settings-iban', bank.iban);
+        setVal('bank-settings-bic', bank.bic);
+        setVal('bank-settings-bank-name', bank.bank_name);
+    } catch (e) {
+        console.warn('Chargement bank_settings formulaire', e);
     }
 };
 
@@ -2354,6 +2421,7 @@ case 'fleet':
         case 'invoice_settings':
             title = 'Paramètres Facturation';
             content = renderSettingInvoices();
+            setTimeout(() => loadBankSettingsIntoForm(), 0);
             break;
         case 'create_invoice':
             title = editingInvoiceId ? 'Modifier le brouillon' : 'Nouvelle Facture';

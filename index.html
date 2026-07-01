@@ -868,19 +868,9 @@
         </div>
       </div>
 
-      <!-- Totals and payment -->
-      <div class="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-        <div class="rounded-2xl bg-white p-6 shadow-sm border border-gray-100">
-          <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-2">Modalités de règlement</h3>
-          <div class="mt-4 space-y-2 text-sm text-gray-600">
-            <p>Banque : <span id="modal-bank-name" class="font-medium text-gray-900"></span></p>
-            <p class="font-mono rounded-lg border bg-gray-50 px-3 py-2 inline-block">
-              IBAN : <span id="modal-iban"></span>
-            </p>
-          </div>
-        </div>
-
-        <div class="rounded-2xl invoice-modal-totals-panel p-6 shadow-sm">
+      <!-- Totals -->
+      <div class="mt-6 flex justify-end">
+        <div class="invoice-modal-totals-panel rounded-2xl p-6 shadow-sm w-full max-w-md">
           <div class="space-y-2 text-sm">
             <div class="flex justify-between invoice-modal-totals-muted">
               <span>Total HT</span>
@@ -895,9 +885,32 @@
         </div>
       </div>
 
-      <!-- Footer -->
-      <div class="mt-8 pb-2 text-center text-[10px] uppercase tracking-[0.25em] text-gray-400">
-        Facture émise électroniquement via la plateforme TRANSFACT • Archivage légal 10 ans
+      <!-- Footer : règlement + mentions légales -->
+      <div class="invoice-modal-footer mt-8 pt-6 border-t border-gray-200">
+        <div class="invoice-modal-footer-payment rounded-xl p-5 mb-4">
+          <h3 class="text-xs font-bold uppercase tracking-widest invoice-modal-footer-title border-b border-blue-100 pb-2 mb-3">Modalités de règlement</h3>
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+            <div>
+              <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Mode de règlement</p>
+              <p id="modal-payment-method" class="font-medium text-gray-800">—</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">Banque</p>
+              <p id="modal-bank-name" class="font-medium text-gray-800">—</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">BIC / SWIFT</p>
+              <p id="modal-bic" class="font-mono text-sm text-gray-800">—</p>
+            </div>
+            <div class="sm:col-span-2 lg:col-span-1">
+              <p class="text-xs uppercase tracking-wide text-gray-500 mb-1">IBAN</p>
+              <p id="modal-iban" class="font-mono text-sm text-gray-800 break-all">—</p>
+            </div>
+          </div>
+        </div>
+        <p class="text-center text-[10px] uppercase tracking-[0.25em] text-gray-400">
+          Facture émise électroniquement via la plateforme TRANSFACT • Archivage légal 10 ans
+        </p>
       </div>
     </div>
   </div>
