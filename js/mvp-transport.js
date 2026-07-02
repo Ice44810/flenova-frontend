@@ -159,7 +159,16 @@ window.openTransportDetail = async function(orderId) {
         const json = await res.json();
         currentTransportDetail = json.data;
         renderTransportDetailModal(currentTransportDetail);
-        document.getElementById('transport-detail-modal').classList.remove('hidden');
+        const modal = document.getElementById('transport-detail-modal');
+        if (modal) {
+            modal.style.top = '';
+            modal.style.left = '';
+            modal.style.position = '';
+            modal.style.margin = '';
+            modal.style.transform = '';
+            modal.style.cursor = '';
+            modal.classList.remove('hidden');
+        }
     } catch (e) {
         showToast('Erreur de chargement', 'error');
     }

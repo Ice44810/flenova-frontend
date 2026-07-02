@@ -541,9 +541,13 @@
                         <input type="email" id="add-client-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                        <input type="tel" id="add-client-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Mail Comptabilité</label>
+                        <input type="email" id="add-client-accounting-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="compta@client.fr">
                     </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                    <input type="tel" id="add-client-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
@@ -761,6 +765,12 @@
           </button>
           <button id="edit-draft-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-orange-600 transition" title="Modifier le brouillon">
             <i class="fa-solid fa-pen-to-square"></i>
+          </button>
+          <button id="credit-note-total-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-purple-600 transition" title="Générer un avoir total">
+            <i class="fa-solid fa-file-circle-minus"></i>
+          </button>
+          <button id="credit-note-partial-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-purple-600 transition" title="Générer un avoir partiel">
+            <i class="fa-solid fa-scissors"></i>
           </button>
         </div>
 
@@ -1187,9 +1197,44 @@
         </div>
     </div>
 
+    <!-- MODAL: PARTIAL CREDIT NOTE -->
+    <div id="credit-note-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+            <div class="flex justify-between items-center p-4 border-b bg-gray-50 rounded-t-xl">
+                <div>
+                    <h3 class="font-bold text-lg text-gray-800">Avoir partiel</h3>
+                    <p id="cn-invoice-ref" class="text-sm text-gray-500 mt-1"></p>
+                </div>
+                <button onclick="closeCreditNoteModal()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1">
+                <input type="hidden" id="cn-invoice-id">
+                <div id="cn-lines-container" class="overflow-x-auto"></div>
+                <div id="cn-amount-only" class="hidden mt-2">
+                    <label for="cn-amount-input" class="block text-sm font-medium text-gray-700 mb-1">Montant HT de l'avoir</label>
+                    <input id="cn-amount-input" type="number" step="0.01" min="0.01" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="0,00">
+                </div>
+                <div class="mt-4 flex justify-between items-center border-t pt-3">
+                    <span class="text-sm text-gray-600">Maximum créditable</span>
+                    <span id="cn-max-amount" class="text-sm font-medium text-gray-800"></span>
+                </div>
+                <div class="mt-2 flex justify-between items-center">
+                    <span class="font-semibold text-gray-800">Total avoir HT</span>
+                    <span id="cn-total" class="font-bold text-purple-700 text-lg">0,00 €</span>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end gap-2">
+                <button onclick="closeCreditNoteModal()" class="px-4 py-2 border rounded text-gray-600 hover:bg-white">Annuler</button>
+                <button onclick="submitPartialCreditNote()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 shadow">
+                    <i class="fa-solid fa-file-circle-minus mr-2"></i>Générer l'avoir
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: TRANSPORT DETAIL (MVP) -->
-    <div id="transport-detail-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col fade-in">
+    <div id="transport-detail-modal" class="hidden transport-detail-overlay z-[90]">
+        <div class="transport-detail-panel bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col fade-in mx-auto">
             <div class="flex justify-between items-center p-4 border-b bg-gray-50 rounded-t-xl">
                 <div>
                     <h3 class="font-bold text-lg text-gray-800">Transport <span id="td-ref"></span></h3>

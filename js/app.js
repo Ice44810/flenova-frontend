@@ -16,6 +16,19 @@ function formatDateForInput(value) {
     return s.slice(0, 10);
 }
 
+/** Affichage date simple jj/mm/aaaa (sans heure, sans décalage fuseau) */
+function formatDisplayDate(value) {
+    if (value === undefined || value === null || String(value).trim() === '') return '';
+    const s = String(value);
+    const isoDate = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoDate) {
+        return `${isoDate[3]}/${isoDate[2]}/${isoDate[1]}`;
+    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return s.slice(0, 10);
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function normalizeUploadUrl(url) {
     if (!url) return '';
     if (url.startsWith('/uploads/')) return url;
@@ -42,7 +55,7 @@ function hideAllModals() {
         'driver-card-modal', 'driver-modal', 'add-vehicle-modal', 'edit-vehicle-modal',
         'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
         'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
-        'invoice-modal', 'transport-detail-modal'
+        'invoice-modal', 'transport-detail-modal', 'credit-note-modal'
     ];
 
     // Invariant: le modal aperçu facture A4 (modal-overlay/modal-content) ne doit jamais être visible
@@ -877,6 +890,18 @@ function renderPurchaseInvoices() {
     </div>`;
 }
 
+function isCreditNoteType(inv) {
+    const type = (inv.type || '').toLowerCase();
+    return type.includes('credit') || type.includes('avoir');
+}
+
+function isCreditNoteEligibleInvoice(inv) {
+    if (!inv || isCreditNoteType(inv)) return false;
+    const status = (inv.status || '').toString().trim().toLowerCase();
+    if (status.includes('brouillon') || status === 'draft') return false;
+    return status.includes('valid') || status === 'payée' || status === 'payee' || status === 'paid';
+}
+
 function renderSalesInvoices() {
     const canManage = canManageInvoices();
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
@@ -906,27 +931,46 @@ function renderSalesInvoices() {
                         <th class="px-4 py-3">Montant TTC</th>
                         <th class="px-4 py-3">Statut</th>
                         <th class="px-4 py-3">Actions</th>
+                        <th class="px-4 py-3">Relances</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${db.sales_invoices.map(inv => {
                         const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
+                        const reminderLabel = inv.reminder_date
+                            ? formatDisplayDate(inv.reminder_date)
+                            : '<span class="text-gray-300">—</span>';
+                        const isCreditNote = isCreditNoteType(inv);
+                        const invoiceNumber = inv.number || inv.invoice_number || inv.id;
+                        const amountLabel = isCreditNote
+                            ? `- ${Number(inv.amount).toLocaleString('fr-FR')} €`
+                            : `${Number(inv.amount).toLocaleString('fr-FR')} €`;
+                        const amountClass = isCreditNote ? 'text-red-600' : 'text-gray-700';
+                        const canCredit = canManage && isCreditNoteEligibleInvoice(inv);
                         return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3"><input type="checkbox" class="invoice-checkbox" value="${inv.id}"></td>
-                            <td class="px-4 py-3 font-medium text-gray-900">${inv.id}</td>
+                            <td class="px-4 py-3 font-medium text-gray-900">
+                                ${invoiceNumber}
+                                ${isCreditNote ? '<span class="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">Avoir</span>' : ''}
+                            </td>
                             <td class="px-4 py-3">${client ? client.name : '-'}</td>
-                            <td class="px-4 py-3">${inv.date}</td>
-                            <td class="px-4 py-3 font-bold text-gray-700">${inv.amount.toLocaleString()} €</td>
+                            <td class="px-4 py-3">${formatDisplayDate(inv.date)}</td>
+                            <td class="px-4 py-3 font-bold ${amountClass}">${amountLabel}</td>
                             <td class="px-4 py-3">
                                 <span class="px-2 py-1 rounded text-xs font-semibold ${
                                     inv.status === 'Payée' ? 'bg-green-100 text-green-800' : 
                                     inv.status === 'Brouillon' ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800'
                                 }">${inv.status}</span>
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 whitespace-nowrap">
                                 <button onclick="openInvoiceModal('${inv.id}')" class="text-blue-600 hover:underline mr-2">Voir</button>
-                                ${inv.status !== 'Payée' && canManage ? `<button onclick="relanceFacture('${inv.id}')" class="text-orange-600 hover:underline">Relancer</button>` : ''}
+                                ${canCredit ? `
+                                    <button onclick="createCreditNote('${inv.id}', false)" class="text-purple-600 hover:underline mr-2" title="Annuler la facture en totalité">Avoir total</button>
+                                    <button onclick="openPartialCreditNoteModal('${inv.id}')" class="text-purple-600 hover:underline mr-2" title="Créditer une partie">Avoir partiel</button>
+                                ` : ''}
+                                ${!isCreditNote && inv.status !== 'Payée' && canManage ? `<button onclick="relanceFacture('${inv.id}')" class="text-orange-600 hover:underline">Relancer</button>` : ''}
                             </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">${reminderLabel}</td>
                         </tr>`;
                     }).join('')}
                 </tbody>
@@ -972,10 +1016,10 @@ window.openInvoiceModal = async function(invoiceId) {
     if (invNumberEl) invNumberEl.innerText = inv.number || inv.id || "N/A";
 
     const invDateEl = document.getElementById('modal-inv-date');
-    if (invDateEl) invDateEl.innerText = inv.date ? new Date(inv.date).toLocaleDateString('fr-FR') : "";
+    if (invDateEl) invDateEl.innerText = formatDisplayDate(inv.date);
 
     const dueEl = document.getElementById('modal-inv-due');
-    if (dueEl) dueEl.innerText = (inv.due_date || inv.date) ? new Date(inv.due_date || inv.date).toLocaleDateString('fr-FR') : "";
+    if (dueEl) dueEl.innerText = formatDisplayDate(inv.due_date || inv.date);
 
     const statusEl = document.getElementById('modal-inv-status');
     if (statusEl) statusEl.innerText = inv.status || 'Brouillon';
@@ -1123,6 +1167,28 @@ window.openInvoiceModal = async function(invoiceId) {
     if (downloadBtn) {
         // Actuellement le backend retourne un PDF. On garde la fonction en attendant XML dédié.
         downloadBtn.onclick = () => downloadInvoicePDF(invoiceId);
+    }
+
+    const cnTotalBtn = document.getElementById('credit-note-total-btn');
+    if (cnTotalBtn) {
+        if (canManageInvoices() && isCreditNoteEligibleInvoice(inv)) {
+            cnTotalBtn.classList.remove('hidden');
+            cnTotalBtn.onclick = () => createCreditNote(inv.id, false);
+        } else {
+            cnTotalBtn.classList.add('hidden');
+            cnTotalBtn.onclick = null;
+        }
+    }
+
+    const cnPartialBtn = document.getElementById('credit-note-partial-btn');
+    if (cnPartialBtn) {
+        if (canManageInvoices() && isCreditNoteEligibleInvoice(inv)) {
+            cnPartialBtn.classList.remove('hidden');
+            cnPartialBtn.onclick = () => openPartialCreditNoteModal(inv.id);
+        } else {
+            cnPartialBtn.classList.add('hidden');
+            cnPartialBtn.onclick = null;
+        }
     }
 
     const modal = document.getElementById('invoice-modal');
@@ -1560,7 +1626,7 @@ function previewInvoice() {
                 </div>
                 <div class="text-right">
                     <p class="font-bold text-lg">${invNumber}</p>
-                    <p class="text-xs text-gray-500">${new Date(invDate).toLocaleDateString('fr-FR')}</p>
+                    <p class="text-xs text-gray-500">${formatDisplayDate(invDate)}</p>
                 </div>
             </div>
 
@@ -1693,37 +1759,206 @@ async function validateInvoice() {
 }
 
 function generateCreditNote(invoiceId, isTotal = true) {
-    const originalInvoice = db.sales_invoices.find(inv => inv.id === invoiceId);
-    
-    // Si partiel, on ouvre une modale pour choisir les quantités à rembourser
-    if (!isTotal) {
-        openPartialCreditNoteModal(originalInvoice);
+    if (isTotal) {
+        createCreditNote(invoiceId, false);
+    } else {
+        openPartialCreditNoteModal(invoiceId);
+    }
+}
+
+let partialCreditNoteState = { invoiceId: null, lines: [], maxAmount: 0, useAmountOnly: false };
+
+function updateCreditNoteTotal() {
+    const totalEl = document.getElementById('cn-total');
+    if (!totalEl) return;
+
+    let total = 0;
+    if (partialCreditNoteState.useAmountOnly) {
+        const input = document.getElementById('cn-amount-input');
+        total = parseFloat(input?.value) || 0;
+    } else {
+        partialCreditNoteState.lines.forEach((line, index) => {
+            const qtyInput = document.getElementById(`cn-qty-${index}`);
+            const creditQty = qtyInput ? parseFloat(qtyInput.value) || 0 : line.creditQty || 0;
+            line.creditQty = creditQty;
+            total += creditQty * line.price;
+        });
+    }
+
+    totalEl.textContent = total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+}
+
+window.openPartialCreditNoteModal = async function(invoiceId) {
+    if (!canManageInvoices()) {
+        showToast('Permission insuffisante pour créer un avoir', 'error');
         return;
     }
 
-    // Si total, on génère un document miroir avec montants négatifs
-    const creditNoteData = {
-        type: 'AVOIR',
-        original_invoice_ref: originalInvoice.id,
-        client_id: originalInvoice.client_id,
-        lines: originalInvoice.lines.map(l => ({ ...l, qty: -l.qty })),
-        amount: -originalInvoice.amount,
-        status: 'Validé'
+    hideAllModals();
+
+    let inv = db.sales_invoices.find(i => String(i.id) === String(invoiceId));
+    if (!inv) return showToast('Facture introuvable', 'error');
+
+    try {
+        const res = await apiFetch(`sales-invoices/${invoiceId}`);
+        if (res.ok) {
+            const payload = await res.json();
+            if (payload.data) inv = { ...inv, ...payload.data };
+        }
+    } catch (e) {
+        console.warn('Chargement détail facture indisponible', e);
+    }
+
+    if (!isCreditNoteEligibleInvoice(inv)) {
+        return showToast('Seules les factures validées ou payées peuvent faire l\'objet d\'un avoir', 'error');
+    }
+
+    const lines = normalizeInvoiceItems(inv.items).filter(l => l.desc && l.desc.trim() !== '');
+    const maxAmount = Number(inv.amount) || 0;
+    const invoiceRef = inv.number || inv.invoice_number || inv.id;
+
+    partialCreditNoteState = {
+        invoiceId: inv.id,
+        lines: lines.map(l => ({ ...l, creditQty: 0, maxQty: l.qty })),
+        maxAmount,
+        useAmountOnly: lines.length === 0
     };
-    
-    // ... Enregistrement et router vers la liste
-    apiFetch('sales-invoices', { method: 'POST', body: creditNoteData })
-        .then(res => res.json())
-        .then(data => {
-            if (data.id) {
-                showToast("Avoir généré avec succès", "success");
-                router('sales_invoices');
-            } else {
-                showToast("Erreur lors de la génération de l'avoir", "error");
-            }
-        })
-        .catch(() => showToast("Impossible de contacter le serveur", "error"));
-}
+
+    const idEl = document.getElementById('cn-invoice-id');
+    const refEl = document.getElementById('cn-invoice-ref');
+    const maxEl = document.getElementById('cn-max-amount');
+    const container = document.getElementById('cn-lines-container');
+    const amountOnly = document.getElementById('cn-amount-only');
+    const amountInput = document.getElementById('cn-amount-input');
+
+    if (idEl) idEl.value = inv.id;
+    if (refEl) refEl.textContent = `Facture ${invoiceRef} — Montant HT : ${maxAmount.toLocaleString('fr-FR')} €`;
+    if (maxEl) maxEl.textContent = `${maxAmount.toLocaleString('fr-FR')} €`;
+
+    if (partialCreditNoteState.useAmountOnly) {
+        if (container) container.innerHTML = '<p class="text-sm text-gray-500">Cette facture ne contient pas de lignes détaillées. Saisissez le montant à créditer.</p>';
+        if (amountOnly) amountOnly.classList.remove('hidden');
+        if (amountInput) {
+            amountInput.value = '';
+            amountInput.max = maxAmount;
+            amountInput.oninput = updateCreditNoteTotal;
+        }
+    } else {
+        if (amountOnly) amountOnly.classList.add('hidden');
+        if (container) {
+            container.innerHTML = `
+                <table class="w-full text-sm text-left text-gray-600">
+                    <thead class="text-xs uppercase bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-3 py-2">Description</th>
+                            <th class="px-3 py-2 text-right">Qté fact.</th>
+                            <th class="px-3 py-2 text-right">Qté à créditer</th>
+                            <th class="px-3 py-2 text-right">P.U. HT</th>
+                            <th class="px-3 py-2 text-right">Total ligne</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lines.map((line, index) => `
+                            <tr class="border-b">
+                                <td class="px-3 py-2">${line.desc}</td>
+                                <td class="px-3 py-2 text-right">${line.qty}</td>
+                                <td class="px-3 py-2 text-right">
+                                    <input id="cn-qty-${index}" type="number" min="0" max="${line.qty}" step="0.01" value="0"
+                                        class="w-24 border rounded px-2 py-1 text-right" oninput="updateCreditNoteTotal()">
+                                </td>
+                                <td class="px-3 py-2 text-right">${Number(line.price).toLocaleString('fr-FR')} €</td>
+                                <td class="px-3 py-2 text-right cn-line-total" data-index="${index}">0,00 €</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <p class="text-xs text-gray-500 mt-2">Indiquez les quantités à créditer pour chaque ligne.</p>
+            `;
+        }
+    }
+
+    updateCreditNoteTotal();
+
+    const modal = document.getElementById('credit-note-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+};
+
+window.updateCreditNoteTotal = updateCreditNoteTotal;
+
+window.closeCreditNoteModal = function() {
+    const modal = document.getElementById('credit-note-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+};
+
+window.submitPartialCreditNote = async function() {
+    const invoiceId = document.getElementById('cn-invoice-id')?.value;
+    if (!invoiceId) return;
+
+    let body;
+    if (partialCreditNoteState.useAmountOnly) {
+        const amount = parseFloat(document.getElementById('cn-amount-input')?.value);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            showToast('Montant invalide', 'error');
+            return;
+        }
+        if (amount > partialCreditNoteState.maxAmount + 0.001) {
+            showToast('Le montant dépasse le total de la facture', 'error');
+            return;
+        }
+        body = { isPartial: true, amount };
+    } else {
+        updateCreditNoteTotal();
+        const items = partialCreditNoteState.lines
+            .map((line, index) => {
+                const qtyInput = document.getElementById(`cn-qty-${index}`);
+                const creditQty = qtyInput ? parseFloat(qtyInput.value) || 0 : 0;
+                return creditQty > 0 ? { desc: line.desc, qty: creditQty, price: line.price } : null;
+            })
+            .filter(Boolean);
+
+        if (items.length === 0) {
+            showToast('Sélectionnez au moins une quantité à créditer', 'error');
+            return;
+        }
+
+        const total = items.reduce((sum, line) => sum + (line.qty * line.price), 0);
+        if (total > partialCreditNoteState.maxAmount + 0.001) {
+            showToast('Le total de l\'avoir dépasse le montant de la facture', 'error');
+            return;
+        }
+        body = { isPartial: true, items };
+    }
+
+    if (!confirm(`Confirmer la génération d'un avoir partiel de ${document.getElementById('cn-total')?.textContent || ''} ?`)) {
+        return;
+    }
+
+    try {
+        const res = await apiFetch(`sales-invoices/${invoiceId}/credit-note`, {
+            method: 'POST',
+            body
+        });
+
+        if (res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            showToast(`Avoir ${payload.number || ''} créé avec succès`.trim(), 'success');
+            closeCreditNoteModal();
+            await fetchAllData();
+            router('sales_invoices');
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Erreur de création d\'avoir', 'error');
+        }
+    } catch (e) {
+        showToast('Serveur injoignable', 'error');
+    }
+};
 
 function getInvoiceFormData(status) {
     const clientId = document.getElementById('invoice-client').value;
@@ -2889,6 +3124,7 @@ function openAddClientModal() {
     document.getElementById('add-client-name').value = '';
     document.getElementById('add-client-siret').value = '';
     document.getElementById('add-client-email').value = '';
+    document.getElementById('add-client-accounting-email').value = '';
     document.getElementById('add-client-phone').value = '';
     document.getElementById('add-client-address').value = '';
     document.getElementById('add-client-tva').value = '';
@@ -2905,7 +3141,8 @@ function openEditClientModal(clientId) {
     document.getElementById('edit-client-id').value = clientId;
     document.getElementById('add-client-name').value = client.name;
     document.getElementById('add-client-siret').value = client.siret || '';
-    document.getElementById('add-client-email').value = client.email;
+    document.getElementById('add-client-email').value = client.email || '';
+    document.getElementById('add-client-accounting-email').value = client.accounting_email || '';
     document.getElementById('add-client-phone').value = client.phone;
     document.getElementById('add-client-address').value = client.address;
     document.getElementById('add-client-tva').value = client.tva || '';
@@ -2925,6 +3162,7 @@ async function submitAddClient() {
         name: document.getElementById('add-client-name').value,
         siret: document.getElementById('add-client-siret').value,
         email: document.getElementById('add-client-email').value,
+        accounting_email: document.getElementById('add-client-accounting-email').value,
         phone: document.getElementById('add-client-phone').value,
         address: document.getElementById('add-client-address').value,
         tva: document.getElementById('add-client-tva').value,
@@ -3676,39 +3914,48 @@ window.validateDraft = async function(invoiceId) {
 };
 
 window.createCreditNote = async function(invoiceId, isPartial) {
-    let amount = null;
-    if (isPartial) {
-        const input = prompt("Saisissez le montant HT de l'avoir partiel :");
-        if (input === null) return;
-        amount = parseFloat(input);
-        if (isNaN(amount) || amount <= 0) {
-            showToast("Montant invalide", "error");
-            return;
-        }
+    if (!canManageInvoices()) {
+        showToast('Permission insuffisante pour créer un avoir', 'error');
+        return;
     }
 
-    const message = isPartial 
-        ? `Voulez-vous générer un avoir partiel de ${amount}€ pour cette facture ?` 
-        : "Voulez-vous générer un avoir total pour cette facture ?";
+    const inv = db.sales_invoices.find(i => String(i.id) === String(invoiceId));
+    if (inv && !isCreditNoteEligibleInvoice(inv)) {
+        showToast('Seules les factures validées ou payées peuvent faire l\'objet d\'un avoir', 'error');
+        return;
+    }
+
+    const message = isPartial
+        ? 'Voulez-vous ouvrir la saisie d\'un avoir partiel pour cette facture ?'
+        : 'Voulez-vous générer un avoir total pour cette facture ?';
+
+    if (isPartial) {
+        openPartialCreditNoteModal(invoiceId);
+        return;
+    }
 
     if (!confirm(message)) return;
 
     try {
-        const res = await apiFetch(`sales-invoices/${invoiceId}/credit-note`, { 
-            method: 'POST', 
-            body: { isPartial, amount } 
+        const res = await apiFetch(`sales-invoices/${invoiceId}/credit-note`, {
+            method: 'POST',
+            body: { isPartial: false }
         });
 
         if (res.ok) {
-            showToast("Avoir créé avec succès", "success");
+            const payload = await res.json().catch(() => ({}));
+            showToast(`Avoir ${payload.number || ''} créé avec succès`.trim(), 'success');
             await fetchAllData();
-            closeModal();
+            closeInvoiceModal();
+            closeCreditNoteModal();
             router('sales_invoices');
         } else {
             const err = await res.json().catch(() => ({}));
-            showToast(err.error || "Erreur de création d'avoir", "error");
+            showToast(err.error || 'Erreur de création d\'avoir', 'error');
         }
-    } catch (e) { showToast("Serveur injoignable", "error"); }
+    } catch (e) {
+        showToast('Serveur injoignable', 'error');
+    }
 };
 
 function confirmSendInvoice(invoiceId, clientEmail) {
@@ -3750,18 +3997,32 @@ function sendInvoice(invoiceId) {
 }
 
 function relanceFacture(invoiceId) {
-    // Check if user is admin
     if (!canManageInvoices()) {
         showToast("Vous n'avez pas l'autorisation de relancer des factures.", "error");
         return;
     }
-    
-    const invoice = db.sales_invoices.find(inv => inv.id === invoiceId);
-    if (invoice) {
-        invoice.reminder_date = new Date().toISOString().split('T')[0];
-        showToast('Relance envoyée pour la facture ' + invoiceId, 'success');
-        router('sales_invoices');
-    }
+
+    const today = new Date().toISOString().split('T')[0];
+    if (!confirm(`Envoyer une relance pour la facture ${invoiceId} ?`)) return;
+
+    (async () => {
+        try {
+            const res = await apiFetch(`sales-invoices/${invoiceId}`, {
+                method: 'PUT',
+                body: { reminder_date: today }
+            });
+            if (res.ok) {
+                showToast('Relance enregistrée pour la facture ' + invoiceId, 'success');
+                await fetchAllData();
+                router('sales_invoices');
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Échec de la relance', 'error');
+            }
+        } catch (e) {
+            showToast('Erreur de communication avec le serveur', 'error');
+        }
+    })();
 }
 
 async function downloadInvoicePDF(invoiceId) {

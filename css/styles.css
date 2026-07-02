@@ -236,6 +236,32 @@ body.invoice-modal-open {
     color: #1e40af;
 }
 
+/* Transport detail modal — centré à l'écran */
+#transport-detail-modal.transport-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 1.25rem;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+#transport-detail-modal.transport-detail-overlay.hidden {
+    display: none !important;
+}
+
+#transport-detail-modal .transport-detail-panel {
+    width: 100%;
+    max-width: min(48rem, calc(100vw - 2.5rem));
+    max-height: calc(100vh - 2rem);
+    margin: 0 auto;
+}
+
 /* Print styles for invoice modal */
 @media print {
     body * {
