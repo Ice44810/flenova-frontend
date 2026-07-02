@@ -76,9 +76,11 @@ function hideAllModals() {
                 el.style.position = '';
                 el.style.margin = '';
                 el.style.transform = '';
+                el.style.cursor = '';
             }
         }
     });
+    document.body.classList.remove('invoice-modal-open');
 }
 
 // Fonction pour rendre un élément déplaçable (Draggable)
@@ -160,7 +162,7 @@ function makeElementDraggable(el) {
     }
 
     // Rendre les modaux déplaçables après le premier rendu
-    const modalsToMakeDraggable = ['edit-mission-modal', 'add-order-modal', 'add-client-modal', 'driver-modal', 'add-vehicle-modal', 'add-purchase-invoice-modal', 'add-user-modal', 'dispatch-modal', 'add-subcontractor-modal', 'invoice-modal', 'edit-order-modal'];
+    const modalsToMakeDraggable = ['edit-mission-modal', 'add-order-modal', 'add-client-modal', 'driver-modal', 'add-vehicle-modal', 'add-purchase-invoice-modal', 'add-user-modal', 'dispatch-modal', 'add-subcontractor-modal', 'edit-order-modal'];
     modalsToMakeDraggable.forEach(id => {
         const el = document.getElementById(id);
         if (el) makeElementDraggable(el);
@@ -908,7 +910,7 @@ function renderSalesInvoices() {
                 </thead>
                 <tbody>
                     ${db.sales_invoices.map(inv => {
-                        const client = db.clients.find(c => c.id === inv.client_id);
+                        const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
                         return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3"><input type="checkbox" class="invoice-checkbox" value="${inv.id}"></td>
                             <td class="px-4 py-3 font-medium text-gray-900">${inv.id}</td>
@@ -939,6 +941,7 @@ window.openInvoiceModal = async function(invoiceId) {
 
     const userRefreshPromise = refreshCompanyProfileForInvoice();
     const bankSettingsPromise = fetchBankSettingsForInvoice();
+    const clientFetchPromise = inv.client_id ? fetchClientForInvoice(inv.client_id) : Promise.resolve(null);
 
     try {
         const res = await apiFetch(`sales-invoices/${inv.id}`);
@@ -950,9 +953,15 @@ window.openInvoiceModal = async function(invoiceId) {
         console.warn('Chargement détail facture indisponible', e);
     }
 
-    const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
-    const user = await userRefreshPromise;
-    const bankSettings = await bankSettingsPromise;
+    const cachedClient = db.clients.find(c => Number(c.id) === Number(inv.client_id));
+    const [user, bankSettings, fetchedClient] = await Promise.all([
+        userRefreshPromise,
+        bankSettingsPromise,
+        clientFetchPromise
+    ]);
+    const client = fetchedClient
+        ? { ...(cachedClient || {}), ...fetchedClient }
+        : cachedClient;
 
     // Normalisation statut pour rendre les boutons fiables
     const normalizedStatus = (inv.status ?? '').toString().trim().toLowerCase();
@@ -1001,18 +1010,24 @@ window.openInvoiceModal = async function(invoiceId) {
         }
     }
 
-    // 3. Client
+    // 3. Client (priorité : données jointes sur la facture, puis fetch client, puis cache)
     const clientName = document.getElementById('modal-client-name');
-    if (clientName) clientName.innerText = client?.name || "Client Inconnu";
+    if (clientName) clientName.innerText = inv.client_name || client?.name || "Client Inconnu";
 
     const clientAddress = document.getElementById('modal-client-address');
-    if (clientAddress) clientAddress.innerText = client?.address || "";
+    if (clientAddress) clientAddress.innerText = inv.client_address || client?.address || "";
 
     const clientSiretEl = document.getElementById('modal-client-siret');
-    if (clientSiretEl) clientSiretEl.innerText = client?.siret || client?.company_siret || "-";
+    if (clientSiretEl) {
+        const siret = inv.client_siret || client?.siret;
+        clientSiretEl.innerText = (siret && String(siret).trim()) ? String(siret).trim() : "-";
+    }
 
     const clientTvaEl = document.getElementById('modal-client-tva');
-    if (clientTvaEl) clientTvaEl.innerText = client?.tva || client?.company_tva || "-";
+    if (clientTvaEl) {
+        const tva = inv.client_tva || client?.tva;
+        clientTvaEl.innerText = (tva && String(tva).trim()) ? String(tva).trim() : "-";
+    }
 
     // 4. Lignes et Calculs
     const itemsBody = document.getElementById('modal-invoice-items');
@@ -1112,10 +1127,14 @@ window.openInvoiceModal = async function(invoiceId) {
 
     const modal = document.getElementById('invoice-modal');
     if (modal) {
+        modal.style.top = '';
+        modal.style.left = '';
+        modal.style.position = '';
+        modal.style.margin = '';
+        modal.style.transform = '';
+        modal.style.cursor = '';
         modal.classList.remove('hidden');
-        if (!modal.classList.contains('flex')) {
-            modal.classList.add('flex', 'items-center', 'justify-center');
-        }
+        document.body.classList.add('invoice-modal-open');
     }
 };
 window.openInvoiceModal = openInvoiceModal;
@@ -1129,6 +1148,19 @@ async function fetchBankSettingsForInvoice() {
         }
     } catch (e) {
         console.warn('Chargement bank_settings indisponible', e);
+    }
+    return null;
+}
+
+async function fetchClientForInvoice(clientId) {
+    try {
+        const res = await apiFetch(`clients/${clientId}`);
+        if (res.ok) {
+            const payload = await res.json();
+            return payload.data || payload;
+        }
+    } catch (e) {
+        console.warn('Chargement client indisponible', e);
     }
     return null;
 }
@@ -2060,9 +2092,9 @@ function renderContact() {
                 <p class="text-sm text-gray-500">Réponse sous 24h</p>
             </div>
         </div>
-        <form class="space-y-4" onsubmit="submitContact(event)">
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Sujet</label><input type="text" class="w-full border rounded p-2" required></div>
-            <div><label class="block text-sm font-medium text-gray-700 mb-1">Message</label><textarea class="w-full border rounded p-2" rows="5" required></textarea></div>
+        <form id="contact-form" class="space-y-4" onsubmit="submitContact(event)">
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Sujet</label><input type="text" id="contact-subject" class="w-full border rounded p-2" required></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Message</label><textarea id="contact-message" class="w-full border rounded p-2" rows="5" required></textarea></div>
             <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Envoyer</button>
         </form>
     </div>`;
@@ -2102,10 +2134,26 @@ function renderAbout() {
     </div>`;
 }
 
-function submitContact(e) {
+async function submitContact(e) {
     e.preventDefault();
-    showToast("Message envoyé avec succès ! Nous vous répondrons sous 24h.", "success");
-    e.target.reset();
+    const subject = document.getElementById('contact-subject')?.value?.trim();
+    const message = document.getElementById('contact-message')?.value?.trim();
+    if (!subject || !message) {
+        showToast('Veuillez remplir le sujet et le message', 'error');
+        return;
+    }
+    try {
+        const res = await apiFetch('contact', { method: 'POST', body: { subject, message } });
+        if (res.ok) {
+            showToast("Message envoyé avec succès ! Nous vous répondrons sous 24h.", "success");
+            document.getElementById('contact-form')?.reset();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Erreur lors de l\'envoi', 'error');
+        }
+    } catch (err) {
+        showToast('Erreur de communication avec le serveur', 'error');
+    }
 }
 
 function renderQuotationCalculator() {
@@ -2405,8 +2453,8 @@ case 'fleet':
             // Load margin data from API
             apiFetch('dispatch/margins')
                 .then(res => res.json())
-                .then(data => {
-                    updateMarginDashboard(data);
+                .then(payload => {
+                    updateMarginDashboard(payload.data || payload);
                 })
                 .catch(err => console.warn('Erreur chargement marges'));
             break;

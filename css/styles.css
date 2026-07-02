@@ -69,10 +69,61 @@ body {
     box-sizing: border-box;
 }
 
-/* Invoice modal — scroll zone + visible scrollbar */
+/* Invoice modal — figé à l'écran, marges latérales, scroll interne uniquement */
+body.invoice-modal-open {
+    overflow: hidden;
+}
+
+#invoice-modal.invoice-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0.75rem 1.25rem;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+#invoice-modal.invoice-modal-overlay.hidden {
+    display: none !important;
+}
+
+@media (min-width: 640px) {
+    #invoice-modal.invoice-modal-overlay {
+        padding: 1rem 1.75rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    #invoice-modal.invoice-modal-overlay {
+        padding: 1rem 2.5rem;
+    }
+}
+
 #invoice-modal .invoice-modal-panel {
-    max-height: 95vh;
+    width: 100%;
+    max-width: min(72rem, calc(100vw - 2.5rem));
+    height: 100%;
+    max-height: 100%;
     min-height: 0;
+    margin: 0 auto;
+}
+
+@media (min-width: 640px) {
+    #invoice-modal .invoice-modal-panel {
+        max-width: min(72rem, calc(100vw - 3.5rem));
+    }
+}
+
+@media (min-width: 1024px) {
+    #invoice-modal .invoice-modal-panel {
+        max-width: min(72rem, calc(100vw - 5rem));
+    }
 }
 
 #invoice-modal .invoice-modal-scroll {
@@ -106,10 +157,6 @@ body {
 #invoice-modal .invoice-modal-scroll {
     scrollbar-width: thin;
     scrollbar-color: #9ca3af #e5e7eb;
-}
-
-#invoice-modal {
-    background: rgba(0, 0, 0, 0.5);
 }
 
 #invoice-modal .invoice-modal-banner {
