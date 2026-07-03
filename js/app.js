@@ -147,7 +147,7 @@ function makeElementDraggable(el) {
 }
 
 // --- PUBLIC SITE (sans authentification) ---
-const PUBLIC_ROUTES = ['home', 'contact', 'devis'];
+const PUBLIC_ROUTES = ['home', 'contact'];
 let isAuthenticated = false;
 
 function renderPublicHome() {
@@ -158,12 +158,8 @@ function renderPublicHome() {
             La plateforme TMS pour planifier vos transports, gérer votre flotte et facturer vos opérations.
         </p>
         <div class="flex flex-col sm:flex-row justify-center gap-4">
-            <button type="button" onclick="publicRouter('devis')"
-                class="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 shadow-lg transition">
-                <i class="fa-solid fa-file-invoice mr-2"></i>Demande de devis
-            </button>
             <button type="button" onclick="publicRouter('contact')"
-                class="px-8 py-3 border-2 border-blue-600 text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition">
+                class="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 shadow-lg transition">
                 <i class="fa-solid fa-headset mr-2"></i>Nous contacter
             </button>
         </div>
@@ -215,56 +211,6 @@ function renderPublicContact() {
     </div>`;
 }
 
-function renderPublicDevis() {
-    return `<div class="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 fade-in my-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">Demande de devis</h2>
-        <p class="text-gray-600 mb-6">Décrivez votre besoin transport — notre équipe commerciale vous recontacte rapidement.</p>
-        <form id="public-devis-form" class="space-y-4" onsubmit="submitPublicDevis(event)">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Entreprise *</label>
-                    <input type="text" id="devis-company" class="w-full border rounded p-2" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nom du contact *</label>
-                    <input type="text" id="devis-contact-name" class="w-full border rounded p-2" required>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
-                    <input type="email" id="devis-email" class="w-full border rounded p-2" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                    <input type="tel" id="devis-phone" class="w-full border rounded p-2">
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de chargement</label>
-                    <input type="text" id="devis-origin" class="w-full border rounded p-2" placeholder="Ville ou code postal">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de livraison</label>
-                    <input type="text" id="devis-destination" class="w-full border rounded p-2" placeholder="Ville ou code postal">
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nature du transport</label>
-                <input type="text" id="devis-cargo" class="w-full border rounded p-2" placeholder="Marchandise, tonnage, palettes…">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Précisions</label>
-                <textarea id="devis-details" class="w-full border rounded p-2" rows="4" placeholder="Dates, contraintes, volume mensuel…"></textarea>
-            </div>
-            <button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
-                Envoyer ma demande de devis
-            </button>
-        </form>
-    </div>`;
-}
-
 function updatePublicNav(route) {
     document.querySelectorAll('[data-public-nav]').forEach((btn) => {
         const active = btn.dataset.publicNav === route;
@@ -283,7 +229,6 @@ function publicRouter(route) {
     updatePublicNav(route === 'home' ? '' : route);
 
     if (route === 'contact') container.innerHTML = renderPublicContact();
-    else if (route === 'devis') container.innerHTML = renderPublicDevis();
     else container.innerHTML = renderPublicHome();
 }
 
@@ -309,40 +254,6 @@ async function submitPublicContact(e) {
         if (res.ok) {
             showToast(data.message || 'Message envoyé', 'success');
             document.getElementById('public-contact-form')?.reset();
-        } else {
-            showToast(data.error || 'Erreur lors de l\'envoi', 'error');
-        }
-    } catch {
-        showToast('Erreur de communication avec le serveur', 'error');
-    }
-}
-
-async function submitPublicDevis(e) {
-    e.preventDefault();
-    const body = {
-        company_name: document.getElementById('devis-company')?.value?.trim(),
-        contact_name: document.getElementById('devis-contact-name')?.value?.trim(),
-        email: document.getElementById('devis-email')?.value?.trim(),
-        phone: document.getElementById('devis-phone')?.value?.trim(),
-        origin: document.getElementById('devis-origin')?.value?.trim(),
-        destination: document.getElementById('devis-destination')?.value?.trim(),
-        cargo: document.getElementById('devis-cargo')?.value?.trim(),
-        details: document.getElementById('devis-details')?.value?.trim()
-    };
-    if (!body.company_name || !body.contact_name || !body.email) {
-        showToast('Entreprise, contact et e-mail sont obligatoires', 'error');
-        return;
-    }
-    try {
-        const res = await fetch('/api/quote-requests', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok) {
-            showToast(data.message || 'Demande enregistrée', 'success');
-            document.getElementById('public-devis-form')?.reset();
         } else {
             showToast(data.error || 'Erreur lors de l\'envoi', 'error');
         }
@@ -2785,8 +2696,7 @@ function renderSolutions() {
             <h2 class="text-2xl font-bold mb-4">Prêt à simplifier votre gestion?</h2>
             <p class="text-blue-100 mb-6">Démarrez gratuitement et adaptez votre solution à vos besoins.</p>
             <div class="flex justify-center gap-4">
-                <button onclick="router('devis')" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">Demande de devis</button>
-                <button onclick="router('contact')" class="border border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition">Nous contacter</button>
+                <button onclick="router('contact')" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">Nous contacter</button>
             </div>
         </div>
     </div>`;
@@ -3225,10 +3135,6 @@ case 'fleet':
         case 'contact':
             title = 'Contact & Aide';
             content = isAuthenticated ? renderContact() : renderPublicContact();
-            break;
-        case 'devis':
-            title = 'Demande de devis';
-            content = renderPublicDevis();
             break;
         case 'about':
             title = 'À propos';
