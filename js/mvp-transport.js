@@ -108,7 +108,7 @@ function renderTransportList() {
                             <td class="px-4 py-3 font-medium text-gray-900">${o.ref || '#' + o.id}</td>
                             <td class="px-4 py-3">${o.client_name || '-'}</td>
                             <td class="px-4 py-3 text-xs">${o.origin || '-'} → ${o.dest || '-'}</td>
-                            <td class="px-4 py-3 text-xs">${o.load_date || '-'} / ${o.delivery_date || '-'}</td>
+                            <td class="px-4 py-3 text-xs">${formatDisplayDate(o.load_date) || '-'} / ${formatDisplayDate(o.delivery_date) || '-'}</td>
                             <td class="px-4 py-3">${o.assignment_type === 'SUBCONTRACTED' ? (o.subcontractor_name || '<span class="text-purple-600">Sous-traitant</span>') : (o.driver_name || '-')}</td>
                             <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(o.status)}">${o.status}</span></td>
                             <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString()} €</td>
@@ -181,7 +181,7 @@ function renderTransportDetailModal(t) {
     document.getElementById('td-status').innerHTML = `<span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(t.status)}">${t.status}</span>`;
     document.getElementById('td-client').textContent = t.client_name || '-';
     document.getElementById('td-route').textContent = `${t.origin || '-'} → ${t.dest || '-'}`;
-    document.getElementById('td-dates').textContent = `Chargement : ${t.load_date || '-'} | Livraison : ${t.delivery_date || '-'}`;
+    document.getElementById('td-dates').textContent = `Chargement : ${formatDisplayDate(t.load_date) || '-'} | Livraison : ${formatDisplayDate(t.delivery_date) || '-'}`;
     document.getElementById('td-driver').textContent = t.assignment_type === 'SUBCONTRACTED'
         ? (t.subcontractor_name ? `Sous-traitant : ${t.subcontractor_name}` : 'Sous-traitant (non renseigné)')
         : (t.driver_name || 'Non assigné');
@@ -201,7 +201,7 @@ function renderTransportDetailModal(t) {
     const historyEl = document.getElementById('td-history');
     historyEl.innerHTML = (t.history || []).map(h => `
         <div class="flex gap-3 text-xs border-b pb-2 mb-2">
-            <span class="font-mono text-gray-400">${new Date(h.changed_at).toLocaleString('fr-FR')}</span>
+            <span class="font-mono text-gray-400">${formatDisplayDate(h.changed_at) || '—'}</span>
             <span class="font-semibold ${getStatusBadgeClass(h.status)} px-1 rounded">${h.status}</span>
             <span class="text-gray-600">${h.changed_by_name || 'Système'}${h.comment ? ' — ' + h.comment : ''}</span>
         </div>`).join('') || '<p class="text-gray-400 italic text-xs">Aucun historique</p>';
@@ -216,7 +216,7 @@ function renderTransportDetailModal(t) {
     commentsEl.innerHTML = (t.comments || []).map(c => `
         <div class="bg-gray-50 rounded p-2 mb-2 text-xs">
             <span class="font-bold text-gray-700">${c.user_name || 'Utilisateur'}</span>
-            <span class="text-gray-400 ml-2">${new Date(c.created_at).toLocaleString('fr-FR')}</span>
+            <span class="text-gray-400 ml-2">${formatDisplayDate(c.created_at) || '—'}</span>
             <p class="mt-1 text-gray-600">${c.content}</p>
         </div>`).join('') || '<p class="text-gray-400 italic text-xs">Aucun commentaire</p>';
 
@@ -227,6 +227,9 @@ function renderTransportDetailModal(t) {
     }
     if (typeof canShowDispatchButton === 'function' && canShowDispatchButton(t)) {
         actionsHtml += `<button onclick="closeTransportDetail(); openDispatchModal(${t.id})" class="px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 mr-2"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>`;
+    }
+    if (t.assignment_type === 'SUBCONTRACTED' || t.status === 'Affrété') {
+        actionsHtml += `<button onclick="closeTransportDetail(); openAffretementConfirmation(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-file-contract mr-1"></i>Confirmation</button>`;
     }
     if (typeof canValidateTransport === 'function' && canValidateTransport() && t.status === 'Livré') {
         actionsHtml += `<button onclick="validateTransportFromDetail(${t.id})" class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 mr-2">Valider transport</button>`;

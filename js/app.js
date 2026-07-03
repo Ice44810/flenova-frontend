@@ -6,6 +6,7 @@
 let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], users: [], sales_invoices: [], purchase_invoices: [], subcontractors: [] };
 let subcontractorFilters = { search: '', status: '', compliance: '' };
 let purchaseInvoiceFilter = { subcontractor_id: '', type: '' };
+let affretementConfirmationOrderId = null;
 
 let salesChartInstance = null;
 let invoiceLines = [];
@@ -18,18 +19,24 @@ function formatDateForInput(value) {
     return s.slice(0, 10);
 }
 
-/** Affichage date simple jj/mm/aaaa (sans heure, sans décalage fuseau) */
+/** Affichage date jj/mm/aaaa — sans heure (ignore T22:00:00.000Z etc.) */
 function formatDisplayDate(value) {
     if (value === undefined || value === null || String(value).trim() === '') return '';
-    const s = String(value);
-    const isoDate = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (isoDate) {
-        return `${isoDate[3]}/${isoDate[2]}/${isoDate[1]}`;
+    const s = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const [y, m, d] = s.split('-');
+        return `${d}/${m}/${y}`;
     }
     const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return s.slice(0, 10);
+    if (Number.isNaN(d.getTime())) {
+        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : s.split('T')[0];
+    }
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+window.formatDisplayDate = formatDisplayDate;
+window.formatDateForInput = formatDateForInput;
 
 function normalizeUploadUrl(url) {
     if (!url) return '';
@@ -496,7 +503,7 @@ function renderCompletedTransports() {
                             <td class="px-4 py-3 font-medium text-gray-900">#${m.id}</td>
                             <td class="px-4 py-3">${client ? client.name : '-'}</td>
                             <td class="px-4 py-3">${m.origin} → ${m.dest}</td>
-                            <td class="px-4 py-3">${m.date}</td>
+                            <td class="px-4 py-3">${formatDisplayDate(m.date) || '-'}</td>
                             <td class="px-4 py-3">${m.delivery_time || '-'}</td>
                             <td class="px-4 py-3 font-bold text-gray-700">${m.price} €</td>
                             <td class="px-4 py-3"><button onclick="createInvoiceFromMission(${m.id})" class="text-blue-600 hover:underline text-xs"><i class="fa-solid fa-file-invoice mr-1"></i>Facturer</button></td>
@@ -649,7 +656,7 @@ function renderPlanning() {
                                 <div class="font-bold text-gray-800 mb-1">#${m.ref || m.id}${isSub ? ' <span class="text-purple-600 text-[10px]"><i class="fa-solid fa-handshake"></i></span>' : ''}</div>
                                 <div class="text-gray-500 truncate text-[10px]">${m.origin} <i class="fa-solid fa-arrow-right mx-1"></i> ${m.dest}</div>
                                 ${isSub && subName ? `<div class="text-[10px] text-purple-600 truncate">${subName}</div>` : ''}
-                                <div class="mt-1 text-xs text-gray-400"><i class="fa-regular fa-clock mr-1"></i>${m.delivery_date || '--/--'}</div>
+                                <div class="mt-1 text-xs text-gray-400"><i class="fa-regular fa-clock mr-1"></i>${formatDisplayDate(m.delivery_date) || '--/--'}</div>
                                 <div class="mt-2 flex justify-between items-center">
                                     <span class="bg-gray-100 px-1 rounded text-[10px]">${m.price}€</span>
                                     <span class="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition">${dispatchBtn}<i class="fa-solid fa-pencil ml-1"></i> Modifier</span>
@@ -708,9 +715,9 @@ function getSubcontractorComplianceInfo(s) {
         if (!expiry) return { label, status: 'unknown', text: 'Non renseigné' };
         const d = new Date(expiry);
         d.setHours(0, 0, 0, 0);
-        if (d < today) return { label, status: 'expired', text: expiry };
-        if (d <= in30) return { label, status: 'expiring', text: expiry };
-        return { label, status: 'valid', text: expiry };
+        if (d < today) return { label, status: 'expired', text: formatDisplayDate(expiry) };
+        if (d <= in30) return { label, status: 'expiring', text: formatDisplayDate(expiry) };
+        return { label, status: 'valid', text: formatDisplayDate(expiry) };
     };
 
     return {
@@ -889,6 +896,124 @@ function updateMarginDashboard(data) {
     }
 }
 
+function renderAffretementConfirmationShell() {
+    return `<div class="fade-in h-full flex flex-col">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <div>
+                <button onclick="router('planning')" class="text-sm text-gray-600 hover:text-blue-600 mb-1"><i class="fa-solid fa-arrow-left mr-1"></i>Retour au planning</button>
+                <h3 class="font-bold text-lg text-gray-800">Confirmation d'affrètement</h3>
+                <p class="text-xs text-gray-500" id="affretement-page-subtitle">Chargement…</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <a id="affretement-pdf-link" href="#" target="_blank" class="hidden px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">
+                    <i class="fa-solid fa-file-pdf mr-1 text-red-500"></i>Télécharger PDF
+                </a>
+                <input type="email" id="affretement-send-email" placeholder="Email sous-traitant" class="border border-gray-300 rounded px-3 py-2 text-sm min-w-[220px]">
+                <button id="affretement-send-btn" onclick="sendAffretementConfirmation()" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">
+                    <i class="fa-solid fa-paper-plane mr-1"></i>Envoyer au sous-traitant
+                </button>
+            </div>
+        </div>
+        <div id="affretement-sent-status" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
+        <div class="flex-1 overflow-auto bg-slate-100 rounded-xl border border-gray-200 p-4">
+            <div id="affretement-preview" class="bg-white rounded-xl shadow-sm mx-auto">
+                <p class="p-8 text-center text-gray-400">Chargement de la confirmation…</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function loadAffretementConfirmationPage() {
+    const orderId = affretementConfirmationOrderId;
+    const preview = document.getElementById('affretement-preview');
+    const subtitle = document.getElementById('affretement-page-subtitle');
+    const statusEl = document.getElementById('affretement-sent-status');
+    const pdfLink = document.getElementById('affretement-pdf-link');
+    const emailInput = document.getElementById('affretement-send-email');
+    const sendBtn = document.getElementById('affretement-send-btn');
+
+    if (!orderId) {
+        if (preview) preview.innerHTML = '<p class="p-8 text-center text-red-500">Aucune commande sélectionnée.</p>';
+        return;
+    }
+
+    try {
+        const res = await apiFetch(`dispatch/confirmations/${orderId}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Confirmation introuvable');
+        }
+        const { data } = await res.json();
+
+        if (subtitle) {
+            subtitle.textContent = `Commande ${data.orderRef} — ${data.subcontractor?.name || 'Sous-traitant'}`;
+        }
+        if (preview) preview.innerHTML = data.html || '<p class="p-8 text-center text-gray-400">Aucun contenu</p>';
+        if (emailInput) emailInput.value = data.subcontractor?.email || '';
+
+        if (pdfLink && data.pdfUrl) {
+            pdfLink.href = normalizeUploadUrl(data.pdfUrl);
+            pdfLink.classList.remove('hidden');
+        } else if (pdfLink) {
+            pdfLink.classList.add('hidden');
+        }
+
+        if (statusEl) {
+            if (data.sentAt && data.sentTo) {
+                statusEl.className = 'mb-4 p-3 rounded-lg text-sm bg-green-50 border border-green-200 text-green-800';
+                statusEl.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> Envoyée le ${formatDisplayDate(data.sentAt)} à <strong>${data.sentTo}</strong>`;
+                statusEl.classList.remove('hidden');
+            } else {
+                statusEl.classList.add('hidden');
+                statusEl.innerHTML = '';
+            }
+        }
+
+        if (sendBtn) {
+            const canSend = typeof canDispatchSubcontractor === 'function' && canDispatchSubcontractor();
+            sendBtn.classList.toggle('hidden', !canSend);
+            if (emailInput) emailInput.disabled = !canSend;
+        }
+    } catch (e) {
+        if (preview) preview.innerHTML = `<p class="p-8 text-center text-red-500">${e.message}</p>`;
+        showToast(e.message, 'error');
+    }
+}
+
+function openAffretementConfirmation(orderId) {
+    affretementConfirmationOrderId = parseInt(orderId, 10);
+    router('affretement_confirmation');
+}
+
+async function sendAffretementConfirmation() {
+    const orderId = affretementConfirmationOrderId;
+    const email = document.getElementById('affretement-send-email')?.value?.trim();
+    if (!orderId) return;
+
+    const sendBtn = document.getElementById('affretement-send-btn');
+    if (sendBtn) sendBtn.disabled = true;
+
+    try {
+        const res = await apiFetch(`dispatch/confirmations/${orderId}/send`, {
+            method: 'POST',
+            body: { email: email || undefined }
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(payload.error || 'Envoi impossible');
+        }
+        showToast(payload.data?.message || 'Confirmation envoyée', payload.data?.simulated ? 'info' : 'success');
+        await loadAffretementConfirmationPage();
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        if (sendBtn) sendBtn.disabled = false;
+    }
+}
+
+window.openAffretementConfirmation = openAffretementConfirmation;
+window.sendAffretementConfirmation = sendAffretementConfirmation;
+
 function renderDrivers() {
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
         <div class="flex justify-between items-center mb-6">
@@ -950,7 +1075,7 @@ function renderFleet() {
                         </div>
                         <div class="space-y-3 text-sm">
                             <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Chauffeur</span><span class="font-medium">${v.driver_name || '<span class="text-gray-400">Aucun</span>'}</span></div>
-                            <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Maintenance</span><span class="font-medium">${v.next_maintenance}</span></div>
+                            <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Maintenance</span><span class="font-medium">${formatDisplayDate(v.next_maintenance) || v.next_maintenance || '—'}</span></div>
                         </div>
                     </div>`;
                 }).join('')}
@@ -2825,6 +2950,11 @@ case 'fleet':
                 })
                 .catch(err => console.warn('Erreur chargement marges'));
             break;
+        case 'affretement_confirmation':
+            title = 'Confirmation d\'affrètement';
+            content = renderAffretementConfirmationShell();
+            setTimeout(() => loadAffretementConfirmationPage(), 0);
+            break;
         case 'sales_invoices':
             title = 'Factures Ventes';
             content = renderSalesInvoices();
@@ -3261,7 +3391,8 @@ function openAddClientModal() {
     document.getElementById('add-client-address').value = '';
     document.getElementById('add-client-tva').value = '';
     document.getElementById('add-client-contact-name').value = '';
-    document.getElementById('add-client-contact-type').value = 'Exploitant';
+    const contactTypeEl = document.getElementById('add-client-contact-type');
+    if (contactTypeEl) contactTypeEl.value = 'Exploitant';
 }
 
 function openEditClientModal(clientId) {
@@ -3279,7 +3410,8 @@ function openEditClientModal(clientId) {
     document.getElementById('add-client-address').value = client.address;
     document.getElementById('add-client-tva').value = client.tva || '';
     document.getElementById('add-client-contact-name').value = client.contact_name || '';
-    document.getElementById('add-client-contact-type').value = client.contact_type || 'Exploitant';
+    const contactTypeEl = document.getElementById('add-client-contact-type');
+    if (contactTypeEl) contactTypeEl.value = client.contact_type || 'Exploitant';
     
     document.getElementById('add-client-modal').classList.remove('hidden');
 }
@@ -3299,7 +3431,7 @@ async function submitAddClient() {
         address: document.getElementById('add-client-address').value,
         tva: document.getElementById('add-client-tva').value,
         contact_name: document.getElementById('add-client-contact-name').value,
-        contact_type: document.getElementById('add-client-contact-type').value
+        contact_type: document.getElementById('add-client-contact-type')?.value || 'Exploitant'
     };
     
     if (!clientData.name) {
@@ -3345,7 +3477,7 @@ function openDriverCardModal(driverId) {
         <div class="space-y-3">
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Téléphone</span><span class="font-medium">${driver.phone}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Permis</span><span class="font-medium">${driver.license}</span></div>
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Expiration permis</span><span class="font-medium">${driver.license_expiry}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Expiration permis</span><span class="font-medium">${formatDisplayDate(driver.license_expiry) || '—'}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Adresse</span><span class="font-medium">${driver.address}</span></div>
             <div class="flex justify-between"><span class="text-gray-500">Notes</span><span class="font-medium">${driver.notes || '-'}</span></div>
         </div>
@@ -3386,7 +3518,7 @@ function openEditDriverModal(driverId) {
     document.getElementById('driver-name').value = driver.name;
     document.getElementById('driver-phone').value = driver.phone || '';
     document.getElementById('driver-license').value = driver.license || '';
-    document.getElementById('driver-license-expiry').value = driver.license_expiry ? driver.license_expiry.split('T')[0] : '';
+    document.getElementById('driver-license-expiry').value = formatDateForInput(driver.license_expiry);
     document.getElementById('driver-status').value = driver.status || 'Disponible';
     document.getElementById('driver-address').value = driver.address || '';
     document.getElementById('driver-notes').value = driver.notes || '';
@@ -3684,11 +3816,11 @@ async function submitDispatch() {
         if (response.ok) {
             const result = await response.json().catch(() => ({}));
             showToast(result.data?.purchaseInvoiceId
-                ? 'Affrètement confirmé — confirmation PDF et facture achat générées'
+                ? 'Affrètement confirmé — ouverture de la confirmation'
                 : 'Commande affectée au sous-traitant', 'success');
             await fetchAllData();
             closeDispatchModal();
-            router('planning');
+            openAffretementConfirmation(orderId);
         } else {
             const errorData = await response.json();
             showToast(errorData.error || 'Erreur', 'error');
@@ -4377,7 +4509,7 @@ function renderDashboardPalletMovements(movements) {
     body.innerHTML = movements.map(m => `<tr class="hover:bg-gray-50 border-b">
         <td class="px-4 py-2 font-medium text-gray-900">${m.ref || '#' + m.order_id}</td>
         <td class="px-4 py-2">${m.client_name || '—'}</td>
-        <td class="px-4 py-2">${m.load_date ? new Date(m.load_date).toLocaleDateString('fr-FR') : '—'}</td>
+        <td class="px-4 py-2">${formatDisplayDate(m.load_date) || '—'}</td>
         <td class="px-4 py-2 text-right">${Number(m.pallet_count || 0)}</td>
         <td class="px-4 py-2 text-right">${Number(m.pallets_returned || 0)}</td>
         <td class="px-4 py-2">${m.pallet_exchange ? '<span class="text-teal-600">Oui</span>' : '—'}</td>
@@ -4536,8 +4668,8 @@ function openEditOrderModal(orderId) {
     document.getElementById('edit-order-cargo').value = order.cargo || '';
     document.getElementById('edit-order-origin').value = order.origin || '';
     document.getElementById('edit-order-dest').value = order.dest || '';
-    document.getElementById('edit-order-load-date').value = order.load_date ? String(order.load_date).slice(0, 10) : '';
-    document.getElementById('edit-order-delivery-date').value = order.delivery_date ? String(order.delivery_date).slice(0, 10) : '';
+    document.getElementById('edit-order-load-date').value = formatDateForInput(order.load_date);
+    document.getElementById('edit-order-delivery-date').value = formatDateForInput(order.delivery_date);
     document.getElementById('edit-order-weight').value = order.weight || '';
     document.getElementById('edit-order-pallet-type').value = order.pallet_type || 'palette_europe';
     document.getElementById('edit-order-pallet-count').value = order.pallet_count || 0;
