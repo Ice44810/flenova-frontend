@@ -1023,12 +1023,17 @@ function renderDrivers() {
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">Chauffeur</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Permis</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Actions</th></tr>
+                    <tr><th class="px-4 py-3">Chauffeur</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Permis</th><th class="px-4 py-3">Mobile</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Actions</th></tr>
                 </thead>
                 <tbody>
                     ${(Array.isArray(db.drivers) ? db.drivers : []).map(d => {
                         const statusColor = d.status === 'Disponible' ? 'text-green-600' : 'text-blue-600';
                         const statusBg = d.status === 'Disponible' ? 'bg-green-100' : 'bg-blue-100';
+                        const mobileBadge = d.user_account_id
+                            ? '<span class="text-green-700 bg-green-100 px-2 py-1 rounded text-xs font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Activé</span>'
+                            : (d.invite_code
+                                ? `<span class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-200" title="Code à transmettre au chauffeur">${d.invite_code}</span>`
+                                : '<span class="text-gray-400 text-xs">—</span>');
                         return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900 flex items-center gap-2">
                                 <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
@@ -1038,6 +1043,7 @@ function renderDrivers() {
                             </td>
                             <td class="px-4 py-3">${d.phone}</td>
                             <td class="px-4 py-3"><span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold">${d.license}</span></td>
+                            <td class="px-4 py-3">${mobileBadge}</td>
                             <td class="px-4 py-3"><span class="${statusBg} ${statusColor} px-2 py-1 rounded-full text-xs font-semibold">${d.status}</span></td>
                             <td class="px-4 py-3">
                                 <button onclick="openEditDriverModal(${d.id})" class="text-blue-600 hover:underline mr-3"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
@@ -1101,7 +1107,7 @@ function renderPurchaseInvoices() {
     return `<div class="h-full flex flex-col fade-in">
         <div class="flex justify-between items-center mb-4">
             <div class="flex items-center gap-4">
-               <h3 class="font-bold text-lg mb-4 text-gray-800">Gestion des Factures de Achats</h3>
+               <h3 class="font-bold text-lg mb-4 text-gray-800">Gestion des Factures d'Achats</h3>
             </div>
             ${canManage ? `<button onclick="openAddPurchaseInvoiceModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Ajouter une facture</button>` : `<span class="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded"><i class="fa-solid fa-lock mr-2"></i>Lecture seule</span>`}
         </div>
@@ -3478,6 +3484,8 @@ function openDriverCardModal(driverId) {
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Téléphone</span><span class="font-medium">${driver.phone}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Permis</span><span class="font-medium">${driver.license}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Expiration permis</span><span class="font-medium">${formatDisplayDate(driver.license_expiry) || '—'}</span></div>
+            ${driver.invite_code ? `<div class="flex justify-between border-b pb-2"><span class="text-gray-500">Code mobile</span><span class="font-mono font-bold text-teal-700">${driver.invite_code}</span></div>` : ''}
+            ${driver.user_account_id ? '<div class="text-green-700 text-sm mt-2"><i class="fa-solid fa-circle-check mr-1"></i>Compte TMS Mobile activé</div>' : (driver.invite_code ? '<div class="text-teal-700 text-sm mt-2">Code à transmettre au chauffeur pour l\'inscription mobile</div>' : '')}
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Adresse</span><span class="font-medium">${driver.address}</span></div>
             <div class="flex justify-between"><span class="text-gray-500">Notes</span><span class="font-medium">${driver.notes || '-'}</span></div>
         </div>
@@ -3489,6 +3497,150 @@ function openDriverCardModal(driverId) {
 /**
  * Gestion des chauffeurs - Modals et CRUD
  */
+function syncDriverMobileSection({ mode, driver } = {}) {
+    const optionEl = document.getElementById('driver-mobile-option');
+    const checkbox = document.getElementById('driver-generate-mobile-code');
+    const pendingEl = document.getElementById('driver-mobile-pending');
+    const displayEl = document.getElementById('driver-invite-display');
+    const codeEl = document.getElementById('driver-invite-code');
+    const statusEl = document.getElementById('driver-mobile-status');
+    const actionsEl = document.getElementById('driver-mobile-actions');
+    const regenerateBtn = document.getElementById('btn-regenerate-driver-invite');
+
+    const isEdit = mode === 'edit';
+    const isActivated = Boolean(driver?.user_account_id);
+    const hasCode = Boolean(driver?.invite_code);
+
+    if (optionEl) optionEl.classList.toggle('hidden', isEdit);
+    if (checkbox) {
+        checkbox.checked = !isEdit;
+        checkbox.disabled = isEdit;
+    }
+
+    if (pendingEl) {
+        pendingEl.classList.toggle('hidden', isEdit || !(checkbox?.checked));
+    }
+
+    if (displayEl && codeEl) {
+        const showCode = (isEdit && hasCode) || Boolean(driver?.invite_code);
+        displayEl.classList.toggle('hidden', !showCode);
+        codeEl.value = showCode ? (driver?.invite_code || '') : '';
+    }
+
+    if (regenerateBtn && actionsEl) {
+        const showRegenerate = isEdit && !isActivated;
+        actionsEl.classList.toggle('hidden', !showRegenerate);
+        regenerateBtn.innerHTML = hasCode
+            ? '<i class="fa-solid fa-rotate mr-1"></i>Nouveau code'
+            : '<i class="fa-solid fa-key mr-1"></i>Générer un code';
+    }
+
+    if (statusEl) {
+        if (isEdit && isActivated) {
+            statusEl.textContent = 'Compte TMS Mobile activé — le chauffeur se connecte avec son code et son mot de passe.';
+            statusEl.className = 'text-xs mt-2 ml-7 text-green-700 font-medium';
+        } else if (isEdit && hasCode) {
+            statusEl.textContent = 'En attente d\'activation — transmettez ce code au chauffeur.';
+            statusEl.className = 'text-xs mt-2 ml-7 text-teal-800';
+        } else if (isEdit && !hasCode) {
+            statusEl.textContent = 'Aucun code mobile — cliquez sur « Générer un code » pour activer l\'accès TMS Mobile.';
+            statusEl.className = 'text-xs mt-2 ml-7 text-gray-600';
+        } else if (!isEdit && checkbox?.checked) {
+            statusEl.textContent = '';
+        } else if (!isEdit && !checkbox?.checked) {
+            statusEl.textContent = 'Aucun accès mobile ne sera créé pour ce chauffeur.';
+            statusEl.className = 'text-xs mt-2 ml-7 text-gray-500';
+        } else {
+            statusEl.textContent = '';
+        }
+    }
+}
+
+function showDriverInviteCodeAfterCreate(driver) {
+    const optionEl = document.getElementById('driver-mobile-option');
+    const pendingEl = document.getElementById('driver-mobile-pending');
+    const displayEl = document.getElementById('driver-invite-display');
+    const codeEl = document.getElementById('driver-invite-code');
+    const statusEl = document.getElementById('driver-mobile-status');
+    const actionsEl = document.getElementById('driver-mobile-actions');
+    const regenerateBtn = document.getElementById('btn-regenerate-driver-invite');
+
+    if (optionEl) optionEl.classList.add('hidden');
+    if (pendingEl) pendingEl.classList.add('hidden');
+
+    if (driver?.invite_code) {
+        if (displayEl) displayEl.classList.remove('hidden');
+        if (codeEl) codeEl.value = driver.invite_code;
+        if (actionsEl) actionsEl.classList.remove('hidden');
+        if (regenerateBtn) {
+            regenerateBtn.innerHTML = '<i class="fa-solid fa-rotate mr-1"></i>Nouveau code';
+        }
+        if (statusEl) {
+            statusEl.textContent = 'Code généré — copiez-le et transmettez-le au chauffeur avant de fermer.';
+            statusEl.className = 'text-xs mt-2 ml-7 text-teal-900 font-semibold';
+        }
+    } else {
+        if (displayEl) displayEl.classList.add('hidden');
+        if (actionsEl) actionsEl.classList.add('hidden');
+        if (statusEl) {
+            statusEl.textContent = 'Chauffeur créé sans accès mobile.';
+            statusEl.className = 'text-xs mt-2 ml-7 text-gray-500';
+        }
+    }
+}
+
+function copyDriverInviteCode() {
+    const codeEl = document.getElementById('driver-invite-code');
+    if (!codeEl?.value) return;
+    navigator.clipboard.writeText(codeEl.value).then(() => {
+        showToast(`Code copié : ${codeEl.value}`, 'success');
+    }).catch(() => {
+        codeEl.select();
+        document.execCommand('copy');
+        showToast('Code copié', 'success');
+    });
+}
+
+async function regenerateDriverInviteCode() {
+    const driverId = document.getElementById('edit-driver-id').value;
+    if (!driverId) return;
+
+    try {
+        const response = await apiFetch(`drivers/${driverId}/regenerate-invite`, { method: 'POST' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Régénération impossible');
+        }
+        showToast(`Nouveau code : ${result.invite_code}`, 'success');
+        await fetchAllData();
+        const driver = db.drivers.find(d => String(d.id) === String(driverId));
+        syncDriverMobileSection({ mode: 'edit', driver: driver || { invite_code: result.invite_code, user_account_id: null } });
+    } catch (err) {
+        showToast(err.message || 'Erreur lors de la régénération', 'error');
+    }
+}
+
+window.copyDriverInviteCode = copyDriverInviteCode;
+window.regenerateDriverInviteCode = regenerateDriverInviteCode;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const mobileCheckbox = document.getElementById('driver-generate-mobile-code');
+    if (mobileCheckbox) {
+        mobileCheckbox.addEventListener('change', () => {
+            const pendingEl = document.getElementById('driver-mobile-pending');
+            const statusEl = document.getElementById('driver-mobile-status');
+            if (document.getElementById('edit-driver-id').value) return;
+            if (pendingEl) pendingEl.classList.toggle('hidden', !mobileCheckbox.checked);
+            if (statusEl && !mobileCheckbox.checked) {
+                statusEl.textContent = 'Aucun accès mobile ne sera créé pour ce chauffeur.';
+                statusEl.className = 'text-xs mt-2 ml-7 text-gray-500';
+            } else if (statusEl) {
+                statusEl.textContent = '';
+            }
+        });
+    }
+});
+
 function openAddDriverModal() {
     hideAllModals();
     document.getElementById('driver-modal-title').textContent = 'Nouveau Chauffeur';
@@ -3500,8 +3652,8 @@ function openAddDriverModal() {
     document.getElementById('driver-status').value = 'Disponible';
     document.getElementById('driver-address').value = '';
     document.getElementById('driver-notes').value = '';
+    syncDriverMobileSection({ mode: 'create' });
 
-    // On masque le bouton de suppression pour un nouveau chauffeur
     const deleteBtn = document.getElementById('btn-delete-driver');
     if (deleteBtn) deleteBtn.classList.add('hidden');
 
@@ -3522,8 +3674,8 @@ function openEditDriverModal(driverId) {
     document.getElementById('driver-status').value = driver.status || 'Disponible';
     document.getElementById('driver-address').value = driver.address || '';
     document.getElementById('driver-notes').value = driver.notes || '';
+    syncDriverMobileSection({ mode: 'edit', driver });
 
-    // On affiche le bouton de suppression pour un chauffeur existant
     const deleteBtn = document.getElementById('btn-delete-driver');
     if (deleteBtn) deleteBtn.classList.remove('hidden');
 
@@ -3546,16 +3698,35 @@ async function submitDriver(e) {
         address: document.getElementById('driver-address').value,
         notes: document.getElementById('driver-notes').value
     };
+    if (!id) {
+        driverData.generate_mobile_code = document.getElementById('driver-generate-mobile-code')?.checked !== false;
+    }
     if (!driverData.name) return showToast("Le nom est obligatoire", "error");
     
     try {
         const response = await apiFetch(id ? `drivers/${id}` : 'drivers', { method: id ? 'PUT' : 'POST', body: driverData });
         
         if (response.ok) {
-            showToast(id ? "Chauffeur mis à jour" : "Chauffeur ajouté", "success");
-            await fetchAllData();
-            closeDriverModal();
-            router('drivers');
+            const result = await response.json().catch(() => ({}));
+            if (id) {
+                showToast('Chauffeur mis à jour', 'success');
+                await fetchAllData();
+                closeDriverModal();
+                router('drivers');
+            } else {
+                await fetchAllData();
+                document.getElementById('edit-driver-id').value = result.id || '';
+                document.getElementById('driver-modal-title').textContent = 'Chauffeur créé';
+                const created = db.drivers.find(d => String(d.id) === String(result.id));
+                showDriverInviteCodeAfterCreate(created || result);
+                if (result.invite_code) {
+                    showToast(`Code d'activation : ${result.invite_code}`, 'success');
+                } else {
+                    showToast('Chauffeur ajouté (sans accès mobile)', 'success');
+                }
+                const deleteBtn = document.getElementById('btn-delete-driver');
+                if (deleteBtn && result.id) deleteBtn.classList.remove('hidden');
+            }
         } else {
             const errorData = await response.json();
             showToast(errorData.error || `Erreur ${response.status}`, "error");
