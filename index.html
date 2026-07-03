@@ -19,6 +19,36 @@
 
 <body class="h-screen overflow-hidden text-gray-800">
 
+    <!-- PUBLIC SITE (visiteurs non connectés) -->
+    <div id="public-screen" class="hidden min-h-screen flex flex-col bg-gray-50">
+        <header class="bg-white border-b border-gray-200 shadow-sm">
+            <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+                <button type="button" onclick="publicRouter('home')" class="flex items-center gap-2">
+                    <img src="assets/transfact_icon_512.jpg" alt="Transfact" class="w-9 h-9 rounded-lg">
+                    <span class="text-xl font-bold text-gray-900">Transfact</span>
+                </button>
+                <nav class="flex items-center gap-1 sm:gap-2">
+                    <button type="button" data-public-nav="contact" onclick="publicRouter('contact')"
+                        class="public-nav-btn px-3 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition">
+                        Contact
+                    </button>
+                    <button type="button" data-public-nav="devis" onclick="publicRouter('devis')"
+                        class="public-nav-btn px-3 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition">
+                        Demande de devis
+                    </button>
+                    <a href="login.html"
+                        class="ml-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+                        Connexion
+                    </a>
+                </nav>
+            </div>
+        </header>
+        <main id="public-content" class="flex-1 overflow-auto"></main>
+        <footer class="py-4 text-center text-xs text-gray-500 border-t bg-white">
+            © Transfact — TMS transport &amp; logistique
+        </footer>
+    </div>
+
     <!-- APP SCREEN -->
     <div id="app-screen" class="hidden flex h-full w-full">
 

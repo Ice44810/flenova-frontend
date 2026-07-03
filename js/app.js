@@ -146,6 +146,226 @@ function makeElementDraggable(el) {
     el.style.cursor = 'grab';
 }
 
+// --- PUBLIC SITE (sans authentification) ---
+const PUBLIC_ROUTES = ['home', 'contact', 'devis'];
+let isAuthenticated = false;
+
+function renderPublicHome() {
+    return `<div class="max-w-4xl mx-auto py-16 px-6 text-center fade-in">
+        <img src="assets/transfact_icon_512.jpg" alt="Transfact" class="w-20 h-20 rounded-2xl mx-auto mb-6 shadow-md">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Transfact</h1>
+        <p class="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            La plateforme TMS pour planifier vos transports, gérer votre flotte et facturer vos opérations.
+        </p>
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+            <button type="button" onclick="publicRouter('devis')"
+                class="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 shadow-lg transition">
+                <i class="fa-solid fa-file-invoice mr-2"></i>Demande de devis
+            </button>
+            <button type="button" onclick="publicRouter('contact')"
+                class="px-8 py-3 border-2 border-blue-600 text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition">
+                <i class="fa-solid fa-headset mr-2"></i>Nous contacter
+            </button>
+        </div>
+        <p class="mt-10 text-sm text-gray-500">
+            Déjà client ?
+            <a href="login.html" class="text-blue-600 font-semibold hover:underline">Connectez-vous à votre espace</a>
+        </p>
+    </div>`;
+}
+
+function renderPublicContact() {
+    return `<div class="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 fade-in my-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Contact</h2>
+        <p class="text-gray-600 mb-6">Une question ? Écrivez-nous, nous vous répondons sous 24h.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="text-center p-6 bg-blue-50 rounded-lg">
+                <i class="fa-solid fa-phone text-3xl text-blue-600 mb-3"></i>
+                <h4 class="font-bold text-gray-800">Téléphone</h4>
+                <p class="text-gray-600">02 99 00 00 00</p>
+                <p class="text-sm text-gray-500">Lun-Ven: 9h-18h</p>
+            </div>
+            <div class="text-center p-6 bg-blue-50 rounded-lg">
+                <i class="fa-solid fa-envelope text-3xl text-blue-600 mb-3"></i>
+                <h4 class="font-bold text-gray-800">Email</h4>
+                <p class="text-gray-600">support@transfact.fr</p>
+            </div>
+        </div>
+        <form id="public-contact-form" class="space-y-4" onsubmit="submitPublicContact(event)">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Votre nom</label>
+                    <input type="text" id="public-contact-name" class="w-full border rounded p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                    <input type="email" id="public-contact-email" class="w-full border rounded p-2" required>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Sujet</label>
+                <input type="text" id="public-contact-subject" class="w-full border rounded p-2" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                <textarea id="public-contact-message" class="w-full border rounded p-2" rows="5" required></textarea>
+            </div>
+            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Envoyer</button>
+        </form>
+    </div>`;
+}
+
+function renderPublicDevis() {
+    return `<div class="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 fade-in my-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Demande de devis</h2>
+        <p class="text-gray-600 mb-6">Décrivez votre besoin transport — notre équipe commerciale vous recontacte rapidement.</p>
+        <form id="public-devis-form" class="space-y-4" onsubmit="submitPublicDevis(event)">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Entreprise *</label>
+                    <input type="text" id="devis-company" class="w-full border rounded p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nom du contact *</label>
+                    <input type="text" id="devis-contact-name" class="w-full border rounded p-2" required>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
+                    <input type="email" id="devis-email" class="w-full border rounded p-2" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                    <input type="tel" id="devis-phone" class="w-full border rounded p-2">
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de chargement</label>
+                    <input type="text" id="devis-origin" class="w-full border rounded p-2" placeholder="Ville ou code postal">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de livraison</label>
+                    <input type="text" id="devis-destination" class="w-full border rounded p-2" placeholder="Ville ou code postal">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nature du transport</label>
+                <input type="text" id="devis-cargo" class="w-full border rounded p-2" placeholder="Marchandise, tonnage, palettes…">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Précisions</label>
+                <textarea id="devis-details" class="w-full border rounded p-2" rows="4" placeholder="Dates, contraintes, volume mensuel…"></textarea>
+            </div>
+            <button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
+                Envoyer ma demande de devis
+            </button>
+        </form>
+    </div>`;
+}
+
+function updatePublicNav(route) {
+    document.querySelectorAll('[data-public-nav]').forEach((btn) => {
+        const active = btn.dataset.publicNav === route;
+        btn.classList.toggle('text-blue-600', active);
+        btn.classList.toggle('bg-blue-50', active);
+        btn.classList.toggle('text-gray-600', !active);
+    });
+}
+
+function publicRouter(route) {
+    if (!PUBLIC_ROUTES.includes(route)) route = 'home';
+    const container = document.getElementById('public-content');
+    if (!container) return;
+
+    window.location.hash = route;
+    updatePublicNav(route === 'home' ? '' : route);
+
+    if (route === 'contact') container.innerHTML = renderPublicContact();
+    else if (route === 'devis') container.innerHTML = renderPublicDevis();
+    else container.innerHTML = renderPublicHome();
+}
+
+window.publicRouter = publicRouter;
+
+async function submitPublicContact(e) {
+    e.preventDefault();
+    const name = document.getElementById('public-contact-name')?.value?.trim();
+    const email = document.getElementById('public-contact-email')?.value?.trim();
+    const subject = document.getElementById('public-contact-subject')?.value?.trim();
+    const message = document.getElementById('public-contact-message')?.value?.trim();
+    if (!name || !email || !subject || !message) {
+        showToast('Veuillez remplir tous les champs', 'error');
+        return;
+    }
+    try {
+        const res = await fetch('/api/contact/public', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, subject, message })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            showToast(data.message || 'Message envoyé', 'success');
+            document.getElementById('public-contact-form')?.reset();
+        } else {
+            showToast(data.error || 'Erreur lors de l\'envoi', 'error');
+        }
+    } catch {
+        showToast('Erreur de communication avec le serveur', 'error');
+    }
+}
+
+async function submitPublicDevis(e) {
+    e.preventDefault();
+    const body = {
+        company_name: document.getElementById('devis-company')?.value?.trim(),
+        contact_name: document.getElementById('devis-contact-name')?.value?.trim(),
+        email: document.getElementById('devis-email')?.value?.trim(),
+        phone: document.getElementById('devis-phone')?.value?.trim(),
+        origin: document.getElementById('devis-origin')?.value?.trim(),
+        destination: document.getElementById('devis-destination')?.value?.trim(),
+        cargo: document.getElementById('devis-cargo')?.value?.trim(),
+        details: document.getElementById('devis-details')?.value?.trim()
+    };
+    if (!body.company_name || !body.contact_name || !body.email) {
+        showToast('Entreprise, contact et e-mail sont obligatoires', 'error');
+        return;
+    }
+    try {
+        const res = await fetch('/api/quote-requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            showToast(data.message || 'Demande enregistrée', 'success');
+            document.getElementById('public-devis-form')?.reset();
+        } else {
+            showToast(data.error || 'Erreur lors de l\'envoi', 'error');
+        }
+    } catch {
+        showToast('Erreur de communication avec le serveur', 'error');
+    }
+}
+
+function initPublicSite() {
+    document.getElementById('app-screen')?.classList.add('hidden');
+    document.getElementById('public-screen')?.classList.remove('hidden');
+    document.body.classList.remove('h-screen', 'overflow-hidden');
+
+    const hash = (window.location.hash || '').replace('#', '').trim();
+    publicRouter(PUBLIC_ROUTES.includes(hash) ? hash : 'home');
+
+    window.addEventListener('hashchange', () => {
+        if (isAuthenticated) return;
+        const next = (window.location.hash || '').replace('#', '').trim();
+        publicRouter(PUBLIC_ROUTES.includes(next) ? next : 'home');
+    });
+}
+
 // --- BOOTSTRAP ---
 (async () => {
     // On vérifie systématiquement la validité de la session avec le serveur au démarrage.
@@ -159,17 +379,17 @@ function makeElementDraggable(el) {
             if (data.permissions && typeof setPermissionsFromServer === 'function') {
                 setPermissionsFromServer(data.permissions);
             }
+            isAuthenticated = true;
         } else {
             throw new Error('Session expirée ou invalide');
         }
     } catch (e) {
         console.warn("Échec de l'authentification au démarrage:", e.message);
-        if (!window.location.pathname.endsWith('login.html')) {
-            window.location.href = '/login.html';
-        }
+        initPublicSite();
         return;
     }
 
+    document.getElementById('public-screen')?.classList.add('hidden');
     const appScreen = document.getElementById('app-screen');
     if (appScreen) appScreen.classList.remove('hidden');
 
@@ -2565,7 +2785,7 @@ function renderSolutions() {
             <h2 class="text-2xl font-bold mb-4">Prêt à simplifier votre gestion?</h2>
             <p class="text-blue-100 mb-6">Démarrez gratuitement et adaptez votre solution à vos besoins.</p>
             <div class="flex justify-center gap-4">
-                <button onclick="router('pricing')" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">Voir les tarifs</button>
+                <button onclick="router('devis')" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">Demande de devis</button>
                 <button onclick="router('contact')" class="border border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition">Nous contacter</button>
             </div>
         </div>
@@ -2849,6 +3069,10 @@ function destroyAllChartInstances() {
 }
 // --- ROUTER ---
 async function router(route) {
+    if (!isAuthenticated) {
+        publicRouter(PUBLIC_ROUTES.includes(route) ? route : 'home');
+        return;
+    }
     if (typeof canAccessRoute === 'function' && !canAccessRoute(route)) {
         showToast("Accès refusé pour votre rôle", "error");
         if (route !== 'dashboard' && canAccessRoute('dashboard')) {
@@ -3000,7 +3224,11 @@ case 'fleet':
             break;
         case 'contact':
             title = 'Contact & Aide';
-            content = renderContact();
+            content = isAuthenticated ? renderContact() : renderPublicContact();
+            break;
+        case 'devis':
+            title = 'Demande de devis';
+            content = renderPublicDevis();
             break;
         case 'about':
             title = 'À propos';
