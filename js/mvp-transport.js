@@ -47,7 +47,8 @@ function getStatusBorderClass(status) {
         'Clôturé': 'border-l-4 border-slate-400',
         'Planifié': 'border-l-4 border-gray-400',
         'Terminé': 'border-l-4 border-green-500',
-        'Annulé': 'border-l-4 border-red-400'
+        'Annulé': 'border-l-4 border-red-400',
+        'Affrété': 'border-l-4 border-purple-500',
     };
     return map[status] || 'border-l-4 border-gray-300';
 }
@@ -95,7 +96,7 @@ function renderTransportList() {
                         <th class="px-4 py-3">Client</th>
                         <th class="px-4 py-3">Trajet</th>
                         <th class="px-4 py-3">Dates</th>
-                        <th class="px-4 py-3">Chauffeur</th>
+                        <th class="px-4 py-3">Chauffeur / Sous-traitant</th>
                         <th class="px-4 py-3">Statut</th>
                         <th class="px-4 py-3">Montant</th>
                         <th class="px-4 py-3">Actions</th>
@@ -108,11 +109,12 @@ function renderTransportList() {
                             <td class="px-4 py-3">${o.client_name || '-'}</td>
                             <td class="px-4 py-3 text-xs">${o.origin || '-'} → ${o.dest || '-'}</td>
                             <td class="px-4 py-3 text-xs">${o.load_date || '-'} / ${o.delivery_date || '-'}</td>
-                            <td class="px-4 py-3">${o.driver_name || '-'}</td>
+                            <td class="px-4 py-3">${o.assignment_type === 'SUBCONTRACTED' ? (o.subcontractor_name || '<span class="text-purple-600">Sous-traitant</span>') : (o.driver_name || '-')}</td>
                             <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(o.status)}">${o.status}</span></td>
                             <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString()} €</td>
                             <td class="px-4 py-3">
                                 <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs mr-2">Détail</button>
+                                ${canShowDispatchButton(o) ? `<button onclick="openDispatchModal(${o.id})" class="text-purple-600 hover:underline text-xs mr-2"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>` : ''}
                                 ${canWriteTransport() ? `<button onclick="openEditOrderModal(${o.id})" class="text-gray-500 hover:text-blue-600 text-xs"><i class="fa-solid fa-pen"></i></button>` : ''}
                             </td>
                         </tr>`).join('') : '<tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport</td></tr>'}
@@ -180,7 +182,13 @@ function renderTransportDetailModal(t) {
     document.getElementById('td-client').textContent = t.client_name || '-';
     document.getElementById('td-route').textContent = `${t.origin || '-'} → ${t.dest || '-'}`;
     document.getElementById('td-dates').textContent = `Chargement : ${t.load_date || '-'} | Livraison : ${t.delivery_date || '-'}`;
-    document.getElementById('td-driver').textContent = t.driver_name || 'Non assigné';
+    document.getElementById('td-driver').textContent = t.assignment_type === 'SUBCONTRACTED'
+        ? (t.subcontractor_name ? `Sous-traitant : ${t.subcontractor_name}` : 'Sous-traitant (non renseigné)')
+        : (t.driver_name || 'Non assigné');
+    if (t.assignment_type === 'SUBCONTRACTED' && t.purchase_price) {
+        const margin = Number(t.price || 0) - Number(t.purchase_price || 0);
+        document.getElementById('td-driver').textContent += ` — Achat: ${Number(t.purchase_price).toLocaleString()} € (marge ${margin.toLocaleString()} €)`;
+    }
     const priceEl = document.getElementById('td-price');
     if (getUserRole() === 'chauffeur' || t.price === undefined) {
         priceEl.textContent = '—';
@@ -215,7 +223,10 @@ function renderTransportDetailModal(t) {
     const actionsEl = document.getElementById('td-actions');
     let actionsHtml = '';
     if (typeof canAssignTransport === 'function' && canAssignTransport()) {
-        actionsHtml += `<button onclick="assignTransportFromDetail(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-user-check mr-1"></i>Affecter</button>`;
+        actionsHtml += `<button onclick="assignTransportFromDetail(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-user-check mr-1"></i>Affecter chauffeur</button>`;
+    }
+    if (typeof canShowDispatchButton === 'function' && canShowDispatchButton(t)) {
+        actionsHtml += `<button onclick="closeTransportDetail(); openDispatchModal(${t.id})" class="px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 mr-2"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>`;
     }
     if (typeof canValidateTransport === 'function' && canValidateTransport() && t.status === 'Livré') {
         actionsHtml += `<button onclick="validateTransportFromDetail(${t.id})" class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 mr-2">Valider transport</button>`;

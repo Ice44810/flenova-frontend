@@ -4,6 +4,8 @@
 
 // --- MOCK DATABASE ---
 let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], users: [], sales_invoices: [], purchase_invoices: [], subcontractors: [] };
+let subcontractorFilters = { search: '', status: '', compliance: '' };
+let purchaseInvoiceFilter = { subcontractor_id: '', type: '' };
 
 let salesChartInstance = null;
 let invoiceLines = [];
@@ -639,15 +641,21 @@ function renderPlanning() {
                     return `<div class="flex-1 flex flex-col h-full min-w-[150px] ${isToday ? 'bg-blue-50' : ''}">
                         <div class="p-3 text-center border-b font-semibold text-sm text-gray-600 ${isToday ? 'bg-blue-100 text-blue-700' : ''}">${day}</div>
                         <div class="p-2 space-y-2 flex-1 overflow-y-auto">
-                            ${dayMissions.length > 0 ? dayMissions.map(m => `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition cursor-pointer relative group" onclick="openTransportDetail(${m.id})">
-                                <div class="font-bold text-gray-800 mb-1">#${m.ref || m.id}</div>
+                            ${dayMissions.length > 0 ? dayMissions.map(m => {
+                                const isSub = m.assignment_type === 'SUBCONTRACTED' || m.status === 'Affrété';
+                                const subName = m.subcontractor_name || (db.subcontractors.find(s => s.id === m.subcontractor_id) || {}).name;
+                                const dispatchBtn = canShowDispatchButton(m) ? `<button onclick="event.stopPropagation(); openDispatchModal(${m.id})" class="text-[10px] text-purple-600 hover:underline ml-1" title="Affréter"><i class="fa-solid fa-handshake"></i></button>` : '';
+                                return `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition cursor-pointer relative group" onclick="openTransportDetail(${m.id})">
+                                <div class="font-bold text-gray-800 mb-1">#${m.ref || m.id}${isSub ? ' <span class="text-purple-600 text-[10px]"><i class="fa-solid fa-handshake"></i></span>' : ''}</div>
                                 <div class="text-gray-500 truncate text-[10px]">${m.origin} <i class="fa-solid fa-arrow-right mx-1"></i> ${m.dest}</div>
+                                ${isSub && subName ? `<div class="text-[10px] text-purple-600 truncate">${subName}</div>` : ''}
                                 <div class="mt-1 text-xs text-gray-400"><i class="fa-regular fa-clock mr-1"></i>${m.delivery_date || '--/--'}</div>
                                 <div class="mt-2 flex justify-between items-center">
                                     <span class="bg-gray-100 px-1 rounded text-[10px]">${m.price}€</span>
-                                    <span class="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition"><i class="fa-solid fa-pencil"></i> Modifier</span>
+                                    <span class="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition">${dispatchBtn}<i class="fa-solid fa-pencil ml-1"></i> Modifier</span>
                                 </div>
-                            </div>`).join('') : '<div class="h-full min-h-[100px] border-2 border-dashed border-gray-200 rounded flex items-center justify-center text-gray-300 text-xs">Disponible</div>'}
+                            </div>`;
+                            }).join('') : '<div class="h-full min-h-[100px] border-2 border-dashed border-gray-200 rounded flex items-center justify-center text-gray-300 text-xs">Disponible</div>'}
                         </div>
                     </div>`;
                 }).join('')}
@@ -690,11 +698,100 @@ function renderClients() {
     </div>`;
 }
 
+function getSubcontractorComplianceInfo(s) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const in30 = new Date(today);
+    in30.setDate(in30.getDate() + 30);
+
+    const checkDate = (expiry, label) => {
+        if (!expiry) return { label, status: 'unknown', text: 'Non renseigné' };
+        const d = new Date(expiry);
+        d.setHours(0, 0, 0, 0);
+        if (d < today) return { label, status: 'expired', text: expiry };
+        if (d <= in30) return { label, status: 'expiring', text: expiry };
+        return { label, status: 'valid', text: expiry };
+    };
+
+    return {
+        rc: checkDate(s.rc_pro_expiry, 'RC Pro'),
+        urssaf: checkDate(s.urssaf_expiry, 'URSSAF')
+    };
+}
+
+function filterSubcontractors(list) {
+    return (list || []).filter(s => {
+        if (subcontractorFilters.status && s.status !== subcontractorFilters.status) return false;
+        if (subcontractorFilters.search) {
+            const q = subcontractorFilters.search.toLowerCase();
+            const hay = `${s.name || ''} ${s.siret || ''} ${s.email || ''}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        if (subcontractorFilters.compliance) {
+            const info = getSubcontractorComplianceInfo(s);
+            if (subcontractorFilters.compliance === 'expired') {
+                if (info.rc.status !== 'expired' && info.urssaf.status !== 'expired') return false;
+            } else if (subcontractorFilters.compliance === 'expiring') {
+                if (info.rc.status !== 'expiring' && info.urssaf.status !== 'expiring') return false;
+            } else if (subcontractorFilters.compliance === 'valid') {
+                if (info.rc.status === 'expired' || info.urssaf.status === 'expired') return false;
+            }
+        }
+        return true;
+    });
+}
+
+function countSubcontractorsNeedingAttention() {
+    return (db.subcontractors || []).filter(s => {
+        const info = getSubcontractorComplianceInfo(s);
+        return info.rc.status === 'expired' || info.rc.status === 'expiring'
+            || info.urssaf.status === 'expired' || info.urssaf.status === 'expiring';
+    }).length;
+}
+
+function complianceBadgeClass(status) {
+    if (status === 'expired') return 'text-red-600 bg-red-100';
+    if (status === 'expiring') return 'text-orange-600 bg-orange-100';
+    if (status === 'valid') return 'text-green-600 bg-green-100';
+    return 'text-gray-400 bg-gray-100';
+}
+
+function canShowDispatchButton(order) {
+    if (!order || typeof canDispatchSubcontractor !== 'function' || !canDispatchSubcontractor()) return false;
+    if (order.assignment_type === 'SUBCONTRACTED' || order.status === 'Affrété') return false;
+    return !['Validé', 'Clôturé', 'Terminé', 'Annulé'].includes(order.status);
+}
+
 function renderSubcontractors() {
+    const all = Array.isArray(db.subcontractors) ? db.subcontractors : [];
+    const filtered = filterSubcontractors(all);
+    const attentionCount = countSubcontractorsNeedingAttention();
+
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex justify-between items-center mb-4">
             <h3 class="font-bold text-lg text-gray-800">Gestion des Sous-traitants</h3>
             <button onclick="openAddSubcontractorModal()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"><i class="fa-solid fa-plus"></i> Nouveau</button>
+        </div>
+        ${attentionCount > 0 ? `<div class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center gap-2 text-sm text-orange-800">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span><strong>${attentionCount}</strong> sous-traitant(s) avec document expiré ou expirant sous 30 jours</span>
+            <button onclick="subcontractorFilters.compliance='expiring'; subcontractorFilters.status=''; router('subcontractors')" class="ml-auto text-xs underline">Voir les alertes</button>
+        </div>` : ''}
+        <div class="flex flex-wrap gap-3 mb-4">
+            <input type="text" placeholder="Rechercher nom, SIRET…" value="${subcontractorFilters.search || ''}"
+                oninput="subcontractorFilters.search=this.value; router('subcontractors')"
+                class="border rounded px-3 py-2 text-sm flex-1 min-w-[180px]">
+            <select onchange="subcontractorFilters.status=this.value; router('subcontractors')" class="border rounded px-3 py-2 text-sm">
+                <option value="">Tous statuts</option>
+                <option value="ACTIF" ${subcontractorFilters.status === 'ACTIF' ? 'selected' : ''}>ACTIF</option>
+                <option value="BLOQUÉ" ${subcontractorFilters.status === 'BLOQUÉ' ? 'selected' : ''}>BLOQUÉ</option>
+            </select>
+            <select onchange="subcontractorFilters.compliance=this.value; router('subcontractors')" class="border rounded px-3 py-2 text-sm">
+                <option value="">Conformité (tous)</option>
+                <option value="valid" ${subcontractorFilters.compliance === 'valid' ? 'selected' : ''}>Conformes</option>
+                <option value="expiring" ${subcontractorFilters.compliance === 'expiring' ? 'selected' : ''}>Expire bientôt</option>
+                <option value="expired" ${subcontractorFilters.compliance === 'expired' ? 'selected' : ''}>Expirés</option>
+            </select>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
@@ -702,23 +799,25 @@ function renderSubcontractors() {
                     <tr><th class="px-4 py-3">Sous-traitant</th><th class="px-4 py-3">SIRET</th><th class="px-4 py-3">RC Pro</th><th class="px-4 py-3">URSSAF</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Actions</th></tr>
                 </thead>
                 <tbody>
-                    ${(Array.isArray(db.subcontractors) ? db.subcontractors : []).map(s => {
-                        const rcStatus = s.rc_pro_status === 'EXPIRED' ? 'text-red-600 bg-red-100' : (s.rc_pro_status === 'VALID' ? 'text-green-600 bg-green-100' : 'text-gray-400 bg-gray-100');
+                    ${filtered.length ? filtered.map(s => {
+                        const rc = getSubcontractorComplianceInfo(s).rc;
+                        const urssaf = getSubcontractorComplianceInfo(s).urssaf;
                         const statusClass = s.status === 'ACTIF' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                         return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900">${s.name}</td>
                             <td class="px-4 py-3 font-mono text-xs">${s.siret || '-'}</td>
                             <td class="px-4 py-3">
-                                <span class="${rcStatus} px-2 py-1 rounded text-xs font-semibold block mb-1">${s.rc_pro_expiry || 'N/A'}</span>
+                                <span class="${complianceBadgeClass(rc.status)} px-2 py-1 rounded text-xs font-semibold block mb-1">${rc.text}</span>
                                 ${s.insurance_doc_url ? `<a href="${normalizeUploadUrl(s.insurance_doc_url)}" target="_blank" class="text-blue-500 text-[10px] hover:underline flex items-center gap-1"><i class="fa-solid fa-file-pdf"></i> Voir document</a>` : ''}
                             </td>
-                            <td class="px-4 py-3">${s.urssaf_expiry || '-'}</td>
+                            <td class="px-4 py-3"><span class="${complianceBadgeClass(urssaf.status)} px-2 py-1 rounded text-xs font-semibold">${urssaf.text}</span></td>
                             <td class="px-4 py-3"><span class="${statusClass} px-2 py-1 rounded text-xs font-semibold">${s.status}</span></td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 whitespace-nowrap">
                                 <button onclick="openEditSubcontractorModal(${s.id})" class="text-blue-600 hover:underline mr-3"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
+                                <button onclick="deleteSubcontractorById(${s.id}, '${(s.name || '').replace(/'/g, "\\'")}')" class="text-red-600 hover:underline"><i class="fa-solid fa-trash mr-1"></i>Supprimer</button>
                             </td>
                         </tr>`;
-                    }).join('')}
+                    }).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Aucun sous-traitant${all.length ? ' pour ces filtres' : ''}</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -750,10 +849,10 @@ function renderMarginDashboard() {
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">Sous-traitant</th><th class="px-4 py-3">NB Orders</th><th class="px-4 py-3">Prix Vente</th><th class="px-4 py-3">Prix Achat</th><th class="px-4 py-3">Marge €</th><th class="px-4 py-3">Marge %</th></tr>
+                    <tr><th class="px-4 py-3">Sous-traitant</th><th class="px-4 py-3">NB Orders</th><th class="px-4 py-3">Prix Vente</th><th class="px-4 py-3">Prix Achat</th><th class="px-4 py-3">Marge €</th><th class="px-4 py-3">Marge %</th><th class="px-4 py-3">Actions</th></tr>
                 </thead>
                 <tbody id="margin-by-subcontractor">
-                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Chargement...</td></tr>
+                    <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Chargement...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -779,11 +878,14 @@ function updateMarginDashboard(data) {
                 <td class="px-4 py-3 text-orange-600">${item.costTotal.toLocaleString()}€</td>
                 <td class="px-4 py-3 font-bold ${item.margin >= 0 ? 'text-green-600' : 'text-red-600'}">${item.margin.toLocaleString()}€</td>
                 <td class="px-4 py-3 font-bold ${item.margin >= 0 ? 'text-green-600' : 'text-red-600'}">${marginPercent}%</td>
+                <td class="px-4 py-3">
+                    <button onclick="filterPurchaseInvoicesBySubcontractor('${(item.name || '').replace(/'/g, "\\'")}')" class="text-xs text-blue-600 hover:underline">Factures achat</button>
+                </td>
             </tr>`;
         }).join('');
         document.getElementById('margin-by-subcontractor').innerHTML = rows;
     } else {
-        document.getElementById('margin-by-subcontractor').innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Aucune donnée</td></tr>';
+        document.getElementById('margin-by-subcontractor').innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Aucune donnée</td></tr>';
     }
 }
 
@@ -859,10 +961,17 @@ function renderFleet() {
 
 function renderPurchaseInvoices() {
     const canManage = canManageInvoices();
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
-    const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    const subcontractorOptions = (db.subcontractors || []).map(s =>
+        `<option value="${s.id}" ${String(purchaseInvoiceFilter.subcontractor_id) === String(s.id) ? 'selected' : ''}>${s.name}</option>`
+    ).join('');
+
+    let invoices = [...(db.purchase_invoices || [])];
+    if (purchaseInvoiceFilter.subcontractor_id) {
+        invoices = invoices.filter(inv => String(inv.subcontractor_id) === String(purchaseInvoiceFilter.subcontractor_id));
+    }
+    if (purchaseInvoiceFilter.type) {
+        invoices = invoices.filter(inv => inv.type === purchaseInvoiceFilter.type);
+    }
 
     return `<div class="h-full flex flex-col fade-in">
         <div class="flex justify-between items-center mb-4">
@@ -871,24 +980,46 @@ function renderPurchaseInvoices() {
             </div>
             ${canManage ? `<button onclick="openAddPurchaseInvoiceModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Ajouter une facture</button>` : `<span class="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded"><i class="fa-solid fa-lock mr-2"></i>Lecture seule</span>`}
         </div>
+        <div class="flex flex-wrap gap-3 mb-4">
+            <select onchange="purchaseInvoiceFilter.subcontractor_id=this.value; router('purchase_invoices')" class="border rounded px-3 py-2 text-sm">
+                <option value="">Tous sous-traitants</option>
+                ${subcontractorOptions}
+            </select>
+            <select onchange="purchaseInvoiceFilter.type=this.value; router('purchase_invoices')" class="border rounded px-3 py-2 text-sm">
+                <option value="">Toutes catégories</option>
+                <option value="Sous-traitance" ${purchaseInvoiceFilter.type === 'Sous-traitance' ? 'selected' : ''}>Sous-traitance</option>
+                <option value="Carburant" ${purchaseInvoiceFilter.type === 'Carburant' ? 'selected' : ''}>Carburant</option>
+                <option value="Péage" ${purchaseInvoiceFilter.type === 'Péage' ? 'selected' : ''}>Péage</option>
+                <option value="Maintenance" ${purchaseInvoiceFilter.type === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
+            </select>
+        </div>
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">N° Pièce</th><th class="px-4 py-3">Fournisseur</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Montant TTC</th><th class="px-4 py-3">Statut</th></tr>
+                    <tr><th class="px-4 py-3">N° Pièce</th><th class="px-4 py-3">Fournisseur</th><th class="px-4 py-3">Sous-traitant / Commande</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Montant TTC</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Doc</th></tr>
                 </thead>
                 <tbody>
-                    ${db.purchase_invoices.map(inv => `<tr class="bg-white border-b hover:bg-gray-50">
+                    ${invoices.length ? invoices.map(inv => `<tr class="bg-white border-b hover:bg-gray-50">
                         <td class="px-4 py-3 font-medium text-gray-900">${inv.id}</td>
                         <td class="px-4 py-3">${inv.supplier}</td>
+                        <td class="px-4 py-3 text-xs">${inv.subcontractor_name || '-'}${inv.order_ref ? `<br><span class="text-gray-400">Cmd. ${inv.order_ref}</span>` : ''}</td>
                         <td class="px-4 py-3">${inv.type}</td>
-                        <td class="px-4 py-3 font-bold text-gray-700">-${inv.amount.toLocaleString()} €</td>
+                        <td class="px-4 py-3 font-bold text-gray-700">-${Number(inv.amount || 0).toLocaleString()} €</td>
                         <td class="px-4 py-3"><span class="${inv.status === 'Payée' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'} px-2 py-1 rounded text-xs font-semibold">${inv.status}</span></td>
-                    </tr>`).join('')}
+                        <td class="px-4 py-3">${inv.file ? `<a href="${normalizeUploadUrl(inv.file)}" target="_blank" class="text-blue-600 hover:underline text-xs"><i class="fa-solid fa-file-pdf"></i></a>` : '-'}</td>
+                    </tr>`).join('') : '<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400 italic">Aucune facture d\'achat</td></tr>'}
                 </tbody>
             </table>
         </div>
     </div>`;
 }
+
+window.filterPurchaseInvoicesBySubcontractor = function(subcontractorName) {
+    const sub = (db.subcontractors || []).find(s => s.name === subcontractorName);
+    purchaseInvoiceFilter.subcontractor_id = sub ? sub.id : '';
+    purchaseInvoiceFilter.type = 'Sous-traitance';
+    router('purchase_invoices');
+};
 
 function isCreditNoteType(inv) {
     const type = (inv.type || '').toLowerCase();
@@ -2686,7 +2817,8 @@ case 'fleet':
             title = 'Analyse des Marges';
             content = renderMarginDashboard();
             // Load margin data from API
-            apiFetch('dispatch/margins')
+            apiFetch('dispatch/summary')
+                .then(res => res.ok ? res : apiFetch('dispatch/margins'))
                 .then(res => res.json())
                 .then(payload => {
                     updateMarginDashboard(payload.data || payload);
@@ -3434,12 +3566,19 @@ async function submitAddSubcontractor() {
 
 async function deleteSubcontractor() {
     const id = document.getElementById('edit-subcontractor-id').value;
-    if (!id || !confirm('Êtes-vous sûr de vouloir supprimer ce sous-traitant?')) return;
-    
+    if (!id) return;
+    await deleteSubcontractorById(id);
+}
+
+async function deleteSubcontractorById(id, name) {
+    const label = name ? ` « ${name} »` : '';
+    if (!id || !confirm(`Êtes-vous sûr de vouloir supprimer ce sous-traitant${label} ?`)) return;
+
     try {
         const res = await apiFetch(`subcontractors/${id}`, { method: 'DELETE' });
         if (res.ok) {
-            showToast('Sous-traitant supprimé', 'success');
+            const data = await res.json().catch(() => ({}));
+            showToast(data.message || 'Sous-traitant supprimé', 'success');
             await fetchAllData();
             closeAddSubcontractorModal();
             router('subcontractors');
@@ -3450,6 +3589,8 @@ async function deleteSubcontractor() {
         showToast('Erreur réseau', 'error');
     }
 }
+
+window.deleteSubcontractorById = deleteSubcontractorById;
 
 // --- DISPATCH MODALS ---
 function openDispatchModal(orderId) {
@@ -3534,14 +3675,17 @@ async function submitDispatch() {
         const response = await apiFetch(`dispatch`, {
             method: 'POST',
             body: {
-                orderId,
-                subcontractorId,
-                purchasePrice
+                order_id: orderId,
+                subcontractor_id: subcontractorId,
+                purchase_price: purchasePrice
             }
         });
         
         if (response.ok) {
-            showToast('Commande affectée au sous-traitant', 'success');
+            const result = await response.json().catch(() => ({}));
+            showToast(result.data?.purchaseInvoiceId
+                ? 'Affrètement confirmé — confirmation PDF et facture achat générées'
+                : 'Commande affectée au sous-traitant', 'success');
             await fetchAllData();
             closeDispatchModal();
             router('planning');
@@ -3681,17 +3825,35 @@ function closeSaleInvoiceModal() {
 // --- PURCHASE INVOICE MODAL ---
 let selectedPurchaseCategory = 'Carburant';
 
-function openAddPurchaseInvoiceModal() {
+function openAddPurchaseInvoiceModal(prefill = {}) {
     hideAllModals();
-    document.getElementById('add-purchase-supplier').value = '';
-    document.getElementById('add-purchase-type').value = 'Carburant';
-    document.getElementById('add-purchase-ref').value = '';
-    document.getElementById('add-purchase-amount').value = '';
-    document.getElementById('add-purchase-date').value = new Date().toISOString().split('T')[0];
-    selectedPurchaseCategory = 'Carburant';
+    document.getElementById('add-purchase-supplier').value = prefill.supplier || '';
+    document.getElementById('add-purchase-type').value = prefill.type || 'Carburant';
+    document.getElementById('add-purchase-ref').value = prefill.ref || '';
+    document.getElementById('add-purchase-amount').value = prefill.amount ?? '';
+    document.getElementById('add-purchase-date').value = prefill.date || new Date().toISOString().split('T')[0];
+    populateSubcontractorSelect(document.getElementById('add-purchase-subcontractor'), prefill.subcontractor_id);
+    document.getElementById('add-purchase-order-id').value = prefill.order_id || '';
+    selectedPurchaseCategory = prefill.type || 'Carburant';
+    togglePurchaseSubcontractorFields();
     switchPurchaseInvoiceTab('manual');
     document.getElementById('add-purchase-invoice-modal').classList.remove('hidden');
 }
+
+window.onPurchaseSubcontractorChange = function() {
+    const id = parseInt(document.getElementById('add-purchase-subcontractor')?.value, 10);
+    const sub = (db.subcontractors || []).find(s => s.id === id);
+    if (sub) document.getElementById('add-purchase-supplier').value = sub.name;
+};
+
+window.togglePurchaseSubcontractorFields = function() {
+    const type = document.getElementById('add-purchase-type')?.value;
+    const wrap = document.getElementById('add-purchase-subcontractor-wrap');
+    if (wrap) wrap.classList.toggle('hidden', type !== 'Sous-traitance');
+    if (type === 'Sous-traitance') {
+        populateSubcontractorSelect(document.getElementById('add-purchase-subcontractor'));
+    }
+};
 
 function closeAddPurchaseInvoiceModal() {
     hideAllModals();
@@ -3767,6 +3929,8 @@ async function submitPurchaseInvoice() {
     const type = document.getElementById('add-purchase-type').value;
     const amount = parseFloat(document.getElementById('add-purchase-amount').value);
     const date = document.getElementById('add-purchase-date').value;
+    const subcontractorId = parseInt(document.getElementById('add-purchase-subcontractor')?.value, 10);
+    const orderId = parseInt(document.getElementById('add-purchase-order-id')?.value, 10);
 
     if (supplier && amount && date) {
         const newInvoice = {
@@ -3776,7 +3940,9 @@ async function submitPurchaseInvoice() {
             date: date,
             amount: amount,
             status: 'À payer',
-            file: null
+            file: null,
+            subcontractor_id: type === 'Sous-traitance' && subcontractorId ? subcontractorId : null,
+            order_id: orderId || null
         };
         await apiFetch('purchase-invoices', { method: 'POST', body: newInvoice });
         await fetchAllData();
@@ -4382,11 +4548,19 @@ function openEditOrderModal(orderId) {
     toggleOrderPalletFields('edit-order');
     toggleOrderPalletExchange('edit-order');
 
+    const dispatchBtn = document.getElementById('edit-order-dispatch-btn');
+    if (dispatchBtn) {
+        dispatchBtn.classList.toggle('hidden', !canShowDispatchButton(order));
+        dispatchBtn.onclick = () => { closeEditOrderModal(); openDispatchModal(orderId); };
+    }
+
     const modal = document.getElementById('edit-order-modal');
     modal.classList.remove('hidden');
     if (!modal.classList.contains('flex')) modal.classList.add('flex', 'items-center', 'justify-center');
 }
 window.openEditOrderModal = openEditOrderModal;
+window.openDispatchModal = openDispatchModal;
+window.canShowDispatchButton = canShowDispatchButton;
 
 function closeEditOrderModal() {
     hideAllModals();
