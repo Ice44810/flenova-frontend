@@ -20,28 +20,34 @@
 <body class="h-screen overflow-hidden text-gray-800">
 
     <!-- PUBLIC SITE (visiteurs non connectés) -->
-    <div id="public-screen" class="hidden min-h-screen flex flex-col bg-gray-50">
-        <header class="bg-white border-b border-gray-200 shadow-sm">
-            <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-                <button type="button" onclick="publicRouter('home')" class="flex items-center gap-2">
-                    <img src="assets/transfact_icon_512.jpg" alt="Transfact" class="w-9 h-9 rounded-lg">
-                    <span class="text-xl font-bold text-gray-900">Transfact</span>
+    <div id="public-screen" class="hidden h-screen flex flex-col overflow-hidden bg-white">
+        <header class="public-header">
+            <div class="public-header-inner">
+                <button type="button" onclick="publicRouter('home')" class="public-header-logo">
+                    <img src="assets/transfact_icon_512.jpg" alt="Transfact" class="public-logo-icon">
+                    <span class="public-logo-text">Transfact</span>
                 </button>
-                <nav class="flex items-center gap-1 sm:gap-2">
-                    <button type="button" data-public-nav="contact" onclick="publicRouter('contact')"
-                        class="public-nav-btn px-3 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition">
-                        Contact
-                    </button>
-                    <a href="login.html"
-                        class="ml-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
-                        Connexion
-                    </a>
-                </nav>
+                <div class="public-header-right">
+                    <nav class="public-header-nav hidden md:flex">
+                        <button type="button" data-public-nav="home" onclick="publicRouter('home')" class="public-nav-btn">Accueil</button>
+                        <button type="button" data-public-nav="fonctionnalites" onclick="publicRouter('fonctionnalites')" class="public-nav-btn">Fonctionnalités</button>
+                        <button type="button" data-public-nav="tarifs" onclick="publicRouter('tarifs')" class="public-nav-btn">Tarifs</button>
+                        <button type="button" data-public-nav="contact" onclick="publicRouter('contact')" class="public-nav-btn">Contact</button>
+                    </nav>
+                    <a href="login.html" class="public-btn-connect">Se Connecter</a>
+                </div>
             </div>
+            <nav class="public-header-nav-mobile md:hidden">
+                <button type="button" data-public-nav="home" onclick="publicRouter('home')" class="public-nav-btn">Accueil</button>
+                <button type="button" data-public-nav="fonctionnalites" onclick="publicRouter('fonctionnalites')" class="public-nav-btn">Fonctionnalités</button>
+                <button type="button" data-public-nav="tarifs" onclick="publicRouter('tarifs')" class="public-nav-btn">Tarifs</button>
+                <button type="button" data-public-nav="contact" onclick="publicRouter('contact')" class="public-nav-btn">Contact</button>
+            </nav>
         </header>
-        <main id="public-content" class="flex-1 overflow-auto"></main>
-        <footer class="py-4 text-center text-xs text-gray-500 border-t bg-white">
-            © Transfact — TMS transport &amp; logistique
+        <main id="public-content" class="public-content-area flex-1 min-h-0 overflow-y-auto"></main>
+        <footer id="public-footer" class="public-footer py-6 text-center text-sm text-gray-500 border-t bg-gray-50">
+            <p>© Transfact — TMS transport &amp; logistique</p>
+            <p class="mt-1 text-xs text-gray-400">support@transfact.fr · 02 99 00 00 00</p>
         </footer>
     </div>
 
@@ -224,7 +230,8 @@
         </main>
     </div>
 
-    <!-- MODALS CONTAINER -->
+    <!-- MODALS CONTAINER (masqué sur le site public) -->
+    <div id="app-modals" class="hidden" aria-hidden="true">
     <!-- MODAL: EDIT MISSION -->
     <div id="edit-mission-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
@@ -1355,6 +1362,7 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <!-- TOAST CONTAINER -->

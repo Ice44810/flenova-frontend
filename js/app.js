@@ -85,7 +85,7 @@ function hideAllModals() {
         if (el) {
             el.classList.add('hidden');
             el.classList.remove('flex'); // Nécessaire car modal-overlay utilise flex pour le centrage
-            
+
             // CRITICAL: Vider le contenu du conteneur générique 'modal-content'
             // pour éviter que l'aperçu de facture ne s'affiche par erreur dans d'autres modaux.
             if (id === 'modal-content') {
@@ -109,12 +109,12 @@ function hideAllModals() {
 function makeElementDraggable(el) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
 
-    el.onmousedown = function(e) {
+    el.onmousedown = function (e) {
         // On ne déplace pas si on clique sur un input, bouton, textarea ou icône
         if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'I'].includes(e.target.tagName) || e.target.closest('button')) return;
 
         e.preventDefault();
-        
+
         // Capture de la position actuelle pour passer du mode Flex (centré) au mode Fixed (déplaçable) sans saut visuel
         const rect = el.getBoundingClientRect();
         el.style.position = 'fixed';
@@ -147,76 +147,231 @@ function makeElementDraggable(el) {
 }
 
 // --- PUBLIC SITE (sans authentification) ---
-const PUBLIC_ROUTES = ['home', 'contact'];
+const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact'];
 let isAuthenticated = false;
 
 function renderPublicHome() {
-    return `<div class="max-w-4xl mx-auto py-16 px-6 text-center fade-in">
-        <img src="assets/transfact_icon_512.jpg" alt="Transfact" class="w-20 h-20 rounded-2xl mx-auto mb-6 shadow-md">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Transfact</h1>
-        <p class="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-            La plateforme TMS pour planifier vos transports, gérer votre flotte et facturer vos opérations.
-        </p>
-        <div class="flex flex-col sm:flex-row justify-center gap-4">
-            <button type="button" onclick="publicRouter('contact')"
-                class="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 shadow-lg transition">
-                <i class="fa-solid fa-headset mr-2"></i>Nous contacter
-            </button>
+    const iconClipboard = `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="8" width="28" height="34" rx="3"/><path d="M18 8V6a6 6 0 0 1 12 0v2"/><line x1="24" y1="22" x2="24" y2="32"/><line x1="19" y1="27" x2="29" y2="27"/></svg>`;
+    const iconGears = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="18" cy="22" r="7"/><circle cx="32" cy="30" r="6"/><path d="M18 12v3M18 29v3M11 22h3M22 22h3M14 15l2 2M20 27l2 2M14 29l2-2M20 19l2-2M32 21v3M32 33v3M27 30h3M35 30h3"/></svg>`;
+    const iconChart = `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="28" width="7" height="12" rx="1"/><rect x="20" y="20" width="7" height="20" rx="1"/><rect x="32" y="12" width="7" height="28" rx="1"/><polyline points="8,26 22,18 36,10 42,6"/></svg>`;
+
+    return `<div class="public-landing fade-in pb-8">
+        <section class="public-hero">
+            <div class="public-hero-bg-shape public-hero-bg-shape-1" aria-hidden="true"></div>
+            <div class="public-hero-bg-shape public-hero-bg-shape-2" aria-hidden="true"></div>
+            <div class="public-hero-inner">
+                <div>
+                    <h1 class="public-hero-title">Simplifiez votre gestion de transport.</h1>
+                    <p class="public-hero-subtitle">Optimisez des opérations logistiques avec notre solution TMS tout-en-un</p>
+                    <div class="public-hero-cta">
+                        <a href="register.html" class="public-btn-primary">Essayer Gratuitement</a>
+                        <button type="button" class="public-hero-demo-link" onclick="publicRouter('contact')">
+                            Demander une démo <span aria-hidden="true">&rsaquo;</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="public-hero-image-wrap">
+                    <img src="assets/public-hero-illustration.png" alt="Interface Transfact et chauffeur" class="public-hero-image" width="520" height="250">
+                </div>
+            </div>
+        </section>
+
+        <section class="public-features-section">
+            <div class="public-features-inner">
+                <h2 class="public-features-title">Une Solution Complète pour Votre Logistique</h2>
+                <div class="public-features-grid">
+                    <div class="public-feature-card-home">
+                        <div class="public-feature-icon-home">${iconClipboard}</div>
+                        <h3>Suivi des Expéditions</h3>
+                        <p>Suivez et gérez des livraisons en temps réel</p>
+                    </div>
+                    <div class="public-feature-card-home">
+                        <div class="public-feature-icon-home">${iconGears}</div>
+                        <h3>Automatisation des Tâches</h3>
+                        <p>Optimisez vos processus avec des outils intelligents</p>
+                    </div>
+                    <div class="public-feature-card-home">
+                        <div class="public-feature-icon-home">${iconChart}</div>
+                        <h3>Analyse &amp; Rapports</h3>
+                        <p>Obtenez des insights détaillés sur votre activité</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="public-testimonial">
+            <div class="public-testimonial-wave" aria-hidden="true"></div>
+            <div class="public-testimonial-wave-bottom" aria-hidden="true"></div>
+            <div class="public-testimonial-inner">
+                <div class="public-testimonial-quote-wrap">
+                    <span class="public-testimonial-mark" aria-hidden="true">&ldquo;</span>
+                    <blockquote>Grâce à Transfact, nous avons réduit nos coûts et amélioré notre efficacité de manière significative.</blockquote>
+                    <cite>&mdash; Sophie L., Directrice Logistique</cite>
+                </div>
+                <img src="assets/public-testimonial-portrait.png" alt="Sophie L." class="public-testimonial-portrait" width="120" height="120">
+            </div>
+        </section>
+    </div>`;
+}
+
+function renderPublicFeatures() {
+    return `<div class="fade-in pb-10">
+        <div class="public-page-header py-12">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
+                <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Nos Fonctionnalités</h1>
+                <p class="text-lg text-gray-600 max-w-2xl mx-auto">Une suite complète pour gérer votre activité de transport, de la commande à la facturation.</p>
+            </div>
         </div>
-        <p class="mt-10 text-sm text-gray-500">
-            Déjà client ?
-            <a href="login.html" class="text-blue-600 font-semibold hover:underline">Connectez-vous à votre espace</a>
-        </p>
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                <div class="public-feature-card text-left">
+                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-boxes-packing"></i></div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-3">Gestion des Commandes</h3>
+                    <p class="text-gray-600">Créez et gérez vos ordres de transport facilement. Suivi complet du chargement à la livraison, avec gestion des statuts.</p>
+                </div>
+                <div class="public-feature-card text-left">
+                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-calendar-days"></i></div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-3">Planning Intelligent</h3>
+                    <p class="text-gray-600">Planifiez vos missions sur un planning hebdomadaire visuel. Optimisez les tournées et réduisez les coûts.</p>
+                </div>
+                <div class="public-feature-card text-left">
+                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-truck"></i></div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-3">Gestion de Flotte</h3>
+                    <p class="text-gray-600">Suivez l'état de votre parc véhicule : maintenance, assurance, kilomètres et affectation aux chauffeurs.</p>
+                </div>
+                <div class="public-feature-card text-left">
+                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-3">Facturation Automatique</h3>
+                    <p class="text-gray-600">Générez vos factures clients (Factur-X) et achats en un clic. Suivi des paiements et relances automatiques.</p>
+                </div>
+                <div class="public-feature-card text-left">
+                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-handshake-angle"></i></div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-3">Sous-traitants &amp; Affrètement</h3>
+                    <p class="text-gray-600">Gérez vos sous-traitants, affectez des commandes et analysez la rentabilité de chaque affrètement.</p>
+                </div>
+                <div class="public-feature-card text-left">
+                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-3">Application Mobile Chauffeurs</h3>
+                    <p class="text-gray-600">Vos chauffeurs gèrent leurs missions, scannent des documents et collectent des signatures depuis leur mobile.</p>
+                </div>
+            </div>
+            <div class="bg-gradient-to-r from-blue-700 to-blue-900 rounded-2xl p-8 text-white text-center">
+                <h2 class="text-2xl font-bold mb-4">Prêt à simplifier votre gestion ?</h2>
+                <p class="text-blue-100 mb-6">Démarrez gratuitement et adaptez votre solution à vos besoins.</p>
+                <div class="flex flex-col sm:flex-row justify-center gap-4">
+                    <a href="register.html" class="bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">Essayer Gratuitement</a>
+                    <button type="button" onclick="publicRouter('contact')" class="border border-white/60 text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition">Demander une démo</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function renderPublicPricing() {
+    return `<div class="fade-in">
+        <div class="public-page-header py-12">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
+                <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Tarifs Transfact</h1>
+                <p class="text-lg text-gray-600">Des solutions adaptées à vos besoins, sans frais cachés.</p>
+            </div>
+        </div>
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+                <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition">
+                    <h3 class="font-bold text-xl text-gray-800 mb-2">Starter</h3>
+                    <div class="text-4xl font-bold text-gray-900 mb-4">150€<span class="text-sm font-normal text-gray-500">/mois</span></div>
+                    <ul class="space-y-3 text-sm text-gray-600 mb-6">
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Factures illimitées</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>1 utilisateur</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support par email</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Gestion des clients</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Tableau de bord basique</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Planning avancé</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>3 chauffeurs application mobile</li>
+                    </ul>
+                    <a href="register.html" class="block w-full py-2.5 text-center border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-semibold transition">Commencer</a>
+                </div>
+                <div class="bg-white p-8 rounded-2xl shadow-lg public-pricing-popular relative">
+                    <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold">Le plus populaire</div>
+                    <h3 class="font-bold text-xl text-gray-800 mb-2">Professionnel</h3>
+                    <div class="text-4xl font-bold text-gray-900 mb-4">199€<span class="text-sm font-normal text-gray-500">/mois</span></div>
+                    <ul class="space-y-3 text-sm text-gray-600 mb-6">
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Factures illimitées</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>1 utilisateur</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support prioritaire</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Accès API</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Planning avancé</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Gestion de flotte</li>
+                    </ul>
+                    <a href="register.html" class="block w-full py-2.5 text-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition">Choisir ce forfait</a>
+                </div>
+                <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition">
+                    <h3 class="font-bold text-xl text-gray-800 mb-2">Enterprise</h3>
+                    <div class="text-4xl font-bold text-gray-900 mb-4">399€<span class="text-sm font-normal text-gray-500">/mois</span></div>
+                    <ul class="space-y-3 text-sm text-gray-600 mb-6">
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Tout dans Professionnel</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Utilisateurs illimités</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support 24/7</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Personnalisation</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Intégration sur mesure</li>
+                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Formation incluse</li>
+                    </ul>
+                    <button type="button" onclick="publicRouter('contact')" class="w-full py-2.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-semibold transition">Nous contacter</button>
+                </div>
+            </div>
+            <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. Engagement mensuel résiliable à tout moment.</p>
+        </div>
     </div>`;
 }
 
 function renderPublicContact() {
-    return `<div class="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 fade-in my-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">Contact</h2>
-        <p class="text-gray-600 mb-6">Une question ? Écrivez-nous, nous vous répondons sous 24h.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div class="text-center p-6 bg-blue-50 rounded-lg">
-                <i class="fa-solid fa-phone text-3xl text-blue-600 mb-3"></i>
-                <h4 class="font-bold text-gray-800">Téléphone</h4>
-                <p class="text-gray-600">02 99 00 00 00</p>
-                <p class="text-sm text-gray-500">Lun-Ven: 9h-18h</p>
-            </div>
-            <div class="text-center p-6 bg-blue-50 rounded-lg">
-                <i class="fa-solid fa-envelope text-3xl text-blue-600 mb-3"></i>
-                <h4 class="font-bold text-gray-800">Email</h4>
-                <p class="text-gray-600">support@transfact.fr</p>
+    return `<div class="public-contact-page fade-in">
+        <div class="public-contact-inner">
+            <h1>Contact</h1>
+            <p class="public-contact-lead">Une question ou une demande de démo ? Écrivez-nous, nous vous répondons sous 24&nbsp;h.</p>
+            <div class="public-contact-card">
+                <div class="public-contact-infos">
+                    <div class="public-contact-info-box">
+                        <i class="fa-solid fa-phone"></i>
+                        <h4>Téléphone</h4>
+                        <p>02 99 00 00 00</p>
+                        <p class="public-contact-info-meta">Lun–Ven : 9h–18h</p>
+                    </div>
+                    <div class="public-contact-info-box">
+                        <i class="fa-solid fa-envelope"></i>
+                        <h4>Email</h4>
+                        <p>support@transfact.fr</p>
+                    </div>
+                </div>
+                <form id="public-contact-form" class="public-contact-form" onsubmit="submitPublicContact(event)">
+                    <div class="public-contact-form-grid">
+                        <div class="public-contact-form-field">
+                            <label for="public-contact-name">Votre nom</label>
+                            <input type="text" id="public-contact-name" required>
+                        </div>
+                        <div class="public-contact-form-field">
+                            <label for="public-contact-email">E-mail</label>
+                            <input type="email" id="public-contact-email" required>
+                        </div>
+                    </div>
+                    <div class="public-contact-form-field">
+                        <label for="public-contact-subject">Sujet</label>
+                        <input type="text" id="public-contact-subject" required>
+                    </div>
+                    <div class="public-contact-form-field">
+                        <label for="public-contact-message">Message</label>
+                        <textarea id="public-contact-message" rows="6" required></textarea>
+                    </div>
+                    <button type="submit" class="public-contact-submit">Envoyer le message</button>
+                </form>
             </div>
         </div>
-        <form id="public-contact-form" class="space-y-4" onsubmit="submitPublicContact(event)">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Votre nom</label>
-                    <input type="text" id="public-contact-name" class="w-full border rounded p-2" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
-                    <input type="email" id="public-contact-email" class="w-full border rounded p-2" required>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Sujet</label>
-                <input type="text" id="public-contact-subject" class="w-full border rounded p-2" required>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                <textarea id="public-contact-message" class="w-full border rounded p-2" rows="5" required></textarea>
-            </div>
-            <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Envoyer</button>
-        </form>
     </div>`;
 }
 
 function updatePublicNav(route) {
     document.querySelectorAll('[data-public-nav]').forEach((btn) => {
-        const active = btn.dataset.publicNav === route;
-        btn.classList.toggle('text-blue-600', active);
-        btn.classList.toggle('bg-blue-50', active);
-        btn.classList.toggle('text-gray-600', !active);
+        btn.classList.toggle('is-active', btn.dataset.publicNav === route);
     });
 }
 
@@ -226,10 +381,24 @@ function publicRouter(route) {
     if (!container) return;
 
     window.location.hash = route;
-    updatePublicNav(route === 'home' ? '' : route);
+    updatePublicNav(route);
+    document.getElementById('public-screen')?.classList.toggle('public-on-home', route === 'home');
+    container.classList.toggle('public-scroll-visible', route === 'home' || route === 'fonctionnalites');
+    container.scrollTop = 0;
 
-    if (route === 'contact') container.innerHTML = renderPublicContact();
-    else container.innerHTML = renderPublicHome();
+    switch (route) {
+        case 'contact':
+            container.innerHTML = renderPublicContact();
+            break;
+        case 'fonctionnalites':
+            container.innerHTML = renderPublicFeatures();
+            break;
+        case 'tarifs':
+            container.innerHTML = renderPublicPricing();
+            break;
+        default:
+            container.innerHTML = renderPublicHome();
+    }
 }
 
 window.publicRouter = publicRouter;
@@ -262,10 +431,20 @@ async function submitPublicContact(e) {
     }
 }
 
+function setAppModalsVisible(visible) {
+    const wrap = document.getElementById('app-modals');
+    if (!wrap) return;
+    wrap.classList.toggle('hidden', !visible);
+    wrap.setAttribute('aria-hidden', visible ? 'false' : 'true');
+}
+
 function initPublicSite() {
+    hideAllModals();
+    setAppModalsVisible(false);
     document.getElementById('app-screen')?.classList.add('hidden');
     document.getElementById('public-screen')?.classList.remove('hidden');
     document.body.classList.remove('h-screen', 'overflow-hidden');
+    document.body.classList.add('public-site-active');
 
     const hash = (window.location.hash || '').replace('#', '').trim();
     publicRouter(PUBLIC_ROUTES.includes(hash) ? hash : 'home');
@@ -301,8 +480,10 @@ function initPublicSite() {
     }
 
     document.getElementById('public-screen')?.classList.add('hidden');
+    document.body.classList.remove('public-site-active');
     const appScreen = document.getElementById('app-screen');
     if (appScreen) appScreen.classList.remove('hidden');
+    setAppModalsVisible(true);
 
     hideAllModals();
 
@@ -325,7 +506,7 @@ function initPublicSite() {
 // --- DASHBOARD STATE ---
 window.activeDashboardTab = 'general';
 window.dashboardFilters = { startDate: null, endDate: null };
-window.switchDashboardTab = function(tab) {
+window.switchDashboardTab = function (tab) {
     destroyAllChartInstances();
     window.activeDashboardTab = tab;
     router('dashboard');
@@ -333,7 +514,7 @@ window.switchDashboardTab = function(tab) {
 
 // --- PLANNING STATE ---
 window.planningDate = new Date();
-window.changePlanningWeek = function(offset) {
+window.changePlanningWeek = function (offset) {
     const d = new Date(window.planningDate);
     d.setDate(d.getDate() + (offset * 7));
     window.planningDate = d;
@@ -404,7 +585,7 @@ async function deleteSelectedInvoices() {
 
 function renderDashboard(stats = {}) {
     const activeTab = window.activeDashboardTab || 'general';
-    
+
     // Tab Headers
     const tabsHtml = `
         <div class="flex gap-1 border-b border-gray-200">
@@ -416,7 +597,7 @@ function renderDashboard(stats = {}) {
     `;
 
     let tabContent = '';
-    
+
     if (activeTab === 'general') {
         tabContent = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -500,7 +681,7 @@ function renderDashboard(stats = {}) {
         const totalInvoiced = db.sales_invoices.reduce((acc, inv) => acc + inv.amount, 0);
         const pendingValidation = db.sales_invoices.filter(inv => inv.status === 'En attente').length;
         const outstanding = db.sales_invoices.filter(inv => inv.status !== 'Payée').reduce((acc, inv) => acc + inv.amount, 0);
-        
+
         tabContent = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
@@ -629,8 +810,8 @@ function renderCompletedTransports() {
                 </thead>
                 <tbody>
                     ${completedMissions.map(m => {
-                        const client = db.clients.find(c => c.id === m.client_id);
-                        return `<tr class="bg-white border-b hover:bg-gray-50">
+        const client = db.clients.find(c => c.id === m.client_id);
+        return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900">#${m.id}</td>
                             <td class="px-4 py-3">${client ? client.name : '-'}</td>
                             <td class="px-4 py-3">${m.origin} → ${m.dest}</td>
@@ -639,7 +820,7 @@ function renderCompletedTransports() {
                             <td class="px-4 py-3 font-bold text-gray-700">${m.price} €</td>
                             <td class="px-4 py-3"><button onclick="createInvoiceFromMission(${m.id})" class="text-blue-600 hover:underline text-xs"><i class="fa-solid fa-file-invoice mr-1"></i>Facturer</button></td>
                         </tr>`;
-                    }).join('')}
+    }).join('')}
                 </tbody>
             </table>
         </div>`;
@@ -672,7 +853,7 @@ function renderInProgressTransports() {
                 </thead>
                 <tbody>
                     ${inProgressMissions.length > 0 ? inProgressMissions.map(m => {
-                        return `<tr class="bg-white border-b hover:bg-gray-50">
+        return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900">#${m.id}</td>
                             <td class="px-4 py-3">${m.client_name || '-'}</td>
                             <td class="px-4 py-3">
@@ -686,7 +867,7 @@ function renderInProgressTransports() {
                                 <button onclick="openEditMissionModal(${m.id})" class="text-gray-400 hover:text-blue-600 text-xs"><i class="fa-solid fa-gear"></i></button>
                             </td>
                         </tr>`;
-                    }).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400 italic">Aucun chauffeur n\'a de mission en cours actuellement</td></tr>'}
+    }).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400 italic">Aucun chauffeur n\'a de mission en cours actuellement</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -732,7 +913,7 @@ function renderPlanning() {
     const diff = current.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(current.setDate(diff));
     monday.setHours(0, 0, 0, 0);
-    
+
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
@@ -752,7 +933,7 @@ function renderPlanning() {
     });
 
     const getStatusColor = (s) => typeof getStatusBorderClass === 'function' ? getStatusBorderClass(s) : (s === 'Planifié' ? 'border-l-4 border-gray-400' : s === 'En cours' ? 'border-l-4 border-blue-500' : s === 'Terminé' ? 'border-l-4 border-green-500' : s === 'Annulé' ? 'border-l-4 border-red-400' : '');
-    
+
     // Calcul du numéro de semaine ISO
     const getISOWeek = (date) => {
         const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -761,7 +942,7 @@ function renderPlanning() {
         return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     };
     const weekNum = getISOWeek(monday);
-    
+
     return `<div class="h-full flex flex-col fade-in">
         <div class="flex justify-between items-center mb-4">
             <div class="flex items-center gap-4">
@@ -774,16 +955,16 @@ function renderPlanning() {
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             <div class="min-w-[1200px] flex h-full">
                 ${days.map(day => {
-                    const dayMissions = weekMissions.filter(m => m.day === day);
-                    const isToday = day === days[now.getDay() === 0 ? 6 : now.getDay() - 1];
-                    return `<div class="flex-1 flex flex-col h-full min-w-[150px] ${isToday ? 'bg-blue-50' : ''}">
+        const dayMissions = weekMissions.filter(m => m.day === day);
+        const isToday = day === days[now.getDay() === 0 ? 6 : now.getDay() - 1];
+        return `<div class="flex-1 flex flex-col h-full min-w-[150px] ${isToday ? 'bg-blue-50' : ''}">
                         <div class="p-3 text-center border-b font-semibold text-sm text-gray-600 ${isToday ? 'bg-blue-100 text-blue-700' : ''}">${day}</div>
                         <div class="p-2 space-y-2 flex-1 overflow-y-auto">
                             ${dayMissions.length > 0 ? dayMissions.map(m => {
-                                const isSub = m.assignment_type === 'SUBCONTRACTED' || m.status === 'Affrété';
-                                const subName = m.subcontractor_name || (db.subcontractors.find(s => s.id === m.subcontractor_id) || {}).name;
-                                const dispatchBtn = canShowDispatchButton(m) ? `<button onclick="event.stopPropagation(); openDispatchModal(${m.id})" class="text-[10px] text-purple-600 hover:underline ml-1" title="Affréter"><i class="fa-solid fa-handshake"></i></button>` : '';
-                                return `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition cursor-pointer relative group" onclick="openTransportDetail(${m.id})">
+            const isSub = m.assignment_type === 'SUBCONTRACTED' || m.status === 'Affrété';
+            const subName = m.subcontractor_name || (db.subcontractors.find(s => s.id === m.subcontractor_id) || {}).name;
+            const dispatchBtn = canShowDispatchButton(m) ? `<button onclick="event.stopPropagation(); openDispatchModal(${m.id})" class="text-[10px] text-purple-600 hover:underline ml-1" title="Affréter"><i class="fa-solid fa-handshake"></i></button>` : '';
+            return `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition cursor-pointer relative group" onclick="openTransportDetail(${m.id})">
                                 <div class="font-bold text-gray-800 mb-1">#${m.ref || m.id}${isSub ? ' <span class="text-purple-600 text-[10px]"><i class="fa-solid fa-handshake"></i></span>' : ''}</div>
                                 <div class="text-gray-500 truncate text-[10px]">${m.origin} <i class="fa-solid fa-arrow-right mx-1"></i> ${m.dest}</div>
                                 ${isSub && subName ? `<div class="text-[10px] text-purple-600 truncate">${subName}</div>` : ''}
@@ -793,10 +974,10 @@ function renderPlanning() {
                                     <span class="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition">${dispatchBtn}<i class="fa-solid fa-pencil ml-1"></i> Modifier</span>
                                 </div>
                             </div>`;
-                            }).join('') : '<div class="h-full min-h-[100px] border-2 border-dashed border-gray-200 rounded flex items-center justify-center text-gray-300 text-xs">Disponible</div>'}
+        }).join('') : '<div class="h-full min-h-[100px] border-2 border-dashed border-gray-200 rounded flex items-center justify-center text-gray-300 text-xs">Disponible</div>'}
                         </div>
                     </div>`;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
     </div>`;
@@ -807,7 +988,7 @@ function renderClients() {
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
     const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
-    
+
     return `<div class="h-full flex flex-col fade-in">
         <div class="flex justify-between items-center mb-4">
         <div class="flex items-center gap-4">
@@ -938,10 +1119,10 @@ function renderSubcontractors() {
                 </thead>
                 <tbody>
                     ${filtered.length ? filtered.map(s => {
-                        const rc = getSubcontractorComplianceInfo(s).rc;
-                        const urssaf = getSubcontractorComplianceInfo(s).urssaf;
-                        const statusClass = s.status === 'ACTIF' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-                        return `<tr class="bg-white border-b hover:bg-gray-50">
+        const rc = getSubcontractorComplianceInfo(s).rc;
+        const urssaf = getSubcontractorComplianceInfo(s).urssaf;
+        const statusClass = s.status === 'ACTIF' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+        return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900">${s.name}</td>
                             <td class="px-4 py-3 font-mono text-xs">${s.siret || '-'}</td>
                             <td class="px-4 py-3">
@@ -955,7 +1136,7 @@ function renderSubcontractors() {
                                 <button onclick="deleteSubcontractorById(${s.id}, '${(s.name || '').replace(/'/g, "\\'")}')" class="text-red-600 hover:underline"><i class="fa-solid fa-trash mr-1"></i>Supprimer</button>
                             </td>
                         </tr>`;
-                    }).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Aucun sous-traitant${all.length ? ' pour ces filtres' : ''}</td></tr>`}
+    }).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Aucun sous-traitant${all.length ? ' pour ces filtres' : ''}</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -999,13 +1180,13 @@ function renderMarginDashboard() {
 
 function updateMarginDashboard(data) {
     if (!data || !data.summary) return;
-    
+
     document.getElementById('margin-total-orders').textContent = data.summary.totalOrders || 0;
     document.getElementById('margin-total-sale').textContent = (data.summary.totalSale || 0).toLocaleString() + '€';
     document.getElementById('margin-total-cost').textContent = (data.summary.totalCost || 0).toLocaleString() + '€';
     document.getElementById('margin-total-margin').textContent = (data.summary.totalMargin || 0).toLocaleString() + '€';
     document.getElementById('margin-avg-percent').textContent = (data.summary.avgMarginPercent || 0).toFixed(1) + '%';
-    
+
     if (data.bySubcontractor && data.bySubcontractor.length > 0) {
         const rows = data.bySubcontractor.map(item => {
             const marginPercent = item.saleTotal > 0 ? ((item.margin / item.saleTotal) * 100).toFixed(1) : 0;
@@ -1158,17 +1339,17 @@ function renderDrivers() {
                 </thead>
                 <tbody>
                     ${(Array.isArray(db.drivers) ? db.drivers : []).map(d => {
-                        const statusColor = d.status === 'Disponible' ? 'text-green-600' : 'text-blue-600';
-                        const statusBg = d.status === 'Disponible' ? 'bg-green-100' : 'bg-blue-100';
-                        const mobileBadge = d.user_account_id
-                            ? '<span class="text-green-700 bg-green-100 px-2 py-1 rounded text-xs font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Activé</span>'
-                            : (d.invite_code
-                                ? `<span class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-200" title="Code à transmettre au chauffeur">${d.invite_code}</span>`
-                                : '<span class="text-gray-400 text-xs">—</span>');
-                        return `<tr class="bg-white border-b hover:bg-gray-50">
+        const statusColor = d.status === 'Disponible' ? 'text-green-600' : 'text-blue-600';
+        const statusBg = d.status === 'Disponible' ? 'bg-green-100' : 'bg-blue-100';
+        const mobileBadge = d.user_account_id
+            ? '<span class="text-green-700 bg-green-100 px-2 py-1 rounded text-xs font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Activé</span>'
+            : (d.invite_code
+                ? `<span class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-200" title="Code à transmettre au chauffeur">${d.invite_code}</span>`
+                : '<span class="text-gray-400 text-xs">—</span>');
+        return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900 flex items-center gap-2">
                                 <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                                    ${d.name ? d.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : '?'}
+                                    ${d.name ? d.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?'}
                                 </div>
                                 ${d.name || 'N/A'}
                             </td>
@@ -1181,7 +1362,7 @@ function renderDrivers() {
                                 <button onclick="openDriverCardModal(${d.id})" class="text-gray-400 hover:underline"><i class="fa-solid fa-id-card mr-1"></i>Fiche</button>
                             </td>
                         </tr>`;
-                    }).join('')}
+    }).join('')}
                 </tbody>
             </table>
         </div>`;
@@ -1192,7 +1373,7 @@ function renderFleet() {
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
     const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
-    
+
     return `<div class="h-full flex flex-col fade-in">
         <div class="flex justify-between items-center mb-4">
             <div class="flex items-center gap-4">
@@ -1203,8 +1384,8 @@ function renderFleet() {
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                 ${(Array.isArray(db.vehicles) ? db.vehicles : []).map(v => {
-                    const statusColor = v.status === 'Disponible' ? 'border-green-500' : (v.status === 'Garage' ? 'border-red-500' : 'border-blue-500');
-                    return `<div onclick="openEditVehicleModal(${v.id})" class="border rounded-xl p-5 hover:shadow-md transition relative overflow-hidden cursor-pointer">
+        const statusColor = v.status === 'Disponible' ? 'border-green-500' : (v.status === 'Garage' ? 'border-red-500' : 'border-blue-500');
+        return `<div onclick="openEditVehicleModal(${v.id})" class="border rounded-xl p-5 hover:shadow-md transition relative overflow-hidden cursor-pointer">
                         <div class="absolute top-0 left-0 w-full h-1 ${statusColor}"></div>
                         <div class="flex justify-between items-start mb-4">
                             <div><h4 class="font-bold text-gray-800">${v.plate}</h4><p class="text-xs text-gray-500">${v.model}</p></div>
@@ -1215,7 +1396,7 @@ function renderFleet() {
                             <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Maintenance</span><span class="font-medium">${formatDisplayDate(v.next_maintenance) || v.next_maintenance || '—'}</span></div>
                         </div>
                     </div>`;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
     </div>`;
@@ -1276,7 +1457,7 @@ function renderPurchaseInvoices() {
     </div>`;
 }
 
-window.filterPurchaseInvoicesBySubcontractor = function(subcontractorName) {
+window.filterPurchaseInvoicesBySubcontractor = function (subcontractorName) {
     const sub = (db.subcontractors || []).find(s => s.name === subcontractorName);
     purchaseInvoiceFilter.subcontractor_id = sub ? sub.id : '';
     purchaseInvoiceFilter.type = 'Sous-traitance';
@@ -1329,18 +1510,18 @@ function renderSalesInvoices() {
                 </thead>
                 <tbody>
                     ${db.sales_invoices.map(inv => {
-                        const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
-                        const reminderLabel = inv.reminder_date
-                            ? formatDisplayDate(inv.reminder_date)
-                            : '<span class="text-gray-300">—</span>';
-                        const isCreditNote = isCreditNoteType(inv);
-                        const invoiceNumber = inv.number || inv.invoice_number || inv.id;
-                        const amountLabel = isCreditNote
-                            ? `- ${Number(inv.amount).toLocaleString('fr-FR')} €`
-                            : `${Number(inv.amount).toLocaleString('fr-FR')} €`;
-                        const amountClass = isCreditNote ? 'text-red-600' : 'text-gray-700';
-                        const canCredit = canManage && isCreditNoteEligibleInvoice(inv);
-                        return `<tr class="bg-white border-b hover:bg-gray-50">
+        const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
+        const reminderLabel = inv.reminder_date
+            ? formatDisplayDate(inv.reminder_date)
+            : '<span class="text-gray-300">—</span>';
+        const isCreditNote = isCreditNoteType(inv);
+        const invoiceNumber = inv.number || inv.invoice_number || inv.id;
+        const amountLabel = isCreditNote
+            ? `- ${Number(inv.amount).toLocaleString('fr-FR')} €`
+            : `${Number(inv.amount).toLocaleString('fr-FR')} €`;
+        const amountClass = isCreditNote ? 'text-red-600' : 'text-gray-700';
+        const canCredit = canManage && isCreditNoteEligibleInvoice(inv);
+        return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3"><input type="checkbox" class="invoice-checkbox" value="${inv.id}"></td>
                             <td class="px-4 py-3 font-medium text-gray-900">
                                 ${invoiceNumber}
@@ -1350,10 +1531,9 @@ function renderSalesInvoices() {
                             <td class="px-4 py-3">${formatDisplayDate(inv.date)}</td>
                             <td class="px-4 py-3 font-bold ${amountClass}">${amountLabel}</td>
                             <td class="px-4 py-3">
-                                <span class="px-2 py-1 rounded text-xs font-semibold ${
-                                    inv.status === 'Payée' ? 'bg-green-100 text-green-800' : 
-                                    inv.status === 'Brouillon' ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800'
-                                }">${inv.status}</span>
+                                <span class="px-2 py-1 rounded text-xs font-semibold ${inv.status === 'Payée' ? 'bg-green-100 text-green-800' :
+                inv.status === 'Brouillon' ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800'
+            }">${inv.status}</span>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <button onclick="openInvoiceModal('${inv.id}')" class="text-blue-600 hover:underline mr-2">Voir</button>
@@ -1365,14 +1545,14 @@ function renderSalesInvoices() {
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-600">${reminderLabel}</td>
                         </tr>`;
-                    }).join('')}
+    }).join('')}
                 </tbody>
             </table>
         </div>
     </div>`;
 }
 
-window.openInvoiceModal = async function(invoiceId) {
+window.openInvoiceModal = async function (invoiceId) {
     let inv = db.sales_invoices.find(i => String(i.id) === String(invoiceId) || i.number === invoiceId);
     if (!inv) return showToast("Facture introuvable", "error");
 
@@ -1642,11 +1822,11 @@ async function refreshCompanyProfileForInvoice() {
 }
 
 
-window.closeInvoiceModal = function() {
+window.closeInvoiceModal = function () {
     hideAllModals();
 };
 
-window.printInvoice = function() {
+window.printInvoice = function () {
     const content = document.getElementById('printable-invoice');
     if (!content) return;
 
@@ -1791,14 +1971,14 @@ function renderSettingInvoices() {
 }
 
 // Fonction utilitaire pour la mise à jour en temps réel
-window.updateThemePreview = function(color) {
+window.updateThemePreview = function (color) {
     const header = document.getElementById('theme-preview-header');
     const textInput = document.getElementById('color-text');
     if (header) header.style.backgroundColor = color;
     if (textInput) textInput.value = color.toUpperCase();
 };
 
-window.saveInvoiceSettings = async function(e) {
+window.saveInvoiceSettings = async function (e) {
     if (e) e.preventDefault();
     const form = e?.target;
     if (!form || !currentUser?.company_id) return;
@@ -1833,7 +2013,7 @@ window.saveInvoiceSettings = async function(e) {
     }
 };
 
-window.loadBankSettingsIntoForm = async function() {
+window.loadBankSettingsIntoForm = async function () {
     try {
         const res = await apiFetch('bank-settings');
         if (!res.ok) return;
@@ -1933,7 +2113,7 @@ function generateInvoiceNumber() {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const prefix = `FAC${year}${month}`;
-    
+
     // On filtre les factures du mois en cours pour incrémenter le compteur
     const monthInvoices = db.sales_invoices.filter(inv => inv.id && inv.id.startsWith(prefix));
     const nextIndex = monthInvoices.length + 1;
@@ -1941,10 +2121,10 @@ function generateInvoiceNumber() {
 }
 
 function addLine() {
-    invoiceLines.push({ 
-        desc: '', 
-        qty: 1, 
-        price: 0 
+    invoiceLines.push({
+        desc: '',
+        qty: 1,
+        price: 0
     });
     renderLines();
 }
@@ -2181,7 +2361,7 @@ function updateCreditNoteTotal() {
     totalEl.textContent = total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 }
 
-window.openPartialCreditNoteModal = async function(invoiceId) {
+window.openPartialCreditNoteModal = async function (invoiceId) {
     if (!canManageInvoices()) {
         showToast('Permission insuffisante pour créer un avoir', 'error');
         return;
@@ -2281,7 +2461,7 @@ window.openPartialCreditNoteModal = async function(invoiceId) {
 
 window.updateCreditNoteTotal = updateCreditNoteTotal;
 
-window.closeCreditNoteModal = function() {
+window.closeCreditNoteModal = function () {
     const modal = document.getElementById('credit-note-modal');
     if (modal) {
         modal.classList.add('hidden');
@@ -2289,7 +2469,7 @@ window.closeCreditNoteModal = function() {
     }
 };
 
-window.submitPartialCreditNote = async function() {
+window.submitPartialCreditNote = async function () {
     const invoiceId = document.getElementById('cn-invoice-id')?.value;
     if (!invoiceId) return;
 
@@ -2360,7 +2540,7 @@ function getInvoiceFormData(status) {
     const number = document.getElementById('invoice-number').value;
     const dueInput = document.getElementById('invoice-due');
     const due = dueInput?.value ? dueInput.value : formatDateForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
-    
+
     // Filtrer les lignes vides pour ne pas polluer la base de données
     const validLines = invoiceLines.filter(l => l.desc && l.desc.trim() !== "");
 
@@ -2368,7 +2548,7 @@ function getInvoiceFormData(status) {
         showToast("Veuillez sélectionner un client", "error");
         return null;
     }
-    
+
     if (validLines.length === 0) {
         showToast("Veuillez ajouter au moins une ligne avec une description", "error");
         return null;
@@ -2396,7 +2576,7 @@ function resolveCompanyLogoUrl(logoPath) {
 }
 window.resolveCompanyLogoUrl = resolveCompanyLogoUrl;
 
-window.previewCompanyLogo = function(input) {
+window.previewCompanyLogo = function (input) {
     const file = input.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
@@ -2412,7 +2592,7 @@ window.previewCompanyLogo = function(input) {
     reader.readAsDataURL(file);
 };
 
-window.uploadCompanyLogo = async function() {
+window.uploadCompanyLogo = async function () {
     const input = document.getElementById('admin-company-logo-input');
     if (!input?.files?.[0]) {
         showToast('Sélectionnez une image (PNG, JPG, WEBP ou SVG)', 'error');
@@ -2534,7 +2714,7 @@ function renderAdmin() {
 }
 
 // Fonctions logiques pour les paramètres
-window.updateCompanyInfo = async function() {
+window.updateCompanyInfo = async function () {
     const payload = {
         address: document.getElementById('admin-company-address').value,
         tva_intra: document.getElementById('admin-company-tva').value,
@@ -2548,10 +2728,10 @@ window.updateCompanyInfo = async function() {
         });
 
         if (response.ok) {
-            Object.assign(currentUser, { 
-                company_address: payload.address, 
-                company_tva: payload.tva_intra, 
-                company_siret: payload.siret 
+            Object.assign(currentUser, {
+                company_address: payload.address,
+                company_tva: payload.tva_intra,
+                company_siret: payload.siret
             });
             setCurrentUser(currentUser);
             showToast("Informations de la compagnie enregistrées", "success");
@@ -2564,10 +2744,10 @@ window.updateCompanyInfo = async function() {
     }
 };
 
-window.toggleEmailNotifications = async function() {
+window.toggleEmailNotifications = async function () {
     const currentVal = currentUser?.company_notifications || 0;
     const newVal = currentVal === 1 ? 0 : 1;
-    
+
     try {
         const response = await apiFetch(`companies/${currentUser.company_id}/notifications`, {
             method: 'PUT',
@@ -2887,7 +3067,7 @@ async function saveQuotation() {
     const costHour = document.getElementById('q-cost-hour').value;
     const days = document.getElementById('q-days').value;
     const costDay = document.getElementById('q-cost-day').value;
-    
+
     const ck = document.getElementById('res-ck').textContent;
     const cc = document.getElementById('res-cc').textContent;
     const cj = document.getElementById('res-cj').textContent;
@@ -2956,7 +3136,7 @@ async function saveQuotation() {
     };
 
     showToast("Génération de l'offre PDF...", "info");
-    
+
     try {
         await html2pdf().from(offerContent).set(opt).save();
         showToast("Offre commerciale sauvegardée localement", "success");
@@ -2994,7 +3174,7 @@ async function router(route) {
     const appContent = document.getElementById('app-content');
     const pageTitle = document.getElementById('page-title');
     const navItems = document.querySelectorAll('.nav-item');
-    
+
     // Update active nav
     navItems.forEach(item => {
         item.classList.remove('active');
@@ -3003,16 +3183,16 @@ async function router(route) {
             item.classList.add('active');
         }
     });
-    
+
     let content = '';
     let title = '';
-    
-    switch(route) {
+
+    switch (route) {
         case 'dashboard':
             title = 'Tableau de bord';
             // Rendu immédiat avec le squelette et les données vides
             content = renderDashboard();
-            
+
             // Prepare filter query parameters
             const filterParams = new URLSearchParams();
             if (window.dashboardFilters.startDate) {
@@ -3070,7 +3250,7 @@ async function router(route) {
             title = 'Chauffeurs';
             content = renderDrivers();
             break;
-case 'fleet':
+        case 'fleet':
             title = 'Flotte & Véhicules';
             content = renderFleet();
             break;
@@ -3148,7 +3328,7 @@ case 'fleet':
         default:
             title = 'Tableau de bord';
             content = renderDashboard();
-            
+
             // Prepare filter query parameters for default route
             const defaultFilterParams = new URLSearchParams();
             if (window.dashboardFilters.startDate) {
@@ -3174,11 +3354,11 @@ case 'fleet':
             }
             break;
     }
-    
+
     if (content) {
         appContent.innerHTML = content;
     }
-    
+
     pageTitle.textContent = title;
     if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
 }
@@ -3188,18 +3368,18 @@ function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast border-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500`;
-    
+
     const icons = {
         success: 'fa-check-circle',
         error: 'fa-exclamation-circle',
         info: 'fa-info-circle'
     };
-    
+
     toast.innerHTML = `
         <i class="fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3"></i>
         <span class="text-sm text-gray-700">${message}</span>
     `;
-    
+
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
 }
@@ -3247,7 +3427,7 @@ function updateChart() {
 
 function initDashboardCharts(stats = {}) { // Now accepts stats object
     const activeTab = window.activeDashboardTab || 'general';
-    
+
     // Common options for charts
     const chartColors = ['#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#6366f1'];
     const statusColors = ['#94a3b8', '#3b82f6', '#10b981', '#ef4444']; // Gris, Bleu, Vert, Rouge
@@ -3278,7 +3458,7 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
             const chartered = stats.costBreakdown ? stats.costBreakdown[1] : 0;
             const data = (own === 0 && chartered === 0) ? [1, 1] : [own, chartered]; // Default to show something if no data
             const labels = (own === 0 && chartered === 0) ? ['Aucune donnée'] : ['Transport Propre', 'Affrètement'];
-            
+
             chartInstances.costBreakdownChart = new Chart(costCtx, {
                 type: 'pie',
                 data: {
@@ -3362,7 +3542,7 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
         const total = stats.totalQuotations || 0;
         const converted = stats.orderStatusCounts ? stats.orderStatusCounts.filter(s => s.status === 'Terminé' || s.status === 'En cours').reduce((acc, s) => acc + s.count, 0) : 0;
         const rate = total > 0 ? Math.round((converted / total) * 100) : 0; // Use converted count from backend
-        
+
         const rateEl = document.getElementById('conversion-rate-kpi');
         if (rateEl) rateEl.textContent = `${rate}%`;
 
@@ -3387,7 +3567,7 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
             const statusSums = { 'Payée': stats.totalRevenue || 0, 'En attente': stats.outstandingAmount || 0 };
             const labels = Object.keys(statusSums);
             const data = Object.values(statusSums);
-            
+
             chartInstances.invoicingStatusChart = new Chart(invCtx, {
                 type: 'pie',
                 data: {
@@ -3405,23 +3585,23 @@ function openEditMissionModal(missionId) {
     hideAllModals(); // Masquer tous les autres modaux d'abord
     const mission = db.missions.find(m => m.id === missionId);
     if (!mission) return;
-    
+
     document.getElementById('edit-mission-id').value = missionId;
     document.getElementById('edit-mission-id-display').textContent = missionId;
-    
+
     // Populate drivers
     const driverSelect = document.getElementById('edit-mission-driver');
     driverSelect.innerHTML = db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
     driverSelect.value = mission.driver_id || '';
-    
+
     // Populate vehicles
     const vehicleSelect = document.getElementById('edit-mission-vehicle');
     vehicleSelect.innerHTML = db.vehicles.map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
     vehicleSelect.value = mission.vehicle_id || '';
-    
+
     document.getElementById('edit-mission-date').value = mission.date;
     document.getElementById('edit-mission-delivery-time').value = mission.delivery_time || '';
-    
+
     document.getElementById('edit-mission-modal').classList.remove('hidden');
 }
 
@@ -3432,7 +3612,7 @@ function closeEditMissionModal() {
 async function submitEditMission() {
     const missionId = parseInt(document.getElementById('edit-mission-id').value);
     const mission = db.missions.find(m => m.id === missionId);
-    
+
     if (mission) {
         const updatedMission = {
             ...mission,
@@ -3450,25 +3630,25 @@ async function submitEditMission() {
     }
 }
 +
-function openAddMissionModal() {
-    hideAllModals();
-    // Populate clients
-    const clientSelect = document.getElementById('add-mission-client');
-    clientSelect.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    
-    // Populate drivers
-    const driverSelect = document.getElementById('add-mission-driver');
-    driverSelect.innerHTML = db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-    
-    // Populate vehicles
-    const vehicleSelect = document.getElementById('add-mission-vehicle');
-    vehicleSelect.innerHTML = db.vehicles.map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
-    
-    // Set default date
-    document.getElementById('add-mission-date').value = new Date().toISOString().split('T')[0];
-    
-    document.getElementById('add-mission-modal').classList.remove('hidden');
-}
+    function openAddMissionModal() {
+        hideAllModals();
+        // Populate clients
+        const clientSelect = document.getElementById('add-mission-client');
+        clientSelect.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+        // Populate drivers
+        const driverSelect = document.getElementById('add-mission-driver');
+        driverSelect.innerHTML = db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
+        // Populate vehicles
+        const vehicleSelect = document.getElementById('add-mission-vehicle');
+        vehicleSelect.innerHTML = db.vehicles.map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+
+        // Set default date
+        document.getElementById('add-mission-date').value = new Date().toISOString().split('T')[0];
+
+        document.getElementById('add-mission-modal').classList.remove('hidden');
+    }
 
 function closeAddMissionModal() {
     hideAllModals();
@@ -3488,7 +3668,7 @@ async function submitAddMission() {
         status: 'Planifié',
         distance: 0
     };
-    
+
     if (newMission.client_id && newMission.origin && newMission.dest) {
         await apiFetch('missions', { method: 'POST', body: newMission });
         await fetchAllData();
@@ -3539,7 +3719,7 @@ function openEditClientModal(clientId) {
     hideAllModals();
     const client = db.clients.find(c => c.id === clientId);
     if (!client) return;
-    
+
     document.getElementById('client-modal-title').textContent = 'Éditer Client';
     document.getElementById('edit-client-id').value = clientId;
     document.getElementById('add-client-name').value = client.name;
@@ -3552,7 +3732,7 @@ function openEditClientModal(clientId) {
     document.getElementById('add-client-contact-name').value = client.contact_name || '';
     const contactTypeEl = document.getElementById('add-client-contact-type');
     if (contactTypeEl) contactTypeEl.value = client.contact_type || 'Exploitant';
-    
+
     document.getElementById('add-client-modal').classList.remove('hidden');
 }
 
@@ -3573,12 +3753,12 @@ async function submitAddClient() {
         contact_name: document.getElementById('add-client-contact-name').value,
         contact_type: document.getElementById('add-client-contact-type')?.value || 'Exploitant'
     };
-    
+
     if (!clientData.name) {
         showToast('Le nom du client est obligatoire', 'error');
         return;
     }
-    
+
     try {
         const response = await apiFetch(editId ? `clients/${editId}` : 'clients', {
             method: editId ? 'PUT' : 'POST',
@@ -3604,7 +3784,7 @@ function openDriverCardModal(driverId) {
     hideAllModals();
     const driver = db.drivers.find(d => d.id === driverId);
     if (!driver) return;
-    
+
     const content = document.getElementById('driver-card-content');
     content.innerHTML = `
         <div class="text-center mb-4">
@@ -3624,7 +3804,7 @@ function openDriverCardModal(driverId) {
             <div class="flex justify-between"><span class="text-gray-500">Notes</span><span class="font-medium">${driver.notes || '-'}</span></div>
         </div>
     `;
-    
+
     document.getElementById('driver-card-modal').classList.remove('hidden');
 }
 
@@ -3836,10 +4016,10 @@ async function submitDriver(e) {
         driverData.generate_mobile_code = document.getElementById('driver-generate-mobile-code')?.checked !== false;
     }
     if (!driverData.name) return showToast("Le nom est obligatoire", "error");
-    
+
     try {
         const response = await apiFetch(id ? `drivers/${id}` : 'drivers', { method: id ? 'PUT' : 'POST', body: driverData });
-        
+
         if (response.ok) {
             const result = await response.json().catch(() => ({}));
             if (id) {
@@ -3865,28 +4045,28 @@ async function submitDriver(e) {
             const errorData = await response.json();
             showToast(errorData.error || `Erreur ${response.status}`, "error");
         }
-    } catch (error) { 
-        showToast("Erreur réseau - Vérifiez le serveur Backend", "error"); 
+    } catch (error) {
+        showToast("Erreur réseau - Vérifiez le serveur Backend", "error");
     }
 }
 
 async function deleteDriver() {
     const id = document.getElementById('edit-driver-id').value;
     if (!id || !confirm("Êtes-vous sûr de vouloir retirer ce chauffeur de l'entreprise ?")) return;
-    
+
     try {
         const res = await apiFetch(`drivers/${id}`, { method: 'DELETE' });
-        if (res.ok) { 
-            showToast("Chauffeur retiré avec succès", "success"); 
-            await fetchAllData(); 
-            closeDriverModal(); 
-            router('drivers'); 
+        if (res.ok) {
+            showToast("Chauffeur retiré avec succès", "success");
+            await fetchAllData();
+            closeDriverModal();
+            router('drivers');
         } else {
             const errorData = await res.json();
             showToast(errorData.error || `Erreur ${res.status}`, "error");
         }
-    } catch (error) { 
-        showToast("Erreur réseau - Vérifiez le serveur Backend", "error"); 
+    } catch (error) {
+        showToast("Erreur réseau - Vérifiez le serveur Backend", "error");
     }
 }
 
@@ -3921,7 +4101,7 @@ function openEditSubcontractorModal(subcontractorId) {
 
     const subcontractor = db.subcontractors.find(s => s.id === subcontractorId);
     if (!subcontractor) return;
-    
+
     document.getElementById('subcontractor-modal-title').textContent = 'Modifier Sous-traitant';
     document.getElementById('edit-subcontractor-id').value = subcontractorId;
     document.getElementById('add-subcontractor-name').value = subcontractor.name;
@@ -3932,7 +4112,7 @@ function openEditSubcontractorModal(subcontractorId) {
     document.getElementById('add-subcontractor-rc-expiry').value = subcontractor.rc_pro_expiry || '';
     document.getElementById('add-subcontractor-urssaf-expiry').value = subcontractor.urssaf_expiry || '';
     document.getElementById('add-subcontractor-insurance-file').value = '';
-    
+
     const viewLink = document.getElementById('subcontractor-insurance-view');
     if (subcontractor.insurance_doc_url) {
         viewLink.href = normalizeUploadUrl(subcontractor.insurance_doc_url);
@@ -3942,7 +4122,7 @@ function openEditSubcontractorModal(subcontractorId) {
     }
 
     document.getElementById('add-subcontractor-status').value = subcontractor.status || 'ACTIF';
-    
+
     // Check expiry
     const rcExpiry = new Date(subcontractor.rc_pro_expiry);
     const today = new Date();
@@ -3975,18 +4155,18 @@ async function submitAddSubcontractor() {
     if (fileInput && fileInput.files[0]) {
         formData.append('insurance_doc', fileInput.files[0]);
     }
-    
+
     if (!document.getElementById('add-subcontractor-name').value || !document.getElementById('add-subcontractor-rc-expiry').value) {
         showToast('Nom et expiration RC Pro obligatoires', 'error');
         return;
     }
-    
+
     try {
         const response = await apiFetch(editId ? `subcontractors/${editId}` : 'subcontractors', {
             method: editId ? 'PUT' : 'POST',
             body: formData
         });
-        
+
         if (response.ok) {
             showToast(editId ? 'Sous-traitant mis à jour' : 'Sous-traitant ajouté', 'success');
             await fetchAllData();
@@ -4035,30 +4215,30 @@ function openDispatchModal(orderId) {
 
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return;
-    
+
     document.getElementById('dispatch-order-id').value = orderId;
     document.getElementById('dispatch-order-ref').textContent = order.ref || '#' + orderId;
     document.getElementById('dispatch-order-price').textContent = (order.price || 0) + '€';
     document.getElementById('dispatch-purchase-price').value = '';
-    
+
     // Populate valid subcontractors only
     const select = document.getElementById('dispatch-subcontractor');
-    const validSubcontractors = db.subcontractors.filter(s => 
-        s.status === 'ACTIF' && 
+    const validSubcontractors = db.subcontractors.filter(s =>
+        s.status === 'ACTIF' &&
         (!s.rc_pro_expiry || new Date(s.rc_pro_expiry) >= new Date())
     );
-    select.innerHTML = '<option value="">-- Sélectionner --</option>' + 
+    select.innerHTML = '<option value="">-- Sélectionner --</option>' +
         validSubcontractors.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-    
+
     // Also add expired ones with warning
-    const expired = db.subcontractors.filter(s => 
+    const expired = db.subcontractors.filter(s =>
         s.status === 'ACTIF' && s.rc_pro_expiry && new Date(s.rc_pro_expiry) < new Date()
     );
     if (expired.length > 0) {
         select.innerHTML += '<option disabled>--- Expirés (attention) ---</option>' +
             expired.map(s => `<option value="${s.id}" class="text-red-500">${s.name} ⚠️</option>`).join('');
     }
-    
+
     calculateDispatchMargin();
     document.getElementById('dispatch-modal').classList.remove('hidden');
 }
@@ -4071,12 +4251,12 @@ function checkSubcontractorValidity() {
     const select = document.getElementById('dispatch-subcontractor');
     const selectedId = parseInt(select.value);
     const warningEl = document.getElementById('dispatch-subcontractor-warning');
-    
+
     if (!selectedId) {
         warningEl.classList.add('hidden');
         return;
     }
-    
+
     const subcontractor = db.subcontractors.find(s => s.id === selectedId);
     if (subcontractor && subcontractor.rc_pro_expiry && new Date(subcontractor.rc_pro_expiry) < new Date()) {
         warningEl.classList.remove('hidden');
@@ -4091,7 +4271,7 @@ function calculateDispatchMargin() {
     const purchasePrice = parseFloat(document.getElementById('dispatch-purchase-price').value) || 0;
     const margin = salePrice - purchasePrice;
     const marginPercent = salePrice > 0 ? ((margin / salePrice) * 100).toFixed(1) : 0;
-    
+
     document.getElementById('dispatch-sale-display').textContent = salePrice.toFixed(2) + '€';
     document.getElementById('dispatch-cost-display').textContent = purchasePrice.toFixed(2) + '€';
     document.getElementById('dispatch-margin-display').textContent = margin.toFixed(2) + '€ (' + marginPercent + '%)';
@@ -4102,12 +4282,12 @@ async function submitDispatch() {
     const orderId = parseInt(document.getElementById('dispatch-order-id').value);
     const subcontractorId = parseInt(document.getElementById('dispatch-subcontractor').value);
     const purchasePrice = parseFloat(document.getElementById('dispatch-purchase-price').value);
-    
+
     if (!subcontractorId || !purchasePrice) {
         showToast('Veuillez sélectionner un sous-traitant et saisir le prix d\'achat', 'error');
         return;
     }
-    
+
     try {
         const response = await apiFetch(`dispatch`, {
             method: 'POST',
@@ -4117,7 +4297,7 @@ async function submitDispatch() {
                 purchase_price: purchasePrice
             }
         });
-        
+
         if (response.ok) {
             const result = await response.json().catch(() => ({}));
             showToast(result.data?.purchaseInvoiceId
@@ -4163,11 +4343,11 @@ async function submitAddVehicle() {
         driver_id: null,
         insurance_expiry: '2025-12-31'
     };
-    
+
     if (newVehicle.plate && newVehicle.model) {
         try {
             const response = await apiFetch('vehicles', { method: 'POST', body: newVehicle });
-            
+
             if (response.ok) {
                 await fetchAllData();
                 showToast('Camion ajouté avec succès', 'success');
@@ -4190,7 +4370,7 @@ function openEditVehicleModal(vehicleId) {
 
     const vehicle = db.vehicles.find(v => v.id === vehicleId);
     if (!vehicle) return;
-    
+
     document.getElementById('edit-vehicle-id').value = vehicleId;
     document.getElementById('edit-vehicle-plate').value = vehicle.plate;
     document.getElementById('edit-vehicle-model').value = vehicle.model;
@@ -4198,15 +4378,15 @@ function openEditVehicleModal(vehicleId) {
     document.getElementById('edit-vehicle-mileage').value = vehicle.mileage || 0;
     document.getElementById('edit-vehicle-maintenance').value = vehicle.next_maintenance || '';
     document.getElementById('edit-vehicle-status').value = vehicle.status || 'Disponible';
-    
+
     // Populate driver select if it exists in the modal
     const driverSelect = document.getElementById('edit-vehicle-driver');
     if (driverSelect) {
-        driverSelect.innerHTML = '<option value="">-- Aucun --</option>' + 
+        driverSelect.innerHTML = '<option value="">-- Aucun --</option>' +
             db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
         driverSelect.value = vehicle.driver_id || '';
     }
-    
+
     document.getElementById('edit-vehicle-modal').classList.remove('hidden');
 }
 
@@ -4217,7 +4397,7 @@ function closeEditVehicleModal() {
 async function submitEditVehicle() {
     const vehicleId = parseInt(document.getElementById('edit-vehicle-id').value);
     const vehicle = db.vehicles.find(v => v.id === vehicleId);
-    
+
     if (vehicle) {
         const updatedVehicle = {
             ...vehicle,
@@ -4248,7 +4428,7 @@ async function submitEditVehicle() {
 function openSaleInvoiceModal(orderId) {
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return showToast("Commande introuvable", "error");
-    
+
     // Si l'utilisateur veut voir/modifier une facture à partir d'une commande
     // On utilise la logique de création qui permet déjà la modification avant validation
     showToast("Génération de l'aperçu de facturation...", "info");
@@ -4277,13 +4457,13 @@ function openAddPurchaseInvoiceModal(prefill = {}) {
     document.getElementById('add-purchase-invoice-modal').classList.remove('hidden');
 }
 
-window.onPurchaseSubcontractorChange = function() {
+window.onPurchaseSubcontractorChange = function () {
     const id = parseInt(document.getElementById('add-purchase-subcontractor')?.value, 10);
     const sub = (db.subcontractors || []).find(s => s.id === id);
     if (sub) document.getElementById('add-purchase-supplier').value = sub.name;
 };
 
-window.togglePurchaseSubcontractorFields = function() {
+window.togglePurchaseSubcontractorFields = function () {
     const type = document.getElementById('add-purchase-type')?.value;
     const wrap = document.getElementById('add-purchase-subcontractor-wrap');
     if (wrap) wrap.classList.toggle('hidden', type !== 'Sous-traitance');
@@ -4300,14 +4480,14 @@ function switchPurchaseInvoiceTab(tab) {
     document.getElementById('purchase-invoice-manual').classList.add('hidden');
     document.getElementById('purchase-invoice-scan').classList.add('hidden');
     document.getElementById('purchase-invoice-file').classList.add('hidden');
-    
+
     document.getElementById('tab-manual').classList.remove('border-blue-600', 'text-blue-600');
     document.getElementById('tab-scan').classList.remove('border-blue-600', 'text-blue-600');
     document.getElementById('tab-file').classList.remove('border-blue-600', 'text-blue-600');
     document.getElementById('tab-manual').classList.add('border-transparent', 'text-gray-500');
     document.getElementById('tab-scan').classList.add('border-transparent', 'text-gray-500');
     document.getElementById('tab-file').classList.add('border-transparent', 'text-gray-500');
-    
+
     document.getElementById(`purchase-invoice-${tab}`).classList.remove('hidden');
     document.getElementById(`tab-${tab}`).classList.remove('border-transparent', 'text-gray-500');
     document.getElementById(`tab-${tab}`).classList.add('border-blue-600', 'text-blue-600');
@@ -4360,7 +4540,7 @@ async function submitPurchaseInvoice() {
         showToast("Vous n'avez pas l'autorisation d'ajouter des factures d'achat.", "error");
         return;
     }
-    
+
     const ref = document.getElementById('add-purchase-ref').value;
     const supplier = document.getElementById('add-purchase-supplier').value;
     const type = document.getElementById('add-purchase-type').value;
@@ -4424,7 +4604,7 @@ async function submitAddUser() {
     const role = document.getElementById('add-user-role').value;
     const password = document.getElementById('add-user-password').value;
     const driverId = document.getElementById('add-user-driver')?.value;
-    
+
     if (name && email && password) {
         if (role === 'chauffeur' && !driverId) {
             showToast('Sélectionnez le conducteur lié au compte chauffeur', 'error');
@@ -4491,7 +4671,7 @@ async function loadInvoiceDraftForm(invoiceId) {
     }
 }
 
-window.editDraft = function(invoiceId) {
+window.editDraft = function (invoiceId) {
     editingInvoiceId = String(invoiceId);
     router('create_invoice');
 };
@@ -4500,7 +4680,7 @@ function closeModal() {
     hideAllModals();
 }
 
-window.validateDraft = async function(invoiceId) {
+window.validateDraft = async function (invoiceId) {
     if (!confirm("Voulez-vous transformer ce brouillon en facture définitive ?")) return;
     try {
         const res = await apiFetch(`sales-invoices/${invoiceId}/validate`, { method: 'POST' });
@@ -4516,7 +4696,7 @@ window.validateDraft = async function(invoiceId) {
     } catch (e) { showToast("Serveur injoignable", "error"); }
 };
 
-window.createCreditNote = async function(invoiceId, isPartial) {
+window.createCreditNote = async function (invoiceId, isPartial) {
     if (!canManageInvoices()) {
         showToast('Permission insuffisante pour créer un avoir', 'error');
         return;
@@ -4566,7 +4746,7 @@ function confirmSendInvoice(invoiceId, clientEmail) {
         showToast('Aucun email trouvé pour ce client. Veuillez éditer le client pour ajouter un email.', 'error');
         return;
     }
-    
+
     if (confirm('Êtes-vous sûr de vouloir envoyer la facture ' + invoiceId + ' à l\'adresse email:\n\n' + clientEmail + ' ?')) {
         sendInvoice(invoiceId);
     }
@@ -4579,7 +4759,7 @@ function sendInvoice(invoiceId) {
         closeModal();
         return;
     }
-    
+
     const invoice = db.sales_invoices.find(inv => inv.id === invoiceId);
     const client = db.clients.find(c => c.id == invoice.client_id);
 
@@ -4676,7 +4856,7 @@ function populateSubcontractorSelect(selectEl, selectedId) {
     if (selectedId) selectEl.value = String(selectedId);
 }
 
-window.toggleOrderPalletFields = function(prefix) {
+window.toggleOrderPalletFields = function (prefix) {
     const isEu = document.getElementById(`${prefix}-pallet-type`)?.value === 'palette_europe';
     document.getElementById(`${prefix}-pallet-fields`)?.classList.toggle('hidden', !isEu);
     if (!isEu) {
@@ -4686,7 +4866,7 @@ window.toggleOrderPalletFields = function(prefix) {
     }
 };
 
-window.toggleOrderPalletExchange = function(prefix) {
+window.toggleOrderPalletExchange = function (prefix) {
     const checked = document.getElementById(`${prefix}-pallet-exchange`)?.checked;
     document.getElementById(`${prefix}-pallets-returned-wrap`)?.classList.toggle('hidden', !checked);
     if (!checked) {
@@ -4695,21 +4875,21 @@ window.toggleOrderPalletExchange = function(prefix) {
     }
 };
 
-window.toggleAddOrderAssignment = function() {
+window.toggleAddOrderAssignment = function () {
     const isSub = document.querySelector('input[name="add-order-assignment"]:checked')?.value === 'SUBCONTRACTED';
     document.getElementById('add-order-internal-fields')?.classList.toggle('hidden', isSub);
     document.getElementById('add-order-subcontractor-fields')?.classList.toggle('hidden', !isSub);
     if (isSub) updateAddOrderMargin();
 };
 
-window.toggleEditOrderAssignment = function() {
+window.toggleEditOrderAssignment = function () {
     const isSub = document.querySelector('input[name="edit-order-assignment"]:checked')?.value === 'SUBCONTRACTED';
     document.getElementById('edit-order-internal-fields')?.classList.toggle('hidden', isSub);
     document.getElementById('edit-order-subcontractor-fields')?.classList.toggle('hidden', !isSub);
     if (isSub) updateEditOrderMargin();
 };
 
-window.updateAddOrderMargin = function() {
+window.updateAddOrderMargin = function () {
     const price = parseFloat(document.getElementById('add-order-price')?.value) || 0;
     const purchase = parseFloat(document.getElementById('add-order-purchase-price')?.value) || 0;
     const margin = price - purchase;
@@ -4721,7 +4901,7 @@ window.updateAddOrderMargin = function() {
     }
 };
 
-window.updateEditOrderMargin = function() {
+window.updateEditOrderMargin = function () {
     const price = parseFloat(document.getElementById('edit-order-price')?.value) || 0;
     const purchase = parseFloat(document.getElementById('edit-order-purchase-price')?.value) || 0;
     const margin = price - purchase;
@@ -4821,7 +5001,7 @@ function renderDashboardPalletMovements(movements) {
     </tr>`).join('');
 }
 
-window.loadDashboardPallets = async function(highlightClientId) {
+window.loadDashboardPallets = async function (highlightClientId) {
     const filterEl = document.getElementById('dashboard-pallet-client-filter');
     const clientId = filterEl?.value || '';
     const query = clientId ? `?client_id=${clientId}` : '';
@@ -5017,19 +5197,21 @@ async function submitEditOrder() {
             return;
         }
 
-        await apiFetch(`transport-orders/${orderId}`, { method: 'PATCH', body: {
-            ref: document.getElementById('edit-order-ref').value,
-            client_id: parseInt(document.getElementById('edit-order-client').value, 10),
-            cargo: document.getElementById('edit-order-cargo').value,
-            origin: document.getElementById('edit-order-origin').value,
-            dest: document.getElementById('edit-order-dest').value,
-            load_date: document.getElementById('edit-order-load-date').value,
-            delivery_date: document.getElementById('edit-order-delivery-date').value,
-            weight: parseFloat(document.getElementById('edit-order-weight').value) || 0,
-            price: parseFloat(document.getElementById('edit-order-price').value) || 0,
-            ...assignment,
-            ...pallet
-        }});
+        await apiFetch(`transport-orders/${orderId}`, {
+            method: 'PATCH', body: {
+                ref: document.getElementById('edit-order-ref').value,
+                client_id: parseInt(document.getElementById('edit-order-client').value, 10),
+                cargo: document.getElementById('edit-order-cargo').value,
+                origin: document.getElementById('edit-order-origin').value,
+                dest: document.getElementById('edit-order-dest').value,
+                load_date: document.getElementById('edit-order-load-date').value,
+                delivery_date: document.getElementById('edit-order-delivery-date').value,
+                weight: parseFloat(document.getElementById('edit-order-weight').value) || 0,
+                price: parseFloat(document.getElementById('edit-order-price').value) || 0,
+                ...assignment,
+                ...pallet
+            }
+        });
         if (updatedStatus !== order.status) {
             await apiFetch(`transport-orders/${orderId}/status`, { method: 'POST', body: { status: updatedStatus } });
         }
@@ -5046,7 +5228,7 @@ async function submitEditOrder() {
 function deleteOrder() {
     const orderId = parseInt(document.getElementById('edit-order-id').value);
     const orderIndex = db.orders.findIndex(o => o.id === orderId);
-    
+
     if (orderIndex !== -1) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) {
             db.orders.splice(orderIndex, 1);
