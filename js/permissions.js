@@ -127,7 +127,8 @@ window.canValidateTransport = () => can(PERM_MODULES.TRANSPORTS, PERM_ACTIONS.VA
 window.canUploadDocument = () => can(PERM_MODULES.DOCUMENTS, PERM_ACTIONS.UPLOAD_DOCUMENT);
 window.canManageFinance = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.GENERATE_INVOICE) || can(PERM_MODULES.BILLING, PERM_ACTIONS.CREATE);
 window.canManageInvoices = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.CREATE) || can(PERM_MODULES.BILLING, PERM_ACTIONS.EDIT) || can(PERM_MODULES.BILLING, PERM_ACTIONS.DELETE);
-window.canExportAccounting = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.EXPORT);
+window.canExportAccounting = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.EXPORT)
+    && (typeof planHasFeature !== 'function' || planHasFeature('accounting_export'));
 window.canChangeTransportStatus = () => can(PERM_MODULES.STATUSES, PERM_ACTIONS.CHANGE_STATUS);
 window.canManageUsers = () => can(PERM_MODULES.USERS, PERM_ACTIONS.MANAGE_USERS);
 window.canManageClients = () => can(PERM_MODULES.CLIENTS, PERM_ACTIONS.CREATE);
@@ -146,4 +147,5 @@ window.applyRoleBasedNav = function() {
         if (allowed.includes('all') || allowed.includes(role)) return;
         el.style.display = 'none';
     });
+    if (typeof applyPlanBasedNav === 'function') applyPlanBasedNav();
 };

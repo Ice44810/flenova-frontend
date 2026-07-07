@@ -196,7 +196,7 @@
 
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Support</p>
                 <ul class="space-y-1">
-                    <li>
+                    <li data-nav-route="pricing">
                         <a href="#" onclick="router('pricing')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-tags w-6"></i>
@@ -1381,13 +1381,33 @@
     </div>
     </div>
 
+    <!-- MODAL IMPAYÉ SAAS -->
+    <div id="saas-overdue-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 fade-in">
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+                </div>
+                <div>
+                    <h3 id="saas-overdue-title" class="text-lg font-bold text-gray-900">Facture en retard</h3>
+                    <p id="saas-overdue-message" class="text-sm text-gray-600 mt-2"></p>
+                </div>
+            </div>
+            <button type="button" onclick="dismissSaasOverdueModal()"
+                class="w-full py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                OK
+            </button>
+        </div>
+    </div>
+
     <!-- TOAST CONTAINER -->
     <div id="toast-container"></div>
 
     <!-- JAVASCRIPT -->
     <script src="js/api.js"></script>
-    <script src="js/app.js"></script>
     <script src="js/permissions.js"></script>
+    <script src="js/subscription.js"></script>
+    <script src="js/app.js"></script>
     <script src="js/mvp-transport.js"></script>
 </body>
 

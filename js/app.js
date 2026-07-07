@@ -419,63 +419,6 @@ function renderPublicFeatures() {
     </div>`;
 }
 
-function renderPublicPricing() {
-    return `<div class="fade-in">
-        <div class="public-page-header py-12">
-            <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
-                <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Tarifs Transfact</h1>
-                <p class="text-lg text-gray-600">Des solutions adaptées à vos besoins, sans frais cachés.</p>
-            </div>
-        </div>
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-                <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition">
-                    <h3 class="font-bold text-xl text-gray-800 mb-2">Starter</h3>
-                    <div class="text-4xl font-bold text-gray-900 mb-4">150€<span class="text-sm font-normal text-gray-500">/mois</span></div>
-                    <ul class="space-y-3 text-sm text-gray-600 mb-6">
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Factures illimitées</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>1 utilisateur</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support par email</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Gestion des clients</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Tableau de bord basique</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Planning avancé</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>3 chauffeurs application mobile</li>
-                    </ul>
-                    <a href="register.html" class="block w-full py-2.5 text-center border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-semibold transition">Commencer</a>
-                </div>
-                <div class="bg-white p-8 rounded-2xl shadow-lg public-pricing-popular relative">
-                    <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold">Le plus populaire</div>
-                    <h3 class="font-bold text-xl text-gray-800 mb-2">Professionnel</h3>
-                    <div class="text-4xl font-bold text-gray-900 mb-4">199€<span class="text-sm font-normal text-gray-500">/mois</span></div>
-                    <ul class="space-y-3 text-sm text-gray-600 mb-6">
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Factures illimitées</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>1 utilisateur</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support prioritaire</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Accès API</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Planning avancé</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Gestion de flotte</li>
-                    </ul>
-                    <a href="register.html" class="block w-full py-2.5 text-center bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition">Choisir ce forfait</a>
-                </div>
-                <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition">
-                    <h3 class="font-bold text-xl text-gray-800 mb-2">Enterprise</h3>
-                    <div class="text-4xl font-bold text-gray-900 mb-4">399€<span class="text-sm font-normal text-gray-500">/mois</span></div>
-                    <ul class="space-y-3 text-sm text-gray-600 mb-6">
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Tout dans Professionnel</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Utilisateurs illimités</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support 24/7</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Personnalisation</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Intégration sur mesure</li>
-                        <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Formation incluse</li>
-                    </ul>
-                    <button type="button" onclick="publicRouter('contact')" class="w-full py-2.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-semibold transition">Nous contacter</button>
-                </div>
-            </div>
-            <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. Engagement mensuel résiliable à tout moment.</p>
-        </div>
-    </div>`;
-}
-
 function renderPublicContact() {
     return `<div class="public-contact-page fade-in">
         <div class="public-contact-inner">
@@ -550,7 +493,10 @@ function publicRouter(route) {
             container.innerHTML = renderPublicFeatures();
             break;
         case 'tarifs':
-            container.innerHTML = renderPublicPricing();
+            container.innerHTML = '<div class="py-20 text-center text-gray-500"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>';
+            if (typeof renderPublicPricingAsync === 'function') {
+                renderPublicPricingAsync().then((html) => { container.innerHTML = html; });
+            }
             break;
         default:
             container.innerHTML = renderPublicHome();
@@ -604,6 +550,8 @@ function initPublicSite() {
     document.body.classList.remove('h-screen', 'overflow-hidden');
     document.body.classList.add('public-site-active');
 
+    if (typeof loadPublicPlans === 'function') loadPublicPlans();
+
     const hash = (window.location.hash || '').replace('#', '').trim();
     publicRouter(PUBLIC_ROUTES.includes(hash) ? hash : 'home');
 
@@ -627,6 +575,7 @@ function initPublicSite() {
             if (data.permissions && typeof setPermissionsFromServer === 'function') {
                 setPermissionsFromServer(data.permissions);
             }
+            if (typeof hydrateSubscription === 'function') hydrateSubscription(data);
             isAuthenticated = true;
         } else {
             throw new Error('Session expirée ou invalide');
@@ -650,8 +599,14 @@ function initPublicSite() {
 
     const ok = await fetchAllData();
     if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
+
+    const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
+    const initialRoute = hashRoute || 'dashboard';
     if (ok) {
-        router('dashboard');
+        router(initialRoute);
+    }
+    if (window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
+        showOverdueBillingModal(window.cachedSubscription.billingAlert);
     }
 
     // Rendre les modaux déplaçables après le premier rendu
@@ -744,7 +699,15 @@ async function deleteSelectedInvoices() {
 
 // --- RENDER: Dashboard & transports ---
 function renderDashboard(stats = {}) {
-    const activeTab = window.activeDashboardTab || 'general';
+    let activeTab = window.activeDashboardTab || 'general';
+    if (activeTab === 'pallets' && typeof planHasFeature === 'function' && !planHasFeature('pallets')) {
+        window.activeDashboardTab = 'general';
+        activeTab = 'general';
+    }
+
+    const palletsTabBtn = (typeof planHasFeature === 'function' && planHasFeature('pallets'))
+        ? `<button onclick="window.switchDashboardTab('pallets')" class="px-6 py-2 ${activeTab === 'pallets' ? 'bg-gray-100 border-t-2 border-teal-500 font-bold text-teal-700' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</button>`
+        : '';
 
     // Tab Headers
     const tabsHtml = `
@@ -752,7 +715,7 @@ function renderDashboard(stats = {}) {
             <button onclick="window.switchDashboardTab('general')" class="px-6 py-2 ${activeTab === 'general' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Général</button>
             <button onclick="window.switchDashboardTab('quotations')" class="px-6 py-2 ${activeTab === 'quotations' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Cotations</button>
             <button onclick="window.switchDashboardTab('invoicing')" class="px-6 py-2 ${activeTab === 'invoicing' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Facturation</button>
-            <button onclick="window.switchDashboardTab('pallets')" class="px-6 py-2 ${activeTab === 'pallets' ? 'bg-gray-100 border-t-2 border-teal-500 font-bold text-teal-700' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</button>
+            ${palletsTabBtn}
         </div>
     `;
 
@@ -1238,6 +1201,7 @@ function complianceBadgeClass(status) {
 }
 
 function canShowDispatchButton(order) {
+    if (typeof planHasFeature === 'function' && !planHasFeature('subcontractor')) return false;
     if (!order || typeof canDispatchSubcontractor !== 'function' || !canDispatchSubcontractor()) return false;
     if (order.assignment_type === 'SUBCONTRACTED' || order.status === 'Affrété') return false;
     return !['Validé', 'Clôturé', 'Terminé', 'Annulé'].includes(order.status);
@@ -2933,61 +2897,6 @@ window.toggleEmailNotifications = async function () {
 };
 
 // --- RENDER: Pages info ---
-function renderPricing() {
-    return `<div class="max-w-6xl mx-auto fade-in py-10">
-        <div class="text-center mb-12">
-            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Tarifs Transfact</h1>
-            <p class="text-lg text-gray-600">Des solutions adaptées à vos besoins, sans frais cachés.</p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-            <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition">
-                <h3 class="font-bold text-xl text-gray-800 mb-2">Starter</h3>
-                <div class="text-4xl font-bold text-gray-900 mb-4">150€<span class="text-sm font-normal text-gray-500">/mois</span></div>
-                <ul class="space-y-3 text-sm text-gray-600 mb-6">
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Factures illimitées</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>1 utilisateur</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support par email</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Gestion des clients</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Tableau de bord basique</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Planning avancé</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>3 Chauffeurs Application Mobile</li>
-                </ul>
-                <button class="w-full py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50">Commencer</button>
-            </div>
-            <div class="bg-white p-8 rounded-2xl shadow-lg border-2 border-blue-500 relative transform scale-105">
-                <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-bold">Le plus populaire</div>
-                <h3 class="font-bold text-xl text-gray-800 mb-2">Professionnel</h3>
-                <div class="text-4xl font-bold text-gray-900 mb-4">199€<span class="text-sm font-normal text-gray-500">/mois</span></div>
-                <ul class="space-y-3 text-sm text-gray-600 mb-6">
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Factures illimitées</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>1 utilisateurs</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support prioritaire</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Accès API</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Planning avancé</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Gestion de flotte</li>
-                </ul>
-                <button class="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Choisir ce forfait</button>
-            </div>
-            <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition">
-                <h3 class="font-bold text-xl text-gray-800 mb-2">Enterprise</h3>
-                <div class="text-4xl font-bold text-gray-900 mb-4">399€<span class="text-sm font-normal text-gray-500">/mois</span></div>
-                <ul class="space-y-3 text-sm text-gray-600 mb-6">
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Tout dans Professionnel</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Utilisateurs illimités</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Support 24/7</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Personnalisation</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Intégration sur mesure</li>
-                    <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Formation incluse</li>
-                </ul>
-                <button class="w-full py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50">Nous contacter</button>
-            </div>
-        </div>
-        <div class="mt-12 text-center">
-            <p class="text-gray-600">Tous les tarifs sont hors taxes. Engagement mensuel résiliable à tout moment.</p>
-        </div>
-    </div>`;
-}
-
 function renderSolutions() {
     return `<div class="max-w-6xl mx-auto fade-in py-10">
         <div class="text-center mb-12">
@@ -3339,6 +3248,10 @@ async function router(route) {
             return;
         }
     }
+    if (typeof canAccessPlanRoute === 'function' && !canAccessPlanRoute(route)) {
+        showToast("Fonctionnalité non incluse dans votre forfait", "error");
+        route = 'dashboard';
+    }
     const appContent = document.getElementById('app-content');
     const pageTitle = document.getElementById('page-title');
     const navItems = document.querySelectorAll('.nav-item');
@@ -3483,7 +3396,8 @@ async function router(route) {
             break;
         case 'pricing':
             title = 'Tarifs';
-            content = renderPricing();
+            if (typeof loadPublicPlans === 'function') await loadPublicPlans();
+            content = typeof renderAppPricingPage === 'function' ? renderAppPricingPage() : '';
             break;
         case 'solutions':
             title = 'Nos Solutions';
