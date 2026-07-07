@@ -19,6 +19,36 @@ function formatDateForInput(value) {
     return s.slice(0, 10);
 }
 
+function getInvoiceAmount(inv) {
+    if (!inv) return 0;
+    const raw = inv.amount ?? inv.total ?? inv.total_ttc ?? inv.total_ht;
+    if (raw != null && raw !== '') {
+        const n = Number(raw);
+        if (Number.isFinite(n)) return n;
+    }
+    if (Array.isArray(inv.items) && inv.items.length) {
+        return inv.items.reduce((sum, line) => {
+            const qty = Number(line.qty ?? line.quantity ?? 1) || 1;
+            const price = Number(line.price ?? line.unit_price ?? 0) || 0;
+            return sum + qty * price;
+        }, 0);
+    }
+    return 0;
+}
+
+function sumInvoiceAmounts(invoices, predicate) {
+    return (Array.isArray(invoices) ? invoices : []).reduce((acc, inv) => {
+        if (predicate && !predicate(inv)) return acc;
+        const amount = getInvoiceAmount(inv);
+        return acc + (inv.type === 'Credit Note' ? -amount : amount);
+    }, 0);
+}
+
+function formatEuro(value) {
+    const n = Number(value);
+    return (Number.isFinite(n) ? n : 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
 function formatDisplayDate(value) {
     if (value === undefined || value === null || String(value).trim() === '') return '';
     const s = String(value).trim();
@@ -801,14 +831,25 @@ function renderDashboard(stats = {}) {
             <div class="h-80"><canvas id="quotationConversionChart"></canvas></div>
         </div>`;
     } else if (activeTab === 'invoicing') {
-        const totalInvoiced = db.sales_invoices.reduce((acc, inv) => acc + inv.amount, 0);
-        const pendingValidation = db.sales_invoices.filter(inv => inv.status === 'En attente').length;
-        const outstanding = db.sales_invoices.filter(inv => inv.status !== 'Payée').reduce((acc, inv) => acc + inv.amount, 0);
+        const invoices = Array.isArray(db.sales_invoices) ? db.sales_invoices : [];
+        const isDraft = (inv) => ['Brouillon', 'Draft', 'En attente'].includes(inv.status);
+        const isOutstanding = (inv) => !['Payée', 'Paid', 'Annulée', 'Cancelled'].includes(inv.status);
+        const isValidatedRevenue = (inv) => ['Validée', 'Validated', 'Payée', 'Paid'].includes(inv.status);
+
+        const totalInvoiced = stats.totalRevenue != null
+            ? Number(stats.totalRevenue) || 0
+            : sumInvoiceAmounts(invoices, isValidatedRevenue);
+        const pendingValidation = stats.pendingInvoiceValidation != null
+            ? Number(stats.pendingInvoiceValidation) || 0
+            : invoices.filter(isDraft).length;
+        const outstanding = stats.outstandingAmount != null
+            ? Number(stats.outstandingAmount) || 0
+            : sumInvoiceAmounts(invoices, isOutstanding);
 
         tabContent = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-gray-700">${Number(totalInvoiced).toLocaleString()} €</h3>
+                <h3 class="text-3xl font-bold text-gray-700">${formatEuro(totalInvoiced)} €</h3>
                 <p class="text-gray-400 text-sm">Montant total facturé</p>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
@@ -816,7 +857,7 @@ function renderDashboard(stats = {}) {
                 <p class="text-gray-400 text-sm">Factures en attente validation</p>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-red-600">${Number(outstanding).toLocaleString()} €</h3>
+                <h3 class="text-3xl font-bold text-red-600">${formatEuro(outstanding)} €</h3>
                 <p class="text-gray-400 text-sm">Encours Clients</p>
             </div>
         </div>

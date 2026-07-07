@@ -20,9 +20,9 @@ async function loadPublicPlans() {
 
 function getFallbackPlans() {
     return [
-        { id: 'independant', name: 'Indépendant', tagline: 'Pour les transporteurs solo', priceMonthly: 99, popular: false, featureLabels: ['1 utilisateur PC', '3 chauffeurs mobile', 'Facturation', 'Planning', 'Affectation tournée', 'Calculateur tarif'] },
-        { id: 'pme', name: 'PME', tagline: 'Pour les équipes en croissance', priceMonthly: 189, popular: true, featureLabels: ['5 utilisateurs PC', '10 chauffeurs mobile', 'Export comptable', 'Affrètement sous-traitant', 'Gestion palettes'] },
-        { id: 'premium', name: 'Premium', tagline: 'Sans limite', priceMonthly: 349, popular: false, featureLabels: ['Utilisateurs illimités', 'Chauffeurs illimités', 'Toutes les fonctions PME', 'Support prioritaire'] }
+        { id: 'independant', name: 'Indépendant', tagline: 'Pour les transporteurs solo', priceMonthly: 99, popular: false, featureLabels: ['1 utilisateur PC', '3 chauffeurs mobile', 'Tableau de bord & analyses', 'Export comptable', 'Planning', 'Calculateur tarif'] },
+        { id: 'pme', name: 'PME', tagline: 'Pour les équipes en croissance', priceMonthly: 189, popular: true, featureLabels: ['5 utilisateurs PC', '10 chauffeurs mobile', 'Tableau de bord & analyses', 'Export comptable', 'Affrètement sous-traitant', 'Gestion palettes'] },
+        { id: 'premium', name: 'Premium', tagline: 'Sans limite', priceMonthly: 349, popular: false, featureLabels: ['Utilisateurs illimités', 'Chauffeurs illimités', 'Tableau de bord & analyses', 'Export comptable', 'Toutes les fonctions PME', 'Support prioritaire'] },
     ];
 }
 
