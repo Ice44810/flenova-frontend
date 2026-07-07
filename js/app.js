@@ -3294,6 +3294,7 @@ async function router(route) {
         showToast("Fonctionnalité non incluse dans votre forfait", "error");
         route = 'dashboard';
     }
+    window.currentAppRoute = route;
     const appContent = document.getElementById('app-content');
     const pageTitle = document.getElementById('page-title');
     const navItems = document.querySelectorAll('.nav-item');
@@ -4434,8 +4435,12 @@ async function submitDispatch() {
             showToast(result.data?.purchaseInvoiceId
                 ? 'Affrètement confirmé — ouverture de la confirmation'
                 : 'Commande affectée au sous-traitant', 'success');
-            await fetchAllData();
             closeDispatchModal();
+            if (typeof refreshAfterMvpStep === 'function') {
+                await refreshAfterMvpStep({ orderId, step: 'assign', status: 'Affrété', route: window.currentAppRoute || 'planning' });
+            } else {
+                await fetchAllData();
+            }
             openAffretementConfirmation(orderId);
         } else {
             const errorData = await response.json();
@@ -5546,11 +5551,22 @@ async function submitAddOrder() {
     }
 
     if (newOrder.client_id && newOrder.origin && newOrder.dest && newOrder.load_date) {
-        await apiFetch('transport-orders', { method: 'POST', body: newOrder });
-        await fetchAllData();
-        showToast('Commande créée avec succès ! Elle apparaît maintenant dans le planning.', 'success');
+        const res = await apiFetch('transport-orders', { method: 'POST', body: newOrder });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Erreur lors de la création', 'error');
+            return;
+        }
+        const created = await res.json().catch(() => ({}));
+        const orderId = created?.id || created?.data?.id;
+        showToast('Commande créée avec succès !', 'success');
         closeAddOrderModal();
-        router('planning');
+        if (typeof refreshAfterMvpStep === 'function') {
+            await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });
+        } else {
+            await fetchAllData();
+            router('planning');
+        }
     } else {
         showToast('Veuillez remplir les champs obligatoires', 'error');
     }
@@ -5653,11 +5669,14 @@ async function submitEditOrder() {
         if (updatedStatus !== order.status) {
             await apiFetch(`transport-orders/${orderId}/status`, { method: 'POST', body: { status: updatedStatus } });
         }
-        await fetchAllData();
-
         showToast('Commande mise à jour avec succès', 'success');
         closeEditOrderModal();
-        router('planning');
+        if (typeof refreshAfterMvpStep === 'function') {
+            await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });
+        } else {
+            await fetchAllData();
+            router('planning');
+        }
     } else {
         showToast('Commande non trouvée', 'error');
     }

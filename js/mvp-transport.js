@@ -56,6 +56,81 @@ function getStatusBorderClass(status) {
 let transportFilters = { status: '', search: '' };
 let currentTransportDetail = null;
 
+const MVP_CYCLE_STEPS = [
+    { id: 'create', label: 'Créer' },
+    { id: 'assign', label: 'Affecter' },
+    { id: 'execute', label: 'Exécuter' },
+    { id: 'validate', label: 'Valider' },
+    { id: 'preinvoice', label: 'Préfacturer' }
+];
+
+function getMvpCycleState(order) {
+    const status = order?.status || '';
+    const flags = {
+        create: !!order?.id,
+        assign: !!(order?.driver_id || order?.assignment_type === 'SUBCONTRACTED'
+            || ['Pris en charge', 'Affrété', 'En cours', 'Livré', 'Validé', 'Clôturé'].includes(status)),
+        execute: ['Livré', 'Validé', 'Clôturé'].includes(status),
+        validate: ['Validé', 'Clôturé'].includes(status),
+        preinvoice: !!(order?.invoice_draft_id || status === 'Clôturé')
+    };
+    const steps = MVP_CYCLE_STEPS.map((step) => ({ ...step, done: !!flags[step.id] }));
+    const currentIdx = steps.findIndex((s) => !s.done);
+    return { steps, currentIdx: currentIdx === -1 ? steps.length - 1 : currentIdx };
+}
+
+function renderMvpCycleProgress(order) {
+    const { steps, currentIdx } = getMvpCycleState(order);
+    return `<div class="flex flex-wrap items-center gap-1 text-[10px] uppercase tracking-wide">
+        ${steps.map((step, idx) => {
+            const isCurrent = idx === currentIdx && !step.done;
+            const cls = step.done
+                ? 'bg-green-100 text-green-800 border-green-200'
+                : isCurrent
+                    ? 'bg-blue-100 text-blue-800 border-blue-300 ring-1 ring-blue-300'
+                    : 'bg-gray-50 text-gray-400 border-gray-200';
+            const icon = step.done ? '<i class="fa-solid fa-check mr-1"></i>' : '';
+            return `<span class="px-2 py-1 rounded-full border font-semibold ${cls}">${icon}${step.label}</span>${idx < steps.length - 1 ? '<i class="fa-solid fa-chevron-right text-gray-300 text-[8px]"></i>' : ''}`;
+        }).join('')}
+    </div>`;
+}
+
+function routeForMvpStep(step, status) {
+    const byStep = {
+        create: 'transports',
+        assign: 'planning',
+        execute: 'inprogress_transports',
+        validate: 'completed_transports',
+        preinvoice: 'preinvoicing'
+    };
+    if (step && byStep[step]) return byStep[step];
+    if (['Brouillon', 'À planifier', 'Planifié'].includes(status)) return 'transports';
+    if (['Pris en charge', 'Affrété', 'En cours'].includes(status)) return 'inprogress_transports';
+    if (['Livré', 'Validé'].includes(status)) return 'completed_transports';
+    if (status === 'Clôturé') return 'preinvoicing';
+    return window.currentAppRoute || 'transports';
+}
+
+window.refreshAfterMvpStep = async function (options = {}) {
+    const {
+        orderId = null,
+        step = null,
+        status = null,
+        route = null,
+        reopenDetail = !!orderId,
+        closeDetail = false
+    } = options;
+
+    const targetRoute = route || routeForMvpStep(step, status);
+    if (typeof fetchAllData === 'function') await fetchAllData();
+    if (typeof router === 'function') await router(targetRoute);
+    if (closeDetail && typeof closeTransportDetail === 'function') {
+        closeTransportDetail();
+    } else if (reopenDetail && orderId && typeof openTransportDetail === 'function') {
+        await openTransportDetail(orderId);
+    }
+};
+
 function renderTransportList() {
     let orders = [...(db.orders || [])];
     if (transportFilters.status) orders = orders.filter(o => o.status === transportFilters.status);
@@ -179,6 +254,8 @@ window.openTransportDetail = async function(orderId) {
 function renderTransportDetailModal(t) {
     document.getElementById('td-ref').textContent = t.ref || '#' + t.id;
     document.getElementById('td-status').innerHTML = `<span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(t.status)}">${t.status}</span>`;
+    const cycleEl = document.getElementById('td-mvp-cycle');
+    if (cycleEl) cycleEl.innerHTML = renderMvpCycleProgress(t);
     document.getElementById('td-client').textContent = t.client_name || '-';
     document.getElementById('td-route').textContent = `${t.origin || '-'} → ${t.dest || '-'}`;
     document.getElementById('td-dates').textContent = `Chargement : ${formatDisplayDate(t.load_date) || '-'} | Livraison : ${formatDisplayDate(t.delivery_date) || '-'}`;
@@ -270,13 +347,18 @@ window.closeTransportDetail = function() {
     currentTransportDetail = null;
 };
 
-window.changeTransportStatus = async function(orderId, status) {
+window.changeTransportStatus = async function (orderId, status, options = {}) {
     try {
         const res = await apiFetch(`transport-orders/${orderId}/status`, { method: 'POST', body: { status } });
         if (res.ok) {
             showToast(`Statut → ${status}`, 'success');
-            await fetchAllData();
-            openTransportDetail(orderId);
+            await refreshAfterMvpStep({
+                orderId,
+                step: status === 'Livré' ? 'execute' : 'execute',
+                status,
+                reopenDetail: options.reopenDetail !== false && !options.fromList,
+                route: options.route
+            });
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || 'Changement de statut refusé', 'error');
@@ -284,13 +366,12 @@ window.changeTransportStatus = async function(orderId, status) {
     } catch (e) { showToast('Erreur serveur', 'error'); }
 };
 
-window.validateTransportFromDetail = async function(orderId) {
+window.validateTransportFromDetail = async function (orderId) {
     try {
         const res = await apiFetch(`transport-orders/${orderId}/validate`, { method: 'POST' });
         if (res.ok) {
             showToast('Transport validé', 'success');
-            await fetchAllData();
-            openTransportDetail(orderId);
+            await refreshAfterMvpStep({ orderId, step: 'validate', status: 'Validé' });
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || 'Validation impossible', 'error');
@@ -298,7 +379,7 @@ window.validateTransportFromDetail = async function(orderId) {
     } catch (e) { showToast('Erreur serveur', 'error'); }
 };
 
-window.assignTransportFromDetail = async function(orderId) {
+window.assignTransportFromDetail = async function (orderId) {
     const driverId = prompt('ID chauffeur à affecter (laisser vide si déjà renseigné) :');
     const vehicleId = prompt('ID véhicule (optionnel) :');
     try {
@@ -308,8 +389,7 @@ window.assignTransportFromDetail = async function(orderId) {
         const res = await apiFetch(`transport-orders/${orderId}/assign`, { method: 'POST', body });
         if (res.ok) {
             showToast('Transport affecté', 'success');
-            await fetchAllData();
-            openTransportDetail(orderId);
+            await refreshAfterMvpStep({ orderId, step: 'assign', status: 'Pris en charge' });
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || 'Affectation impossible', 'error');
@@ -351,16 +431,21 @@ window.submitTransportComment = async function() {
     } catch (e) { showToast('Erreur serveur', 'error'); }
 };
 
-window.createInvoiceDraftFromTransport = async function(orderId) {
+window.createInvoiceDraftFromTransport = async function (orderId) {
     if (!confirm('Générer une préfacture (brouillon) pour ce transport ?')) return;
     try {
         const res = await apiFetch(`transport-orders/${orderId}/invoice-draft`, { method: 'POST' });
         if (res.ok) {
             const data = await res.json();
             showToast(`Préfacture ${data.invoice_draft_id} créée`, 'success');
-            await fetchAllData();
-            closeTransportDetail();
-            router('preinvoicing');
+            await refreshAfterMvpStep({
+                orderId,
+                step: 'preinvoice',
+                status: 'Clôturé',
+                route: 'preinvoicing',
+                closeDetail: true,
+                reopenDetail: false
+            });
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || 'Échec préfacturation', 'error');
@@ -402,7 +487,7 @@ function renderOrdersTable(orders, title, showActions) {
                         <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(o.status)}">${o.status}</span></td>
                         <td class="px-4 py-3">
                             <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs">Détail</button>
-                            ${showActions && canChangeTransportStatus() ? `<button onclick="changeTransportStatus(${o.id}, 'Livré')" class="text-green-600 hover:underline text-xs ml-2">Marquer livré</button>` : ''}
+                            ${showActions && canChangeTransportStatus() ? `<button onclick="changeTransportStatus(${o.id}, 'Livré', { fromList: true, reopenDetail: false })" class="text-green-600 hover:underline text-xs ml-2">Marquer livré</button>` : ''}
                         </td>
                     </tr>`).join('') : '<tr><td colspan="5" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport</td></tr>'}
             </tbody>
