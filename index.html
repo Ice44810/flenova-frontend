@@ -27,14 +27,16 @@
                     <img src="assets/transfact_icon_512.jpg" alt="Transfact" class="public-logo-icon">
                     <span class="public-logo-text">Transfact</span>
                 </button>
-                <div class="public-header-spacer" aria-hidden="true"></div>
-                <nav class="public-header-nav hidden md:flex">
-                    <button type="button" data-public-nav="home" onclick="publicRouter('home')" class="public-nav-btn">Accueil</button>
-                    <button type="button" data-public-nav="fonctionnalites" onclick="publicRouter('fonctionnalites')" class="public-nav-btn">Fonctionnalités</button>
-                    <button type="button" data-public-nav="tarifs" onclick="publicRouter('tarifs')" class="public-nav-btn">Tarifs</button>
-                    <button type="button" data-public-nav="contact" onclick="publicRouter('contact')" class="public-nav-btn">Contact</button>
-                </nav>
-                <a href="login.html" class="public-btn-connect">Se Connecter</a>
+                <div class="public-header-center hidden md:flex">
+                    <nav class="public-header-nav">
+                        <button type="button" data-public-nav="home" onclick="publicRouter('home')" class="public-nav-btn">Accueil</button>
+                        <button type="button" data-public-nav="fonctionnalites" onclick="publicRouter('fonctionnalites')" class="public-nav-btn">Fonctionnalités</button>
+                        <button type="button" data-public-nav="tarifs" onclick="publicRouter('tarifs')" class="public-nav-btn">Tarifs</button>
+                        <button type="button" data-public-nav="contact" onclick="publicRouter('contact')" class="public-nav-btn">Contact</button>
+                    </nav>
+                    <a href="login.html" class="public-btn-connect">Se Connecter</a>
+                </div>
+                <a href="login.html" class="public-btn-connect public-btn-connect-mobile md:hidden">Se Connecter</a>
             </div>
             <nav class="public-header-nav-mobile md:hidden">
                 <button type="button" data-public-nav="home" onclick="publicRouter('home')" class="public-nav-btn">Accueil</button>
