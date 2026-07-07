@@ -58,7 +58,7 @@ function renderPricingCards(options = {}) {
     }).join('');
 
     return `<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">${cards}</div>
-        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. Règlement mensuel par virement bancaire. Engagement résiliable à tout moment.</p>`;
+        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>1 mois d'essai Premium offert</strong> à l'inscription, puis règlement mensuel par virement bancaire.</p>`;
 }
 
 async function renderPublicPricingAsync() {
@@ -85,7 +85,8 @@ function renderAppPricingPage() {
     return `<div class="max-w-6xl mx-auto fade-in py-10">
         <div class="text-center mb-12">
             <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Tarifs Transfact</h1>
-            <p class="text-lg text-gray-600">Forfait actuel : <strong>${sub.planName || '—'}</strong></p>
+            <p class="text-lg text-gray-600">Forfait actuel : <strong>${sub.planName || '—'}</strong>${sub.isDemo ? ` — essai Premium (${sub.demoDaysRemaining ?? '—'} j. restants)` : ''}</p>
+            ${sub.isDemo && sub.targetPlanName ? `<p class="text-sm text-purple-700 mt-2">Après l'essai : forfait ${sub.targetPlanName}</p>` : ''}
             ${usageLine}
             <p class="text-sm text-gray-500 mt-3">Facturation par virement bancaire. Pour modifier votre forfait, contactez notre équipe.</p>
         </div>
@@ -143,4 +144,21 @@ window.hydrateSubscription = function (payload) {
     if (payload?.subscription) {
         window.cachedSubscription = payload.subscription;
     }
+};
+
+window.applyDemoBanner = function () {
+    const sub = window.cachedSubscription;
+    const banner = document.getElementById('demo-banner');
+    const textEl = document.getElementById('demo-banner-text');
+    if (!banner || !textEl) return;
+    if (!sub?.isDemo) {
+        banner.classList.add('hidden');
+        return;
+    }
+    const days = sub.demoDaysRemaining ?? '—';
+    const endLabel = sub.demoEndsAt
+        ? new Date(sub.demoEndsAt).toLocaleDateString('fr-FR')
+        : '';
+    textEl.innerHTML = `<i class="fa-solid fa-gift mr-2"></i>Essai Premium — <strong>${days} jour(s)</strong> restant(s)${endLabel ? ` (jusqu'au ${endLabel})` : ''}. Toutes les fonctionnalités sont débloquées.`;
+    banner.classList.remove('hidden');
 };

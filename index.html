@@ -230,7 +230,7 @@
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-gray-50">
-            <header class="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
+            <header class="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10 shrink-0">
                 <h2 id="page-title" class="text-xl font-bold text-gray-800">Tableau de bord</h2>
                 <div class="flex items-center gap-4">
                     <button onclick="logout()"
@@ -242,6 +242,10 @@
                         class="w-10 h-10 rounded-full border border-gray-200">
                 </div>
             </header>
+            <div id="demo-banner" class="hidden shrink-0 bg-gradient-to-r from-purple-700 to-blue-600 text-white px-6 py-2.5 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <span id="demo-banner-text"><i class="fa-solid fa-gift mr-2"></i>Essai Premium en cours</span>
+                <button type="button" onclick="router('contact')" class="text-left sm:text-right underline font-semibold hover:text-purple-100">Souscrire après l'essai</button>
+            </div>
             <div id="app-content" class="flex-1 overflow-auto p-6"></div>
         </main>
     </div>

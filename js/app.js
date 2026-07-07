@@ -629,6 +629,7 @@ function initPublicSite() {
 
     const ok = await fetchAllData();
     if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
+    if (typeof applyDemoBanner === 'function') applyDemoBanner();
 
     const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
     const initialRoute = hashRoute || 'dashboard';
@@ -3493,6 +3494,7 @@ async function router(route) {
 
     pageTitle.textContent = title;
     if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
+    if (typeof applyDemoBanner === 'function') applyDemoBanner();
 }
 
 // --- TOAST NOTIFICATIONS ---

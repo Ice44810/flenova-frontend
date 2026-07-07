@@ -4,9 +4,9 @@
 
 const VALID_PLANS = ['independant', 'pme', 'premium'];
 const PLAN_LABELS = {
-    independant: 'Indépendant — 99 €/mois HT',
-    pme: 'PME — 189 €/mois HT',
-    premium: 'Premium — 349 €/mois HT'
+    independant: 'Indépendant — 99 €/mois HT (après essai)',
+    pme: 'PME — 189 €/mois HT (après essai)',
+    premium: 'Premium — 349 €/mois HT (après essai)'
 };
 
 function showToast(message, type = 'info') {
@@ -87,7 +87,8 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
         if (response.ok && result.success) {
             setCurrentUser(result.user);
-            showToast('Entreprise créée avec succès ! Redirection...', 'success');
+            const days = result.demo?.trialDays || 30;
+            showToast(`Compte créé ! Essai Premium ${days} jours activé. Redirection...`, 'success');
             setTimeout(() => {
                 window.location.href = '/index.html';
             }, 800);
