@@ -1600,6 +1600,7 @@ function renderPurchaseInvoices() {
                 <option value="Maintenance" ${purchaseInvoiceFilter.type === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
             </select>
         </div>
+        <div class="mb-4">${canExportAccounting() ? `<a href="#" onclick="router('accounting_export')" class="text-sm text-emerald-700 hover:underline"><i class="fa-solid fa-file-csv mr-1"></i>Export comptable CSV</a>` : ''}</div>
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
@@ -1658,6 +1659,7 @@ function renderSalesInvoices() {
                 </button>` : ''}
             </div>
         </div>
+        ${canExportAccounting() ? `<div class="mb-4"><a href="#" onclick="router('accounting_export')" class="text-sm text-emerald-700 hover:underline"><i class="fa-solid fa-file-csv mr-1"></i>Export comptable CSV</a></div>` : ''}
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
@@ -3449,6 +3451,15 @@ async function router(route) {
             title = 'Factures Achats';
             content = renderPurchaseInvoices();
             break;
+        case 'accounting_export':
+            title = 'Export comptable';
+            content = renderAccountingExport();
+            setTimeout(() => {
+                toggleAccountingCustomPeriod();
+                loadAccountingSettingsForm();
+                loadAccountingExportHistory();
+            }, 0);
+            break;
         case 'invoice_settings':
             title = 'Paramètres Facturation';
             content = renderSettingInvoices();
@@ -4993,11 +5004,318 @@ async function downloadInvoicePDF(invoiceId) {
     }
 }
 
+window.filterPurchaseInvoicesBySubcontractor = function (subcontractorName) {
+    const sub = (db.subcontractors || []).find(s => s.name === subcontractorName);
+    purchaseInvoiceFilter.subcontractor_id = sub ? sub.id : '';
+    purchaseInvoiceFilter.type = 'Sous-traitance';
+    router('purchase_invoices');
+};
+
+function renderAccountingExport() {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentYear = String(now.getFullYear());
+    const currentQuarter = `Q${Math.floor(now.getMonth() / 3) + 1}`;
+
+    return `<div class="max-w-6xl mx-auto space-y-6 fade-in pb-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-1"><i class="fa-solid fa-file-csv text-emerald-600 mr-2"></i>Export comptable</h3>
+            <p class="text-sm text-gray-500 mb-6">Extrayez les factures ventes et achats au format CSV comptable pour vos déclarations de TVA et votre expert-comptable.</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <h4 class="font-semibold text-gray-700">Période</h4>
+                    <select id="acc-export-period-type" onchange="toggleAccountingCustomPeriod()" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="month">Mois</option>
+                        <option value="quarter">Trimestre</option>
+                        <option value="year">Année</option>
+                        <option value="custom">Période personnalisée</option>
+                    </select>
+                    <div id="acc-export-period-month">
+                        <input type="month" id="acc-export-month" value="${currentMonth}" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div id="acc-export-period-quarter" class="hidden flex gap-2">
+                        <input type="number" id="acc-export-quarter-year" value="${currentYear}" min="2020" max="2099" class="w-1/2 border rounded-lg px-3 py-2 text-sm" placeholder="Année">
+                        <select id="acc-export-quarter" class="w-1/2 border rounded-lg px-3 py-2 text-sm">
+                            <option value="Q1" ${currentQuarter === 'Q1' ? 'selected' : ''}>T1</option>
+                            <option value="Q2" ${currentQuarter === 'Q2' ? 'selected' : ''}>T2</option>
+                            <option value="Q3" ${currentQuarter === 'Q3' ? 'selected' : ''}>T3</option>
+                            <option value="Q4" ${currentQuarter === 'Q4' ? 'selected' : ''}>T4</option>
+                        </select>
+                    </div>
+                    <div id="acc-export-period-year" class="hidden">
+                        <input type="number" id="acc-export-year" value="${currentYear}" min="2020" max="2099" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div id="acc-export-period-custom" class="hidden grid grid-cols-2 gap-2">
+                        <label class="text-xs text-gray-500">Du<input type="date" id="acc-export-start" class="w-full border rounded-lg px-2 py-1 text-sm mt-1"></label>
+                        <label class="text-xs text-gray-500">Au<input type="date" id="acc-export-end" class="w-full border rounded-lg px-2 py-1 text-sm mt-1"></label>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h4 class="font-semibold text-gray-700">Options d'export</h4>
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <label class="flex items-center gap-2"><input type="checkbox" id="acc-export-sales" checked> Ventes</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="acc-export-purchases" checked> Achats</label>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-2">Niveau de détail</p>
+                        <label class="flex items-center gap-2 text-sm mb-1"><input type="radio" name="acc-export-detail" value="line" checked> Ligne par ligne (détail fiscal)</label>
+                        <label class="flex items-center gap-2 text-sm"><input type="radio" name="acc-export-detail" value="invoice"> Synthèse par facture</label>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-2">Filtrer les taux de TVA</p>
+                        <div class="flex flex-wrap gap-3 text-sm">
+                            <label class="flex items-center gap-1"><input type="checkbox" class="acc-vat-rate" value="20" checked> 20 %</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" class="acc-vat-rate" value="10" checked> 10 %</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" class="acc-vat-rate" value="5.5" checked> 5,5 %</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" class="acc-vat-rate" value="0" checked> Exonéré</label>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-2">Format</p>
+                        <select id="acc-export-format" class="w-full border rounded-lg px-3 py-2 text-sm">
+                            <option value="standard">CSV comptable standard (TVA détaillée)</option>
+                            <option value="sage">Format Sage (écritures comptables)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3 mt-6 pt-6 border-t">
+                <button type="button" onclick="previewAccountingExport()" class="bg-white border border-emerald-300 text-emerald-800 px-4 py-2 rounded-lg text-sm hover:bg-emerald-50">
+                    <i class="fa-solid fa-eye mr-1"></i> Aperçu
+                </button>
+                <button type="button" onclick="generateAccountingExport()" class="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-emerald-700 shadow-sm">
+                    <i class="fa-solid fa-download mr-1"></i> Générer l'export
+                </button>
+            </div>
+            <div id="acc-export-warnings" class="mt-4 hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3"></div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h4 class="font-semibold text-gray-800 mb-4"><i class="fa-solid fa-sliders mr-2 text-gray-500"></i>Plan comptable paramétrable</h4>
+            <div class="grid md:grid-cols-3 gap-4">
+                <label class="text-sm">Compte ventes<input id="acc-setting-sales" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="706000"></label>
+                <label class="text-sm">Compte achats<input id="acc-setting-purchase" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="604000"></label>
+                <label class="text-sm">TVA collectée<input id="acc-setting-vat-collected" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="445710"></label>
+                <label class="text-sm">TVA déductible<input id="acc-setting-vat-deductible" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="445660"></label>
+                <label class="text-sm">Centre analytique<input id="acc-setting-cost-center" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="TRANSPORT"></label>
+                <label class="text-sm">Taux TVA par défaut (%)<input id="acc-setting-vat-rate" type="number" step="0.1" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="20"></label>
+            </div>
+            <button type="button" onclick="saveAccountingSettings()" class="mt-4 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900">
+                <i class="fa-solid fa-save mr-1"></i> Enregistrer le plan comptable
+            </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h4 class="font-semibold text-gray-800 mb-4"><i class="fa-solid fa-clock-rotate-left mr-2 text-gray-500"></i>Historique des exports</h4>
+            <div id="acc-export-history" class="text-sm text-gray-500 italic">Chargement...</div>
+        </div>
+
+        <div id="acc-export-preview-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+                <div class="flex justify-between items-center p-4 border-b">
+                    <h3 class="font-bold text-lg">Aperçu CSV comptable</h3>
+                    <button type="button" onclick="closeAccountingPreview()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                </div>
+                <div class="p-4 overflow-auto flex-1">
+                    <p id="acc-preview-meta" class="text-sm text-gray-500 mb-3"></p>
+                    <div id="acc-preview-table" class="overflow-x-auto text-xs"></div>
+                </div>
+                <div class="p-4 border-t flex justify-end gap-2">
+                    <button type="button" onclick="closeAccountingPreview()" class="px-4 py-2 border rounded text-gray-600">Fermer</button>
+                    <button type="button" onclick="generateAccountingExport(); closeAccountingPreview();" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Télécharger</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+window.toggleAccountingCustomPeriod = function () {
+    const type = document.getElementById('acc-export-period-type')?.value || 'month';
+    ['month', 'quarter', 'year', 'custom'].forEach((key) => {
+        document.getElementById(`acc-export-period-${key}`)?.classList.toggle('hidden', key !== type);
+    });
+    if (type === 'quarter') {
+        document.getElementById('acc-export-period-quarter')?.classList.remove('hidden');
+        document.getElementById('acc-export-period-quarter')?.classList.add('flex');
+    }
+};
+
+function getAccountingExportOptions() {
+    const periodType = document.getElementById('acc-export-period-type')?.value || 'month';
+    let periodValue = null;
+    let startDate = null;
+    let endDate = null;
+
+    if (periodType === 'month') {
+        periodValue = document.getElementById('acc-export-month')?.value || null;
+    } else if (periodType === 'quarter') {
+        const year = document.getElementById('acc-export-quarter-year')?.value;
+        const q = document.getElementById('acc-export-quarter')?.value;
+        periodValue = year && q ? `${year}-${q}` : null;
+    } else if (periodType === 'year') {
+        periodValue = document.getElementById('acc-export-year')?.value || null;
+    } else {
+        startDate = document.getElementById('acc-export-start')?.value || null;
+        endDate = document.getElementById('acc-export-end')?.value || null;
+    }
+
+    const vatRates = Array.from(document.querySelectorAll('.acc-vat-rate:checked')).map((el) => el.value);
+    const detailLevel = document.querySelector('input[name="acc-export-detail"]:checked')?.value || 'line';
+
+    return {
+        periodType,
+        periodValue,
+        startDate,
+        endDate,
+        includeSales: document.getElementById('acc-export-sales')?.checked !== false,
+        includePurchases: document.getElementById('acc-export-purchases')?.checked !== false,
+        detailLevel,
+        vatRates: vatRates.length ? vatRates : null,
+        format: document.getElementById('acc-export-format')?.value || 'standard'
+    };
+}
+
+async function loadAccountingSettingsForm() {
+    try {
+        const res = await apiFetch('accounting/settings');
+        if (!res.ok) return;
+        const { data } = await res.json();
+        document.getElementById('acc-setting-sales').value = data.account_sales || '706000';
+        document.getElementById('acc-setting-purchase').value = data.account_purchase || '604000';
+        document.getElementById('acc-setting-vat-collected').value = data.account_vat_collected || '445710';
+        document.getElementById('acc-setting-vat-deductible').value = data.account_vat_deductible || '445660';
+        document.getElementById('acc-setting-cost-center').value = data.cost_center || '';
+        document.getElementById('acc-setting-vat-rate').value = data.default_vat_rate ?? 20;
+    } catch (e) { /* ignore */ }
+}
+
+async function loadAccountingExportHistory() {
+    const container = document.getElementById('acc-export-history');
+    if (!container) return;
+    try {
+        const res = await apiFetch('accounting/export/history');
+        if (!res.ok) throw new Error('Historique indisponible');
+        const { data } = await res.json();
+        if (!data?.length) {
+            container.innerHTML = '<p class="text-gray-400 italic">Aucun export généré pour le moment.</p>';
+            return;
+        }
+        container.innerHTML = `<table class="w-full text-sm text-left">
+            <thead class="text-xs uppercase bg-gray-50 border-b"><tr>
+                <th class="px-3 py-2">Date</th><th class="px-3 py-2">Fichier</th><th class="px-3 py-2">Période</th><th class="px-3 py-2">Lignes</th><th class="px-3 py-2">Utilisateur</th>
+            </tr></thead>
+            <tbody>${data.map(row => `<tr class="border-b hover:bg-gray-50">
+                <td class="px-3 py-2">${formatDisplayDate(row.created_at) || row.created_at}</td>
+                <td class="px-3 py-2 font-medium">${row.filename}</td>
+                <td class="px-3 py-2">${row.period_start || '—'} → ${row.period_end || '—'}</td>
+                <td class="px-3 py-2">${row.row_count}</td>
+                <td class="px-3 py-2">${row.user_name || row.user_email || '—'}</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    } catch (e) {
+        container.innerHTML = '<p class="text-red-500">Impossible de charger l\'historique.</p>';
+    }
+}
+
+window.saveAccountingSettings = async function () {
+    const body = {
+        account_sales: document.getElementById('acc-setting-sales')?.value,
+        account_purchase: document.getElementById('acc-setting-purchase')?.value,
+        account_vat_collected: document.getElementById('acc-setting-vat-collected')?.value,
+        account_vat_deductible: document.getElementById('acc-setting-vat-deductible')?.value,
+        cost_center: document.getElementById('acc-setting-cost-center')?.value,
+        default_vat_rate: Number(document.getElementById('acc-setting-vat-rate')?.value) || 20
+    };
+    try {
+        const res = await apiFetch('accounting/settings', { method: 'PUT', body });
+        if (!res.ok) throw new Error('Enregistrement impossible');
+        showToast('Plan comptable enregistré', 'success');
+    } catch (e) {
+        showToast(e.message || 'Erreur enregistrement plan comptable', 'error');
+    }
+};
+
+function showAccountingWarnings(warnings) {
+    const box = document.getElementById('acc-export-warnings');
+    if (!box) return;
+    if (!warnings?.length) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+    }
+    box.classList.remove('hidden');
+    box.innerHTML = `<strong>Alertes TVA :</strong><ul class="mt-2 list-disc pl-5">${warnings.map(w => `<li>${w}</li>`).join('')}</ul>`;
+}
+
+window.closeAccountingPreview = function () {
+    document.getElementById('acc-export-preview-modal')?.classList.add('hidden');
+};
+
+window.previewAccountingExport = async function () {
+    if (!document.getElementById('acc-export-sales')?.checked && !document.getElementById('acc-export-purchases')?.checked) {
+        showToast('Sélectionnez au moins Ventes ou Achats', 'error');
+        return;
+    }
+    showToast('Génération de l\'aperçu...', 'info');
+    try {
+        const res = await apiFetch('accounting/export/preview', { method: 'POST', body: getAccountingExportOptions() });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'Aperçu impossible');
+
+        showAccountingWarnings(payload.warnings);
+        const meta = document.getElementById('acc-preview-meta');
+        if (meta) {
+            meta.textContent = `${payload.filename} — ${payload.totalRows} ligne(s) — période ${payload.period?.startDate || '…'} → ${payload.period?.endDate || '…'}`;
+        }
+        const tableWrap = document.getElementById('acc-preview-table');
+        if (tableWrap && payload.headers) {
+            const previewRows = payload.previewRows || [];
+            tableWrap.innerHTML = `<table class="min-w-full border text-left">
+                <thead class="bg-gray-50"><tr>${payload.headers.map(h => `<th class="px-2 py-1 border whitespace-nowrap">${h}</th>`).join('')}</tr></thead>
+                <tbody>${previewRows.map(row => `<tr>${row.map(cell => `<td class="px-2 py-1 border whitespace-nowrap">${cell ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+            </table>`;
+        }
+        document.getElementById('acc-export-preview-modal')?.classList.remove('hidden');
+    } catch (e) {
+        showToast(e.message || 'Erreur aperçu export', 'error');
+    }
+};
+
+window.generateAccountingExport = async function () {
+    if (!document.getElementById('acc-export-sales')?.checked && !document.getElementById('acc-export-purchases')?.checked) {
+        showToast('Sélectionnez au moins Ventes ou Achats', 'error');
+        return;
+    }
+    showToast('Génération du CSV comptable...', 'info');
+    try {
+        const response = await apiFetch('accounting/export/generate', { method: 'POST', body: getAccountingExportOptions() });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || 'Export impossible');
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="([^"]+)"/);
+        a.download = match ? match[1] : 'CSV_Comptable.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        showToast('CSV comptable téléchargé', 'success');
+        loadAccountingExportHistory();
+    } catch (e) {
+        showToast(e.message || 'Erreur export comptable', 'error');
+    }
+};
+
 function exportAccounting(type) {
-    showToast('Export comptabilité en cours...', 'info');
-    setTimeout(() => {
-        showToast('Export prêt (simulation)', 'success');
-    }, 1500);
+    router('accounting_export');
 }
 
 // --- ORDER FUNCTIONS ---

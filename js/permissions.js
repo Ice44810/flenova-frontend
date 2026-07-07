@@ -69,7 +69,7 @@ function fallbackCan(role, module, action) {
     const matrix = {
         admin: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], clients: ['view','create','edit','delete'], carriers: ['view','create','edit','delete','assign'], billing: ['view','create','edit','delete','generate_invoice'], settings: ['view','edit'], users: ['manage_users','view','create','edit','delete'], dashboard: ['view'], reports: ['view'] },
         exploitant: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], clients: ['view','create','edit'], carriers: ['view','assign'], billing: ['view'], dashboard: ['view'], reports: ['view'] },
-        comptabilite: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], billing: ['view','create','edit','generate_invoice'], dashboard: ['view'], reports: ['view'] },
+        comptabilite: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], billing: ['view','create','edit','generate_invoice','export'], dashboard: ['view'], reports: ['view','export'] },
         chauffeur: { transports: ['view'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], dashboard: ['view'] },
         lecture: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], dashboard: ['view'], reports: ['view'] }
     };
@@ -90,6 +90,7 @@ function canAccessRoute(routeName) {
         preinvoicing: ['billing', 'generate_invoice'],
         sales_invoices: ['billing', 'view'],
         purchase_invoices: ['billing', 'view'],
+        accounting_export: ['billing', 'export'],
         admin: ['settings', 'view'],
         margin_dashboard: ['reports', 'view'],
         affretement_confirmation: ['transports', 'view'],
@@ -126,6 +127,7 @@ window.canValidateTransport = () => can(PERM_MODULES.TRANSPORTS, PERM_ACTIONS.VA
 window.canUploadDocument = () => can(PERM_MODULES.DOCUMENTS, PERM_ACTIONS.UPLOAD_DOCUMENT);
 window.canManageFinance = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.GENERATE_INVOICE) || can(PERM_MODULES.BILLING, PERM_ACTIONS.CREATE);
 window.canManageInvoices = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.CREATE) || can(PERM_MODULES.BILLING, PERM_ACTIONS.EDIT) || can(PERM_MODULES.BILLING, PERM_ACTIONS.DELETE);
+window.canExportAccounting = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.EXPORT);
 window.canChangeTransportStatus = () => can(PERM_MODULES.STATUSES, PERM_ACTIONS.CHANGE_STATUS);
 window.canManageUsers = () => can(PERM_MODULES.USERS, PERM_ACTIONS.MANAGE_USERS);
 window.canManageClients = () => can(PERM_MODULES.CLIENTS, PERM_ACTIONS.CREATE);
