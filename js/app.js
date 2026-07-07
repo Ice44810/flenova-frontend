@@ -1,5 +1,5 @@
 /**
- * Transfact - Application JavaScript
+ * Transfact - Application JavaScript (SPA TMS + site public)
  */
 
 // --- MOCK DATABASE ---
@@ -19,7 +19,6 @@ function formatDateForInput(value) {
     return s.slice(0, 10);
 }
 
-/** Affichage date jj/mm/aaaa — sans heure (ignore T22:00:00.000Z etc.) */
 function formatDisplayDate(value) {
     if (value === undefined || value === null || String(value).trim() === '') return '';
     const s = String(value).trim();
@@ -38,6 +37,7 @@ function formatDisplayDate(value) {
 window.formatDisplayDate = formatDisplayDate;
 window.formatDateForInput = formatDateForInput;
 
+// --- UTILITAIRES ---
 function normalizeUploadUrl(url) {
     if (!url) return '';
     if (url.startsWith('/uploads/')) return url;
@@ -46,7 +46,7 @@ function normalizeUploadUrl(url) {
 }
 let currentUser = getCurrentUser();
 
-// Fonction utilitaire pour masquer TOUS les modaux
+// --- MODAUX (global) ---
 function hideAllModals() {
     // Empêche des “ré-activations” tardives (setTimeout / handlers de preview facture)
     // de faire réapparaître l’aperçu facture pendant l’ouverture d’un autre modal.
@@ -146,7 +146,7 @@ function makeElementDraggable(el) {
     el.style.cursor = 'grab';
 }
 
-// --- PUBLIC SITE (sans authentification) ---
+// --- SITE PUBLIC ---
 const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact'];
 let isAuthenticated = false;
 let publicReviewsTimer = null;
@@ -330,10 +330,7 @@ function renderPublicHome() {
                     <h1 class="public-hero-title">Simplifiez votre gestion de transport.</h1>
                     <p class="public-hero-subtitle">Optimisez des opérations logistiques avec notre solution TMS tout-en-un</p>
                     <div class="public-hero-cta">
-                        <a href="register.html" class="public-btn-primary">Essayer Gratuitement</a>
-                        <button type="button" class="public-hero-demo-link" onclick="publicRouter('contact')">
-                            Demander une démo <span aria-hidden="true">&rsaquo;</span>
-                        </button>
+                        <button type="button" onclick="publicRouter('contact')" class="public-btn-primary">Essayer Gratuitement</button>
                     </div>
                 </div>
                 <div class="public-hero-image-wrap">
@@ -642,6 +639,7 @@ function initPublicSite() {
 
     document.getElementById('public-screen')?.classList.add('hidden');
     document.body.classList.remove('public-site-active');
+    document.body.classList.add('h-screen', 'overflow-hidden');
     const appScreen = document.getElementById('app-screen');
     if (appScreen) appScreen.classList.remove('hidden');
     setAppModalsVisible(true);
@@ -744,6 +742,7 @@ async function deleteSelectedInvoices() {
 
 // --- RENDERERS ---
 
+// --- RENDER: Dashboard & transports ---
 function renderDashboard(stats = {}) {
     const activeTab = window.activeDashboardTab || 'general';
 
@@ -1064,6 +1063,7 @@ function createInvoiceFromMission(missionId) {
     }
 }
 
+// --- RENDER: Planning ---
 function renderPlanning() {
     const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
     const now = new Date();
@@ -1144,6 +1144,7 @@ function renderPlanning() {
     </div>`;
 }
 
+// --- RENDER: Clients & sous-traitants ---
 function renderClients() {
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
@@ -1487,6 +1488,7 @@ async function sendAffretementConfirmation() {
 window.openAffretementConfirmation = openAffretementConfirmation;
 window.sendAffretementConfirmation = sendAffretementConfirmation;
 
+// --- RENDER: Flotte ---
 function renderDrivers() {
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
         <div class="flex justify-between items-center mb-6">
@@ -1563,6 +1565,7 @@ function renderFleet() {
     </div>`;
 }
 
+// --- RENDER: Facturation ---
 function renderPurchaseInvoices() {
     const canManage = canManageInvoices();
     const subcontractorOptions = (db.subcontractors || []).map(s =>
@@ -2783,6 +2786,7 @@ window.uploadCompanyLogo = async function () {
     }
 };
 
+// --- RENDER: Admin ---
 function renderAdmin() {
     const isAdminUser = typeof canManageUsers === 'function' && canManageUsers();
     const emailEnabled = currentUser?.company_notifications === 1;
@@ -2926,6 +2930,7 @@ window.toggleEmailNotifications = async function () {
     }
 };
 
+// --- RENDER: Pages info ---
 function renderPricing() {
     return `<div class="max-w-6xl mx-auto fade-in py-10">
         <div class="text-center mb-12">
@@ -3068,7 +3073,7 @@ function renderContact() {
     </div>`;
 }
 
-// ---  --- 
+// --- PAGES APP (about, solutions, pricing) ---
 function renderAbout() {
     return `<div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 fade-in">
         <div class="text-center mb-8">
@@ -3969,9 +3974,6 @@ function openDriverCardModal(driverId) {
     document.getElementById('driver-card-modal').classList.remove('hidden');
 }
 
-/**
- * Gestion des chauffeurs - Modals et CRUD
- */
 function syncDriverMobileSection({ mode, driver } = {}) {
     const optionEl = document.getElementById('driver-mobile-option');
     const checkbox = document.getElementById('driver-generate-mobile-code');

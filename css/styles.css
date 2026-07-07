@@ -53,7 +53,7 @@ body {
     100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } 
 }
 
-/* STYLES PDF - A4 Format */
+/* --- MODALS & FACTURES PDF --- */
 .invoice-box {
     width: 210mm;
     min-height: 297mm;
@@ -697,7 +697,9 @@ body.invoice-modal-open {
 .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 @media (min-width: 768px) {
-    .md\:flex { display: flex; }
+    /* Primes sur .hidden !important (sidebar app, bouton déconnexion, header public) */
+    .md\:flex { display: flex !important; }
+    .md\:hidden { display: none !important; }
     .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -768,7 +770,7 @@ body.invoice-modal-open {
 .category-autre { background-color: #f3f4f6; color: #374151; }
 
 /* ============================================
-   Public landing page (maquette TransLogix)
+   SITE PUBLIC
    ============================================ */
 :root {
     --public-blue: #0056b3;
@@ -783,7 +785,6 @@ body.invoice-modal-open {
     display: none;
 }
 
-/* Zone de défilement principale du site public */
 .public-content-area {
     flex: 1 1 auto;
     min-height: 0;
@@ -822,7 +823,6 @@ body.public-site-active {
     overflow: hidden;
 }
 
-/* Page contact — grand format centré */
 .public-contact-page {
     min-height: 100%;
     display: flex;
@@ -956,6 +956,7 @@ body.public-site-active {
     }
 }
 
+/* Header public */
 .public-header {
     background: #fff;
     position: sticky;
@@ -1167,6 +1168,7 @@ body.public-site-active {
 }
 
 /* Features (accueil) */
+/* Fonctionnalités (accueil) */
 .public-features-section {
     padding: 3.5rem 1.5rem 4rem;
     background: #fff;
@@ -1224,7 +1226,7 @@ body.public-site-active {
     line-height: 1.5;
 }
 
-/* Testimonial & avis clients */
+/* Avis clients */
 .public-testimonial {
     position: relative;
     overflow: hidden;
@@ -1436,7 +1438,7 @@ body.public-site-active {
     box-shadow: 0 4px 16px rgba(0, 60, 120, 0.12);
 }
 
-/* Other public pages */
+/* Pages internes public */
 .public-page-header {
     background: linear-gradient(180deg, var(--public-blue-soft) 0%, #ffffff 100%);
     border-bottom: 1px solid #e5e7eb;

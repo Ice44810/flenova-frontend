@@ -19,7 +19,7 @@
 
 <body class="h-screen overflow-hidden text-gray-800">
 
-    <!-- PUBLIC SITE (visiteurs non connectés) -->
+    <!-- SITE PUBLIC (visiteurs non authentifiés) -->
     <div id="public-screen" class="hidden h-screen flex flex-col overflow-hidden bg-white">
         <header class="public-header">
             <div class="public-header-inner">
@@ -56,7 +56,7 @@
     <div id="app-screen" class="hidden flex h-full w-full">
 
         <!-- SIDEBAR -->
-        <aside class="w-64 bg-slate-900 text-white flex-col hidden md:flex shadow-xl z-20">
+        <aside class="w-64 bg-slate-900 text-white flex-col hidden md:flex shadow-xl z-20 h-full shrink-0">
             <div class="h-16 flex items-center px-6 border-b border-slate-700 gap-2">
         <img src="assets/transfact_icon_512.jpg" class="w-8 h-8">
                 <span class="text-xl font-bold tracking-wide">Transfact</span>
