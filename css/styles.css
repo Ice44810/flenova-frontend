@@ -965,14 +965,12 @@ body.public-site-active {
 }
 .public-header-inner {
     width: 100%;
-    max-width: 1140px;
     margin: 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 2rem;
     height: 64px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
+    gap: 0;
 }
 .public-header-logo {
     display: flex;
@@ -983,6 +981,10 @@ body.public-site-active {
     cursor: pointer;
     padding: 0;
     flex-shrink: 0;
+}
+.public-header-spacer {
+    flex: 1 1 auto;
+    min-width: 1rem;
 }
 .public-logo-icon {
     width: 36px;
@@ -996,27 +998,19 @@ body.public-site-active {
     color: var(--public-blue);
     letter-spacing: -0.02em;
 }
-.public-header-right {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 2rem;
-    flex-shrink: 0;
-    margin-left: auto;
-}
 .public-header-nav {
     display: flex;
     align-items: center;
-    gap: 1.75rem;
+    gap: 1.5rem;
+    margin-right: 1.25rem;
+    flex-shrink: 0;
 }
 .public-header-nav-mobile {
     display: flex;
     justify-content: flex-end;
     flex-wrap: wrap;
     gap: 0.25rem 1.25rem;
-    padding: 0.5rem 1.5rem 0.75rem;
-    max-width: 1140px;
-    margin: 0 auto;
+    padding: 0.5rem 2rem 0.75rem;
     border-top: 1px solid #f1f5f9;
 }
 .public-nav-btn {
@@ -1038,7 +1032,9 @@ body.public-site-active {
     font-weight: 600;
 }
 .public-btn-connect {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0.5rem 1.25rem;
     font-size: 0.875rem;
     font-weight: 600;
@@ -1046,6 +1042,7 @@ body.public-site-active {
     background: var(--public-blue);
     border-radius: 6px;
     text-decoration: none;
+    flex-shrink: 0;
     transition: background 0.15s;
 }
 .public-btn-connect:hover {
@@ -1221,12 +1218,150 @@ body.public-site-active {
     line-height: 1.5;
 }
 
-/* Testimonial */
+/* Testimonial & avis clients */
 .public-testimonial {
     position: relative;
     overflow: hidden;
     padding: 3rem 1.5rem 3.5rem;
     background: linear-gradient(180deg, #eef5fc 0%, #e3eef9 100%);
+}
+.public-reviews-wrap {
+    position: relative;
+    z-index: 2;
+    max-width: 1040px;
+    margin: 0 auto;
+}
+.public-reviews-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.public-reviews-title {
+    font-size: clamp(1.375rem, 3vw, 1.75rem);
+    font-weight: 700;
+    color: var(--public-heading);
+    margin-bottom: 0.5rem;
+}
+.public-reviews-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    font-size: 0.9375rem;
+    color: #5a6578;
+}
+.public-reviews-stars,
+.public-review-stars {
+    color: #f59e0b;
+    letter-spacing: 0.05em;
+    font-size: 0.875rem;
+}
+.public-reviews-empty {
+    text-align: center;
+    color: #64748b;
+    padding: 2rem 1rem;
+    font-size: 0.9375rem;
+}
+.public-reviews-loading .public-reviews-empty {
+    padding: 3rem 1rem;
+}
+.public-reviews-carousel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+.public-reviews-track {
+    flex: 1;
+    display: grid;
+    min-height: 240px;
+}
+.public-review-slide {
+    grid-area: 1 / 1;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+.public-review-slide.is-active {
+    opacity: 1;
+    visibility: visible;
+}
+.public-review-nav {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: none;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--public-blue);
+    box-shadow: 0 2px 12px rgba(0, 60, 120, 0.12);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.public-review-nav:hover {
+    background: var(--public-blue);
+    color: #fff;
+}
+.public-review-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+}
+.public-review-dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 86, 179, 0.25);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.15s, background 0.15s;
+}
+.public-review-dot.is-active {
+    background: var(--public-blue);
+    transform: scale(1.2);
+}
+.public-reviews-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+.public-review-card {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 2px 12px rgba(0, 60, 120, 0.06);
+}
+.public-review-card-text {
+    font-size: 0.875rem;
+    color: var(--public-heading);
+    line-height: 1.55;
+    margin: 0.625rem 0 0.75rem;
+    font-style: italic;
+}
+.public-review-card-author {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    font-size: 0.8125rem;
+    color: #5a6578;
+}
+.public-review-card-author strong {
+    color: #334155;
+    font-weight: 600;
+}
+.public-review-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.5rem;
+    object-fit: unset;
 }
 .public-testimonial-wave {
     position: absolute;
@@ -1338,10 +1473,14 @@ body.public-site-active {
     .public-testimonial-inner { flex-direction: column; text-align: center; }
     .public-testimonial-quote-wrap { padding-left: 0; padding-top: 2rem; }
     .public-testimonial-mark { left: 50%; transform: translateX(-50%); top: -1rem; }
+    .public-reviews-grid { grid-template-columns: 1fr; }
+    .public-review-nav { display: none; }
     .public-pricing-popular { transform: none; }
 }
 @media (max-width: 768px) {
+    .public-header-inner { padding: 0 1rem; }
     .public-header-nav { display: none !important; }
-    .public-header-right { gap: 0; }
+    .public-header-spacer { min-width: 0; }
+    .public-header-nav-mobile { padding: 0.5rem 1rem 0.75rem; }
 }
 

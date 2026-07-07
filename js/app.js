@@ -149,6 +149,172 @@ function makeElementDraggable(el) {
 // --- PUBLIC SITE (sans authentification) ---
 const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact'];
 let isAuthenticated = false;
+let publicReviewsTimer = null;
+
+function escapePublicHtml(value) {
+    if (value === undefined || value === null) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function renderPublicReviewStars(rating) {
+    const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
+    return Array.from({ length: 5 }, (_, i) =>
+        `<i class="fa-${i < safeRating ? 'solid' : 'regular'} fa-star" aria-hidden="true"></i>`
+    ).join('');
+}
+
+function renderPublicReviewsSection(reviews) {
+    if (!reviews?.length) {
+        return `<section class="public-testimonial public-reviews">
+            <div class="public-reviews-wrap">
+                <p class="public-reviews-empty">Aucun avis client pour le moment.</p>
+            </div>
+        </section>`;
+    }
+
+    const avgRating = (reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length).toFixed(1);
+    const slides = reviews.map((review, index) => {
+        const author = escapePublicHtml(review.author);
+        const role = escapePublicHtml(review.role);
+        const company = escapePublicHtml(review.company);
+        const quote = escapePublicHtml(review.quote);
+        const portrait = review.photo
+            ? `<img src="${escapePublicHtml(review.photo)}" alt="${author}" class="public-testimonial-portrait" width="120" height="120">`
+            : `<div class="public-testimonial-portrait public-review-avatar" aria-hidden="true">${escapePublicHtml(review.initials || review.author?.charAt(0) || '?')}</div>`;
+        return `<article class="public-review-slide${index === 0 ? ' is-active' : ''}" data-review-index="${index}">
+            <div class="public-testimonial-inner">
+                <div class="public-testimonial-quote-wrap">
+                    <span class="public-testimonial-mark" aria-hidden="true">&ldquo;</span>
+                    <div class="public-review-stars" aria-label="${Number(review.rating) || 0} sur 5">${renderPublicReviewStars(review.rating)}</div>
+                    <blockquote>${quote}</blockquote>
+                    <cite>&mdash; ${author}${role ? `, ${role}` : ''}${company ? ` · ${company}` : ''}</cite>
+                </div>
+                ${portrait}
+            </div>
+        </article>`;
+    }).join('');
+
+    const dots = reviews.map((_, index) =>
+        `<button type="button" class="public-review-dot${index === 0 ? ' is-active' : ''}" data-review-go="${index}" aria-label="Afficher l'avis ${index + 1}"></button>`
+    ).join('');
+
+    const cards = reviews.map((review) => {
+        const author = escapePublicHtml(review.author);
+        const role = escapePublicHtml(review.role);
+        const company = escapePublicHtml(review.company);
+        const quote = escapePublicHtml(review.quote);
+        return `<article class="public-review-card">
+            <div class="public-review-stars" aria-label="${Number(review.rating) || 0} sur 5">${renderPublicReviewStars(review.rating)}</div>
+            <p class="public-review-card-text">&ldquo;${quote}&rdquo;</p>
+            <footer class="public-review-card-author">
+                <strong>${author}</strong>
+                <span>${role}${company ? ` · ${company}` : ''}</span>
+            </footer>
+        </article>`;
+    }).join('');
+
+    return `<section class="public-testimonial public-reviews">
+            <div class="public-testimonial-wave" aria-hidden="true"></div>
+            <div class="public-testimonial-wave-bottom" aria-hidden="true"></div>
+            <div class="public-reviews-wrap">
+                <div class="public-reviews-header">
+                    <h2 class="public-reviews-title">Commentaires &amp; Avis clients</h2>
+                    <p class="public-reviews-summary">
+                        <span class="public-reviews-stars" aria-hidden="true">${renderPublicReviewStars(Math.round(Number(avgRating)))}</span>
+                        <span><strong>${avgRating}/5</strong> · ${reviews.length} avis vérifiés</span>
+                    </p>
+                </div>
+                <div class="public-reviews-carousel" aria-live="polite">
+                    <button type="button" class="public-review-nav public-review-prev" aria-label="Avis précédent">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <div class="public-reviews-track">${slides}</div>
+                    <button type="button" class="public-review-nav public-review-next" aria-label="Avis suivant">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+                <div class="public-review-dots" role="tablist" aria-label="Navigation des avis">${dots}</div>
+                <div class="public-reviews-grid">${cards}</div>
+            </div>
+        </section>`;
+}
+
+function renderPublicReviewsLoading() {
+    return `<div id="public-reviews-mount" class="public-reviews-loading">
+        <section class="public-testimonial public-reviews">
+            <div class="public-reviews-wrap">
+                <p class="public-reviews-empty"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Chargement des avis clients…</p>
+            </div>
+        </section>
+    </div>`;
+}
+
+async function loadPublicReviews() {
+    const mount = document.getElementById('public-reviews-mount');
+    if (!mount) return;
+
+    try {
+        const res = await fetch('/api/avis/public');
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'Erreur serveur');
+
+        mount.outerHTML = renderPublicReviewsSection(json.data || []);
+        initPublicReviewsCarousel();
+    } catch (err) {
+        console.warn('Chargement avis clients:', err.message);
+        mount.outerHTML = renderPublicReviewsSection([]);
+    }
+}
+
+function initPublicReviewsCarousel() {
+    if (publicReviewsTimer) {
+        clearInterval(publicReviewsTimer);
+        publicReviewsTimer = null;
+    }
+    const root = document.querySelector('.public-reviews');
+    if (!root) return;
+
+    const slides = [...root.querySelectorAll('.public-review-slide')];
+    const dots = [...root.querySelectorAll('.public-review-dot')];
+    if (!slides.length) return;
+
+    let current = slides.findIndex((slide) => slide.classList.contains('is-active'));
+    if (current < 0) current = 0;
+
+    function goTo(index) {
+        current = (index + slides.length) % slides.length;
+        slides.forEach((slide, i) => slide.classList.toggle('is-active', i === current));
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('is-active', i === current);
+            dot.setAttribute('aria-selected', i === current ? 'true' : 'false');
+        });
+    }
+
+    root.querySelector('.public-review-prev')?.addEventListener('click', () => {
+        goTo(current - 1);
+        restartAutoplay();
+    });
+    root.querySelector('.public-review-next')?.addEventListener('click', () => {
+        goTo(current + 1);
+        restartAutoplay();
+    });
+    dots.forEach((dot) => {
+        dot.addEventListener('click', () => {
+            goTo(Number(dot.dataset.reviewGo));
+            restartAutoplay();
+        });
+    });
+
+    function restartAutoplay() {
+        if (publicReviewsTimer) clearInterval(publicReviewsTimer);
+        publicReviewsTimer = setInterval(() => goTo(current + 1), 7000);
+    }
+    restartAutoplay();
+}
 
 function renderPublicHome() {
     const iconClipboard = `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="8" width="28" height="34" rx="3"/><path d="M18 8V6a6 6 0 0 1 12 0v2"/><line x1="24" y1="22" x2="24" y2="32"/><line x1="19" y1="27" x2="29" y2="27"/></svg>`;
@@ -199,18 +365,7 @@ function renderPublicHome() {
             </div>
         </section>
 
-        <section class="public-testimonial">
-            <div class="public-testimonial-wave" aria-hidden="true"></div>
-            <div class="public-testimonial-wave-bottom" aria-hidden="true"></div>
-            <div class="public-testimonial-inner">
-                <div class="public-testimonial-quote-wrap">
-                    <span class="public-testimonial-mark" aria-hidden="true">&ldquo;</span>
-                    <blockquote>Grâce à Transfact, nous avons réduit nos coûts et amélioré notre efficacité de manière significative.</blockquote>
-                    <cite>&mdash; Sophie L., Directrice Logistique</cite>
-                </div>
-                <img src="assets/public-testimonial-portrait.png" alt="Sophie L." class="public-testimonial-portrait" width="120" height="120">
-            </div>
-        </section>
+        ${renderPublicReviewsLoading()}
     </div>`;
 }
 
@@ -385,6 +540,10 @@ function publicRouter(route) {
     document.getElementById('public-screen')?.classList.toggle('public-on-home', route === 'home');
     container.classList.toggle('public-scroll-visible', route === 'home' || route === 'fonctionnalites');
     container.scrollTop = 0;
+    if (route !== 'home' && publicReviewsTimer) {
+        clearInterval(publicReviewsTimer);
+        publicReviewsTimer = null;
+    }
 
     switch (route) {
         case 'contact':
@@ -398,6 +557,8 @@ function publicRouter(route) {
             break;
         default:
             container.innerHTML = renderPublicHome();
+            loadPublicReviews();
+            break;
     }
 }
 
