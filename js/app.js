@@ -368,7 +368,7 @@ function renderPublicHome() {
                     </div>
                 </div>
                 <div class="public-hero-image-wrap">
-                    <img src="assets/public-hero-illustration.png" alt="Interface Transfact et chauffeur" class="public-hero-image" width="520" height="250">
+                    <img src="assets/public-hero-illustration.png" alt="Tableau de bord TMS Transfact — cartes, statistiques et flotte" class="public-hero-image" width="1024" height="622">
                 </div>
             </div>
         </section>

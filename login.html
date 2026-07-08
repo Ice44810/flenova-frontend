@@ -74,24 +74,24 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Connexion...';
 
             try {
+                const email = document.getElementById('login-email').value.trim();
+                const password = document.getElementById('login-password').value;
+
                 const response = await apiFetch('auth/login', {
                     method: 'POST',
-                    body: {
-                        email: document.getElementById('login-email').value,
-                        password: document.getElementById('login-password').value
-                    }
+                    body: { email, password }
                 });
 
-                const result = await response.json();
+                const result = await response.json().catch(() => ({}));
 
-                if (result.success) {
+                if (response.ok && result.success) {
                     setCurrentUser(result.user);
                     showToast('Bienvenue ' + result.user.name + ' !', 'success');
                     setTimeout(() => {
                         window.location.href = '/';
                     }, 500);
                 } else {
-                    showToast(result.error || 'Identifiants incorrects', 'error');
+                    showToast(result.message || result.error || 'Identifiants incorrects', 'error');
                 }
             } catch (err) {
                 showToast('Impossible de contacter le serveur', 'error');

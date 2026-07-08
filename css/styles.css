@@ -1161,7 +1161,7 @@ body.public-site-active {
 }
 .public-hero-image {
     width: 100%;
-    max-width: 520px;
+    max-width: 640px;
     height: auto;
     object-fit: contain;
     filter: drop-shadow(0 12px 28px rgba(0, 60, 120, 0.12));
