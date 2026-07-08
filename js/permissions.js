@@ -31,6 +31,7 @@ const PERM_MODULES = {
 };
 
 let cachedPermissions = null;
+let permissionsLoadFailed = false;
 
 function normalizeRole(role) {
     const map = { manager: 'exploitant', user: 'lecture' };
@@ -51,9 +52,13 @@ async function loadPermissions() {
         if (res.ok) {
             const data = await res.json();
             cachedPermissions = data;
+            permissionsLoadFailed = false;
             return data;
         }
-    } catch (e) { /* ignore */ }
+        permissionsLoadFailed = true;
+    } catch (e) {
+        permissionsLoadFailed = true;
+    }
     return null;
 }
 
@@ -61,6 +66,7 @@ function can(module, action) {
     if (cachedPermissions?.modules?.[module]) {
         return cachedPermissions.modules[module].includes(action);
     }
+    if (permissionsLoadFailed) return false;
     return fallbackCan(getUserRole(), module, action);
 }
 
@@ -99,7 +105,7 @@ function canAccessRoute(routeName) {
         create_invoice: ['billing', 'create']
     };
     const rule = rules[routeName];
-    if (!rule) return true;
+    if (!rule) return false;
     return can(rule[0], rule[1]);
 }
 

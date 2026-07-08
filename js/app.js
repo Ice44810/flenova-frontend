@@ -70,9 +70,12 @@ window.formatDateForInput = formatDateForInput;
 // --- UTILITAIRES ---
 function normalizeUploadUrl(url) {
     if (!url) return '';
-    if (url.startsWith('/uploads/')) return url;
-    const match = url.match(/\/uploads\/subcontractors\/[^/?#]+/);
-    return match ? match[0] : url;
+    if (typeof resolveProtectedUploadUrl === 'function') {
+        return resolveProtectedUploadUrl(url);
+    }
+    if (url.startsWith('/uploads/')) return `/api${url}`;
+    const match = url.match(/\/uploads\/[^\s?#]+/);
+    return match ? `/api${match[0]}` : url;
 }
 let currentUser = getCurrentUser();
 
@@ -182,6 +185,7 @@ let isAuthenticated = false;
 let publicReviewsTimer = null;
 
 function escapePublicHtml(value) {
+    if (typeof escapeHtml === 'function') return escapeHtml(value);
     if (value === undefined || value === null) return '';
     return String(value)
         .replace(/&/g, '&amp;')
@@ -612,6 +616,8 @@ function initPublicSite() {
         }
     } catch (e) {
         console.warn("Échec de l'authentification au démarrage:", e.message);
+        if (typeof clearUserCache === 'function') clearUserCache();
+        currentUser = null;
         initPublicSite();
         return;
     }
@@ -3510,11 +3516,15 @@ function showToast(message, type = 'info') {
         info: 'fa-info-circle'
     };
 
-    toast.innerHTML = `
-        <i class="fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3"></i>
-        <span class="text-sm text-gray-700">${message}</span>
-    `;
+    const icon = document.createElement('i');
+    icon.className = `fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3`;
 
+    const text = document.createElement('span');
+    text.className = 'text-sm text-gray-700';
+    text.textContent = String(message ?? '');
+
+    toast.appendChild(icon);
+    toast.appendChild(text);
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
 }

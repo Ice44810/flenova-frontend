@@ -276,25 +276,31 @@ function renderTransportDetailModal(t) {
     }
 
     const historyEl = document.getElementById('td-history');
+    const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
     historyEl.innerHTML = (t.history || []).map(h => `
         <div class="flex gap-3 text-xs border-b pb-2 mb-2">
-            <span class="font-mono text-gray-400">${formatDisplayDate(h.changed_at) || '—'}</span>
-            <span class="font-semibold ${getStatusBadgeClass(h.status)} px-1 rounded">${h.status}</span>
-            <span class="text-gray-600">${h.changed_by_name || 'Système'}${h.comment ? ' — ' + h.comment : ''}</span>
+            <span class="font-mono text-gray-400">${esc(formatDisplayDate(h.changed_at) || '—')}</span>
+            <span class="font-semibold ${getStatusBadgeClass(h.status)} px-1 rounded">${esc(h.status)}</span>
+            <span class="text-gray-600">${esc(h.changed_by_name || 'Système')}${h.comment ? ' — ' + esc(h.comment) : ''}</span>
         </div>`).join('') || '<p class="text-gray-400 italic text-xs">Aucun historique</p>';
 
     const docsEl = document.getElementById('td-documents');
-    docsEl.innerHTML = (t.documents || []).map(d => `
-        <a href="${d.file_url.startsWith('/') ? d.file_url : d.file_url}" target="_blank" class="flex items-center gap-2 text-blue-600 hover:underline text-xs mb-1">
-            <i class="fa-solid fa-file-pdf"></i> ${d.file_name} (${d.doc_type})
-        </a>`).join('') || '<p class="text-gray-400 italic text-xs">Aucun document</p>';
+    docsEl.innerHTML = (t.documents || []).map(d => {
+        const fileUrl = typeof resolveProtectedUploadUrl === 'function'
+            ? resolveProtectedUploadUrl(d.file_url)
+            : (d.file_url || '');
+        return `
+        <a href="${esc(fileUrl)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-blue-600 hover:underline text-xs mb-1">
+            <i class="fa-solid fa-file-pdf"></i> ${esc(d.file_name)} (${esc(d.doc_type)})
+        </a>`;
+    }).join('') || '<p class="text-gray-400 italic text-xs">Aucun document</p>';
 
     const commentsEl = document.getElementById('td-comments');
     commentsEl.innerHTML = (t.comments || []).map(c => `
         <div class="bg-gray-50 rounded p-2 mb-2 text-xs">
-            <span class="font-bold text-gray-700">${c.user_name || 'Utilisateur'}</span>
-            <span class="text-gray-400 ml-2">${formatDisplayDate(c.created_at) || '—'}</span>
-            <p class="mt-1 text-gray-600">${c.content}</p>
+            <span class="font-bold text-gray-700">${esc(c.user_name || 'Utilisateur')}</span>
+            <span class="text-gray-400 ml-2">${esc(formatDisplayDate(c.created_at) || '—')}</span>
+            <p class="mt-1 text-gray-600">${esc(c.content)}</p>
         </div>`).join('') || '<p class="text-gray-400 italic text-xs">Aucun commentaire</p>';
 
     const actionsEl = document.getElementById('td-actions');

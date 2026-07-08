@@ -118,7 +118,7 @@ async function logout() {
     } catch (e) {
         // Ignore network errors during logout
     }
-    localStorage.clear();
+    localStorage.removeItem('user');
     window.location.href = '/login.html';
 }
 
@@ -131,5 +131,10 @@ function getCurrentUser() {
 }
 
 function setCurrentUser(user) {
-    localStorage.setItem('user', JSON.stringify(user));
+    const safe = typeof sanitizeUserForStorage === 'function'
+        ? sanitizeUserForStorage(user)
+        : user;
+    if (safe) {
+        localStorage.setItem('user', JSON.stringify(safe));
+    }
 }
