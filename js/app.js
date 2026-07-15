@@ -350,22 +350,218 @@ function initPublicReviewsCarousel() {
     restartAutoplay();
 }
 
-function renderPublicHome() {
-    const iconClipboard = `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="10" y="8" width="28" height="34" rx="3"/><path d="M18 8V6a6 6 0 0 1 12 0v2"/><line x1="24" y1="22" x2="24" y2="32"/><line x1="19" y1="27" x2="29" y2="27"/></svg>`;
-    const iconGears = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="18" cy="22" r="7"/><circle cx="32" cy="30" r="6"/><path d="M18 12v3M18 29v3M11 22h3M22 22h3M14 15l2 2M20 27l2 2M14 29l2-2M20 19l2-2M32 21v3M32 33v3M27 30h3M35 30h3"/></svg>`;
-    const iconChart = `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="28" width="7" height="12" rx="1"/><rect x="20" y="20" width="7" height="20" rx="1"/><rect x="32" y="12" width="7" height="28" rx="1"/><polyline points="8,26 22,18 36,10 42,6"/></svg>`;
+const PUBLIC_FAQ_ITEMS = [
+    {
+        q: 'Qu\'est-ce qu\'un TMS et à quoi sert Transfact ?',
+        a: 'Un TMS (Transport Management System) centralise vos ordres de transport, planning, exécution terrain et facturation. Transfact est conçu pour les PME et indépendants : une seule plateforme web + mobile, sans ERP lourd.'
+    },
+    {
+        q: 'Transfact remplace-t-il Excel et les échanges WhatsApp ?',
+        a: 'Oui, c\'est l\'objectif : fini les ressaisies entre tableur, mails et messagerie. Commandes, statuts, signatures chauffeurs et facturation vivent au même endroit.'
+    },
+    {
+        q: 'Comment fonctionne l\'essai gratuit ?',
+        a: 'À l\'inscription, vous bénéficiez de 30 jours d\'essai Premium avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait (à partir de 99 €/mois HT) et payez par virement bancaire.'
+    },
+    {
+        q: 'La facturation électronique et Factur-X sont-ils inclus ?',
+        a: 'Oui. Transfact génère vos factures clients au format Factur-X et propose un export comptable CSV pour votre expert-comptable — prêt pour les évolutions réglementaires 2026.'
+    },
+    {
+        q: 'L\'application mobile chauffeur est-elle incluse ?',
+        a: 'Oui. Vos chauffeurs consultent leurs missions, confirment les arrivées, collectent les signatures et envoient les preuves de livraison depuis leur smartphone.'
+    },
+    {
+        q: 'Transfact convient-il aux petites structures ?',
+        a: 'Absolument. Le forfait Indépendant démarre à 99 €/mois HT pour 1 utilisateur et 3 chauffeurs mobiles. Pas de mise en place complexe ni de déploiement sur site.'
+    }
+];
 
-    return `<div class="public-landing fade-in pb-8">
+const PUBLIC_MVP_STEPS = [
+    { n: 1, title: 'Créer', desc: 'Ordre de transport, client, trajet et tarif' },
+    { n: 2, title: 'Affecter', desc: 'Chauffeur interne ou sous-traitant' },
+    { n: 3, title: 'Exécuter', desc: 'Suivi terrain et preuves de livraison' },
+    { n: 4, title: 'Valider', desc: 'Contrôle exploitant avant facturation' },
+    { n: 5, title: 'Préfacturer', desc: 'Brouillon facture et export comptable' }
+];
+
+function renderPublicAnnouncement() {
+    return `<div class="public-announcement" role="note">
+        <div class="public-announcement-inner">
+            <i class="fa-solid fa-bolt" aria-hidden="true"></i>
+            <span><strong>2026 :</strong> Factur-X &amp; export comptable intégrés — anticipez la facturation électronique</span>
+            <button type="button" class="public-announcement-link" onclick="publicRouter('fonctionnalites')">Découvrir</button>
+        </div>
+    </div>`;
+}
+
+function renderPublicSocialProof() {
+    const logos = ['LogiTrans Ouest', 'Transports MD', 'Routage Express', 'KB Fret', 'PME Routière'];
+    return `<section class="public-social-proof" aria-label="Transporteurs qui nous font confiance">
+        <div class="public-social-proof-inner">
+            <p class="public-social-proof-lead">Des transporteurs PME centralisent déjà leur exploitation avec Transfact</p>
+            <div class="public-social-proof-logos">
+                ${logos.map((name) => `<span class="public-social-logo">${escapePublicHtml(name)}</span>`).join('')}
+            </div>
+        </div>
+    </section>`;
+}
+
+function renderPublicPainPoints() {
+    const items = [
+        { icon: 'fa-table', title: 'Vous jonglez entre Excel et WhatsApp', desc: 'Plannings sur tableur, ressaisies multiples, infos dispersées… Centralisez tout dans un TMS unique.' },
+        { icon: 'fa-mobile-screen', title: 'Vos chauffeurs sont déconnectés du bureau', desc: 'L\'app mobile relie le terrain à l\'exploitation : statuts, signatures et documents en temps réel.' },
+        { icon: 'fa-file-invoice', title: 'La facturation traîne après la livraison', desc: 'Passez de l\'exécution à la préfacturation sans ressaisie. Factur-X et export comptable inclus.' }
+    ];
+    return `<section class="public-pain-section">
+        <div class="public-section-inner">
+            <h2 class="public-section-title">Transfact est fait pour vous si…</h2>
+            <div class="public-pain-grid">
+                ${items.map((item) => `
+                    <article class="public-pain-card">
+                        <div class="public-pain-icon"><i class="fa-solid ${item.icon}" aria-hidden="true"></i></div>
+                        <h3>${escapePublicHtml(item.title)}</h3>
+                        <p>${escapePublicHtml(item.desc)}</p>
+                    </article>
+                `).join('')}
+            </div>
+        </div>
+    </section>`;
+}
+
+function renderPublicProductPillars() {
+    const pillars = [
+        { icon: 'fa-truck-ramp-box', tag: 'Exploitation', title: 'Commandes &amp; planning', desc: 'Ordres de transport, affectation chauffeurs, affrètement et tableau de bord marges.', link: 'fonctionnalites' },
+        { icon: 'fa-mobile-screen-button', tag: 'Mobile', title: 'App chauffeurs', desc: 'Missions, arrivée GPS, signatures et preuves de livraison depuis le smartphone.', link: 'fonctionnalites' },
+        { icon: 'fa-file-invoice-dollar', tag: 'Facturation', title: 'Factur-X &amp; compta', desc: 'Préfacturation, factures clients, achats et export CSV pour votre expert-comptable.', link: 'fonctionnalites' }
+    ];
+    return `<section class="public-pillars-section">
+        <div class="public-section-inner">
+            <h2 class="public-section-title">Tout votre transport, en 3 piliers</h2>
+            <p class="public-section-lead">Une plateforme tout-en-un — pas une suite de modules séparés à assembler.</p>
+            <div class="public-pillars-grid">
+                ${pillars.map((p) => `
+                    <article class="public-pillar-card">
+                        <span class="public-pillar-tag">${p.tag}</span>
+                        <div class="public-pillar-icon"><i class="fa-solid ${p.icon}" aria-hidden="true"></i></div>
+                        <h3>${p.title}</h3>
+                        <p>${escapePublicHtml(p.desc)}</p>
+                        <button type="button" class="public-pillar-link" onclick="publicRouter('${p.link}')">En savoir plus <i class="fa-solid fa-arrow-right"></i></button>
+                    </article>
+                `).join('')}
+            </div>
+        </div>
+    </section>`;
+}
+
+function renderPublicMvpCycle(compact) {
+    const steps = PUBLIC_MVP_STEPS.map((s, i) => `
+        <div class="public-mvp-step">
+            <div class="public-mvp-step-num">${s.n}</div>
+            <strong>${escapePublicHtml(s.title)}</strong>
+            <p>${escapePublicHtml(s.desc)}</p>
+            ${i < PUBLIC_MVP_STEPS.length - 1 ? '<span class="public-mvp-arrow" aria-hidden="true"><i class="fa-solid fa-chevron-right"></i></span>' : ''}
+        </div>
+    `).join('');
+    return `<section class="public-mvp-section${compact ? ' public-mvp-section--compact' : ''}">
+        <div class="public-section-inner">
+            <h2 class="public-section-title">Du transport à la facture en 5 étapes</h2>
+            ${compact ? '' : '<p class="public-section-lead">Chaque étape met à jour le planning, le tableau de bord et la préfacturation automatiquement.</p>'}
+            <div class="public-mvp-flow">${steps}</div>
+        </div>
+    </section>`;
+}
+
+function renderPublicWhyTransfact() {
+    const items = [
+        { icon: 'fa-euro-sign', title: 'Abordable', desc: 'Dès 99 €/mois HT. Pas de devis opaque ni de licence enterprise.' },
+        { icon: 'fa-wand-magic-sparkles', title: 'Simple', desc: 'Interface pensée pour les PME. Prise en main rapide, sans intégrateur.' },
+        { icon: 'fa-layer-group', title: 'Complet', desc: 'Web + mobile + facturation + export compta dans un seul abonnement.' }
+    ];
+    return `<section class="public-why-section">
+        <div class="public-section-inner">
+            <h2 class="public-section-title">Pourquoi choisir Transfact ?</h2>
+            <div class="public-why-grid">
+                ${items.map((item) => `
+                    <article class="public-why-card">
+                        <div class="public-why-icon"><i class="fa-solid ${item.icon}" aria-hidden="true"></i></div>
+                        <h3>${escapePublicHtml(item.title)}</h3>
+                        <p>${escapePublicHtml(item.desc)}</p>
+                    </article>
+                `).join('')}
+            </div>
+        </div>
+    </section>`;
+}
+
+function renderPublicFaq() {
+    const items = PUBLIC_FAQ_ITEMS.map((item, i) => `
+        <details class="public-faq-item"${i === 0 ? ' open' : ''}>
+            <summary>${escapePublicHtml(item.q)}</summary>
+            <p>${escapePublicHtml(item.a)}</p>
+        </details>
+    `).join('');
+    return `<section class="public-faq-section" id="faq">
+        <div class="public-section-inner public-faq-inner">
+            <h2 class="public-section-title">Questions fréquentes</h2>
+            <div class="public-faq-list">${items}</div>
+        </div>
+    </section>`;
+}
+
+function renderPublicCtaBand(title, subtitle) {
+    return `<section class="public-cta-band">
+        <div class="public-cta-band-inner">
+            <h2>${escapePublicHtml(title)}</h2>
+            <p>${escapePublicHtml(subtitle)}</p>
+            <div class="public-cta-band-actions">
+                <a href="register.html" class="public-btn-primary">Essai gratuit 30 jours</a>
+                <button type="button" class="public-btn-secondary" onclick="publicRouter('contact')">Demander une démo</button>
+            </div>
+        </div>
+    </section>`;
+}
+
+function renderPublicModuleDetail(module) {
+    const bullets = module.bullets.map((b) => `<li><i class="fa-solid fa-check" aria-hidden="true"></i>${escapePublicHtml(b)}</li>`).join('');
+    return `<section class="public-module-section${module.reverse ? ' public-module-section--reverse' : ''}">
+        <div class="public-module-inner">
+            <div class="public-module-content">
+                <span class="public-module-tag">${escapePublicHtml(module.tag)}</span>
+                <h2>${module.title}</h2>
+                <p class="public-module-lead">${escapePublicHtml(module.lead)}</p>
+                <ul class="public-module-bullets">${bullets}</ul>
+                <div class="public-module-actions">
+                    <a href="register.html" class="public-btn-primary public-btn-primary--sm">Essayer gratuitement</a>
+                    <button type="button" class="public-pillar-link" onclick="publicRouter('contact')">Planifier une démo</button>
+                </div>
+            </div>
+            <div class="public-module-visual" aria-hidden="true">
+                <div class="public-module-mock">
+                    <i class="fa-solid ${module.icon}"></i>
+                    <span>${escapePublicHtml(module.visualLabel)}</span>
+                </div>
+            </div>
+        </div>
+    </section>`;
+}
+
+function renderPublicHome() {
+    return `<div class="public-landing fade-in">
+        ${renderPublicAnnouncement()}
         <section class="public-hero">
             <div class="public-hero-bg-shape public-hero-bg-shape-1" aria-hidden="true"></div>
             <div class="public-hero-bg-shape public-hero-bg-shape-2" aria-hidden="true"></div>
             <div class="public-hero-inner">
                 <div>
-                    <h1 class="public-hero-title">Simplifiez votre gestion de transport.</h1>
-                    <p class="public-hero-subtitle">Optimisez des opérations logistiques avec notre solution TMS tout-en-un</p>
+                    <p class="public-hero-eyebrow">TMS SaaS · Transport routier · France</p>
+                    <h1 class="public-hero-title">Le TMS pensé pour les transporteurs PME</h1>
+                    <p class="public-hero-subtitle">Moins de ressaisie, plus de visibilité, plus de marge. Centralisez commandes, planning, mobile chauffeurs et facturation.</p>
                     <div class="public-hero-cta">
-                        <button type="button" onclick="publicRouter('contact')" class="public-btn-primary">Essayer Gratuitement</button>
+                        <a href="register.html" class="public-btn-primary">Essai gratuit 30 jours</a>
+                        <button type="button" class="public-btn-secondary" onclick="publicRouter('contact')">Demander une démo</button>
                     </div>
+                    <p class="public-hero-note">À partir de <strong>99 €/mois HT</strong> · Sans engagement · Premium offert à l'inscription</p>
                 </div>
                 <div class="public-hero-image-wrap">
                     <img src="assets/public-hero-illustration.png" alt="Tableau de bord TMS Transfact — cartes, statistiques et flotte" class="public-hero-image" width="1024" height="622">
@@ -373,83 +569,86 @@ function renderPublicHome() {
             </div>
         </section>
 
-        <section class="public-features-section">
-            <div class="public-features-inner">
-                <h2 class="public-features-title">Une Solution Complète pour Votre Logistique</h2>
-                <div class="public-features-grid">
-                    <div class="public-feature-card-home">
-                        <div class="public-feature-icon-home">${iconClipboard}</div>
-                        <h3>Suivi des Expéditions</h3>
-                        <p>Suivez et gérez des livraisons en temps réel</p>
-                    </div>
-                    <div class="public-feature-card-home">
-                        <div class="public-feature-icon-home">${iconGears}</div>
-                        <h3>Automatisation des Tâches</h3>
-                        <p>Optimisez vos processus avec des outils intelligents</p>
-                    </div>
-                    <div class="public-feature-card-home">
-                        <div class="public-feature-icon-home">${iconChart}</div>
-                        <h3>Analyse &amp; Rapports</h3>
-                        <p>Obtenez des insights détaillés sur votre activité</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
+        ${renderPublicSocialProof()}
+        ${renderPublicPainPoints()}
+        ${renderPublicProductPillars()}
+        ${renderPublicMvpCycle(false)}
+        ${renderPublicWhyTransfact()}
         ${renderPublicReviewsLoading()}
+        ${renderPublicFaq()}
+        ${renderPublicCtaBand('Prêt à passer la vitesse supérieure ?', 'Rejoignez les transporteurs qui ont quitté Excel pour un TMS simple et complet.')}
     </div>`;
 }
 
 function renderPublicFeatures() {
-    return `<div class="fade-in pb-10">
+    const modules = [
+        {
+            tag: 'Exploitation',
+            title: 'Commandes, planning &amp; affrètement',
+            lead: 'Créez vos ordres de transport, planifiez sur un calendrier hebdomadaire et pilotez vos marges en temps réel.',
+            bullets: ['Ordres de transport et gestion des statuts', 'Planning visuel et affectation chauffeurs / véhicules', 'Affrètement sous-traitant avec confirmation PDF', 'Tableau de bord CA, marges et indicateurs clés'],
+            icon: 'fa-calendar-days',
+            visualLabel: 'Planning & transports',
+            reverse: false
+        },
+        {
+            tag: 'Mobile chauffeur',
+            title: 'L\'exécution terrain connectée au bureau',
+            lead: 'Vos chauffeurs adoptent une app simple : missions, arrivée GPS, signatures et preuves de livraison.',
+            bullets: ['Consultation des missions assignées', 'Confirmation d\'arrivée chargement / livraison', 'Signature électronique et POD', 'Documents scannés remontés instantanément'],
+            icon: 'fa-mobile-screen-button',
+            visualLabel: 'App mobile chauffeur',
+            reverse: true
+        },
+        {
+            tag: 'Facturation',
+            title: 'De la livraison à la facture, sans ressaisie',
+            lead: 'Validez le transport, générez le brouillon facture et exportez vers votre comptabilité.',
+            bullets: ['Préfacturation depuis les transports validés', 'Factures clients Factur-X et avoirs', 'Factures achats et sous-traitance', 'Export comptable CSV paramétrable'],
+            icon: 'fa-file-invoice-dollar',
+            visualLabel: 'Factur-X & export CSV',
+            reverse: false
+        }
+    ];
+
+    const extras = [
+        { icon: 'fa-chart-pie', title: 'Tableau de bord', desc: 'CA, marges, transports en cours et alertes en un coup d\'œil.' },
+        { icon: 'fa-truck', title: 'Gestion de flotte', desc: 'Véhicules, maintenance, assurance et kilométrage.' },
+        { icon: 'fa-building-user', title: 'Clients & CRM', desc: 'Fiches clients, contacts et historique des transports.' },
+        { icon: 'fa-pallet', title: 'Palettes Europe', desc: 'Suivi des échanges et retours de palettes (forfaits PME+).' },
+        { icon: 'fa-handshake-angle', title: 'Sous-traitants', desc: 'Conformité RC Pro, URSSAF et documents d\'assurance.' },
+        { icon: 'fa-users-gear', title: 'Multi-utilisateurs', desc: 'Rôles exploitant, manager, compta — droits par forfait.' }
+    ];
+
+    return `<div class="public-features-page fade-in">
         <div class="public-page-header py-12">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
-                <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Nos Fonctionnalités</h1>
-                <p class="text-lg text-gray-600 max-w-2xl mx-auto">Une suite complète pour gérer votre activité de transport, de la commande à la facturation.</p>
+                <p class="public-page-eyebrow">Fonctionnalités</p>
+                <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Tout votre transport, une seule plateforme</h1>
+                <p class="text-lg text-gray-600 max-w-2xl mx-auto">De la prise de commande à la facturation : exploitation, mobile chauffeurs et compta réunis dans un TMS pensé pour les PME.</p>
             </div>
         </div>
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                <div class="public-feature-card text-left">
-                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-boxes-packing"></i></div>
-                    <h3 class="font-bold text-xl text-gray-800 mb-3">Gestion des Commandes</h3>
-                    <p class="text-gray-600">Créez et gérez vos ordres de transport facilement. Suivi complet du chargement à la livraison, avec gestion des statuts.</p>
-                </div>
-                <div class="public-feature-card text-left">
-                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-calendar-days"></i></div>
-                    <h3 class="font-bold text-xl text-gray-800 mb-3">Planning Intelligent</h3>
-                    <p class="text-gray-600">Planifiez vos missions sur un planning hebdomadaire visuel. Optimisez les tournées et réduisez les coûts.</p>
-                </div>
-                <div class="public-feature-card text-left">
-                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-truck"></i></div>
-                    <h3 class="font-bold text-xl text-gray-800 mb-3">Gestion de Flotte</h3>
-                    <p class="text-gray-600">Suivez l'état de votre parc véhicule : maintenance, assurance, kilomètres et affectation aux chauffeurs.</p>
-                </div>
-                <div class="public-feature-card text-left">
-                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-                    <h3 class="font-bold text-xl text-gray-800 mb-3">Facturation Automatique</h3>
-                    <p class="text-gray-600">Générez vos factures clients (Factur-X) et achats en un clic. Suivi des paiements et relances automatiques.</p>
-                </div>
-                <div class="public-feature-card text-left">
-                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-handshake-angle"></i></div>
-                    <h3 class="font-bold text-xl text-gray-800 mb-3">Sous-traitants &amp; Affrètement</h3>
-                    <p class="text-gray-600">Gérez vos sous-traitants, affectez des commandes et analysez la rentabilité de chaque affrètement.</p>
-                </div>
-                <div class="public-feature-card text-left">
-                    <div class="public-feature-icon !mx-0"><i class="fa-solid fa-mobile-screen-button"></i></div>
-                    <h3 class="font-bold text-xl text-gray-800 mb-3">Application Mobile Chauffeurs</h3>
-                    <p class="text-gray-600">Vos chauffeurs gèrent leurs missions, scannent des documents et collectent des signatures depuis leur mobile.</p>
+
+        ${modules.map(renderPublicModuleDetail).join('')}
+
+        <section class="public-extras-section">
+            <div class="public-section-inner">
+                <h2 class="public-section-title">Et aussi…</h2>
+                <div class="public-extras-grid">
+                    ${extras.map((e) => `
+                        <article class="public-extra-card">
+                            <div class="public-extra-icon"><i class="fa-solid ${e.icon}" aria-hidden="true"></i></div>
+                            <h3>${escapePublicHtml(e.title)}</h3>
+                            <p>${escapePublicHtml(e.desc)}</p>
+                        </article>
+                    `).join('')}
                 </div>
             </div>
-            <div class="bg-gradient-to-r from-blue-700 to-blue-900 rounded-2xl p-8 text-white text-center">
-                <h2 class="text-2xl font-bold mb-4">Prêt à simplifier votre gestion ?</h2>
-                <p class="text-blue-100 mb-6">Démarrez gratuitement et adaptez votre solution à vos besoins.</p>
-                <div class="flex flex-col sm:flex-row justify-center gap-4">
-                    <a href="register.html" class="bg-white text-blue-700 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">Essayer Gratuitement</a>
-                    <button type="button" onclick="publicRouter('contact')" class="border border-white/60 text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition">Demander une démo</button>
-                </div>
-            </div>
-        </div>
+        </section>
+
+        ${renderPublicMvpCycle(true)}
+        ${renderPublicFaq()}
+        ${renderPublicCtaBand('Testez Transfact gratuitement pendant 30 jours', 'Premium offert à l\'inscription — toutes les fonctionnalités débloquées, sans carte bancaire.')}
     </div>`;
 }
 
