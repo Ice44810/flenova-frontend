@@ -2410,6 +2410,8 @@ window.saveInvoiceSettings = async function (e) {
         });
 
         if (response.ok) {
+            const result = await response.json();
+            window.cachedBankSettings = result.data || null;
             showToast("Paramètres bancaires mis à jour avec succès", "success");
             router('sales_invoices');
         } else {
@@ -3031,14 +3033,22 @@ window.uploadCompanyLogo = async function () {
 };
 
 // --- RENDER: Admin ---
-function renderAdmin() {
+function formatBankSettingsDate(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function renderAdmin(bankSettings = null) {
     const isAdminUser = typeof canManageUsers === 'function' && canManageUsers();
     const emailEnabled = currentUser?.company_notifications === 1;
     const logoSrc = resolveCompanyLogoUrl(currentUser?.company_logo);
+    const bank = bankSettings || window.cachedBankSettings || null;
+    const bankUpdatedLabel = bank?.updated_at ? formatBankSettingsDate(bank.updated_at) : '';
 
     return `<div class="space-y-6 fade-in">
         <h2 class="text-2xl font-bold text-gray-800">Paramètres de l'Entreprise</h2>
-        <p class="text-sm text-gray-500">Espace isolé : <strong class="text-gray-800">${escapeHtml(currentUser?.company_name || 'Votre entreprise')}</strong> — seuls les utilisateurs de cette société sont visibles ci-dessous.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Utilisateurs Plateforme</h3>
@@ -3058,7 +3068,7 @@ function renderAdmin() {
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
                 <div>
                     <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Identité Légale de la Compagnie</h3>
-                    <div class="space-y-4">
+                    <form onsubmit="event.preventDefault(); updateCompanyInfo(); return false;" class="space-y-4">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Adresse Siège Social</label>
                             <input type="text" id="admin-company-address" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="${currentUser?.company_address || ''}" placeholder="123 Rue du Transport...">
@@ -3073,10 +3083,39 @@ function renderAdmin() {
                                 <input type="text" id="admin-company-siret" class="w-full border p-2 rounded text-sm font-mono" value="${currentUser?.company_siret || ''}" placeholder="123 456 789 00012">
                             </div>
                         </div>
-                        <button onclick="updateCompanyInfo()" class="w-full py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 transition shadow-sm">
+                        <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 transition shadow-sm">
                             <i class="fa-solid fa-save mr-2"></i>Sauvegarder les informations
                         </button>
-                    </div>
+                    </form>
+                </div>
+
+                <div class="pt-6 border-t">
+                    <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Coordonnées bancaires</h3>
+                    <p class="text-xs text-gray-500 mb-4">Ces informations apparaissent sur vos factures clients et documents de paiement.</p>
+                    <form onsubmit="event.preventDefault(); saveAdminBankSettings(); return false;" class="space-y-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mode de règlement</label>
+                            <input type="text" id="admin-bank-method" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.method || 'Virement Bancaire')}" placeholder="Virement Bancaire">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">IBAN</label>
+                            <input type="text" id="admin-bank-iban" class="w-full border p-2 rounded text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.iban || '')}" placeholder="FR76 3000 6000 0001 2345 6789 X01">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Code BIC / SWIFT</label>
+                                <input type="text" id="admin-bank-bic" class="w-full border p-2 rounded text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.bic || '')}" placeholder="BNPAFRPP">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nom de la banque</label>
+                                <input type="text" id="admin-bank-name" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.bank_name || '')}" placeholder="BNP PARIBAS">
+                            </div>
+                        </div>
+                        ${bankUpdatedLabel ? `<p class="text-[10px] text-gray-400">Dernière mise à jour : ${escapeHtml(bankUpdatedLabel)}</p>` : ''}
+                        <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 transition shadow-sm">
+                            <i class="fa-solid fa-building-columns mr-2"></i>Sauvegarder les coordonnées bancaires
+                        </button>
+                    </form>
                 </div>
 
                 <div class="pt-6 border-t">
@@ -3144,6 +3183,11 @@ window.updateCompanyInfo = async function () {
                 company_siret: payload.siret
             });
             setCurrentUser(currentUser);
+            if (typeof updateAppCompanyHeader === 'function') updateAppCompanyHeader(currentUser);
+            const appContent = document.getElementById('app-content');
+            if (appContent && window.currentAppRoute === 'admin') {
+                appContent.innerHTML = renderAdmin(window.cachedBankSettings);
+            }
             showToast("Informations de la compagnie enregistrées", "success");
         } else {
             const errorData = await response.json().catch(() => ({}));
@@ -3151,6 +3195,49 @@ window.updateCompanyInfo = async function () {
         }
     } catch (err) {
         showToast("Erreur de communication avec le serveur", "error");
+    }
+};
+
+window.saveAdminBankSettings = async function () {
+    const payload = {
+        method: document.getElementById('admin-bank-method')?.value?.trim() || 'Virement Bancaire',
+        iban: document.getElementById('admin-bank-iban')?.value?.trim() || '',
+        bic: document.getElementById('admin-bank-bic')?.value?.trim() || '',
+        bank_name: document.getElementById('admin-bank-name')?.value?.trim() || ''
+    };
+
+    if (!payload.iban) {
+        showToast('IBAN requis', 'error');
+        return;
+    }
+
+    try {
+        const response = await apiFetch('bank-settings', {
+            method: 'PUT',
+            body: payload
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            window.cachedBankSettings = result.data || null;
+            if (currentUser) {
+                currentUser.company_iban = window.cachedBankSettings?.iban || null;
+                currentUser.company_bank = window.cachedBankSettings?.bank_name || null;
+                currentUser.company_bic = window.cachedBankSettings?.bic || null;
+                currentUser.company_payment_method = window.cachedBankSettings?.method || null;
+                setCurrentUser(currentUser);
+            }
+            const appContent = document.getElementById('app-content');
+            if (appContent && window.currentAppRoute === 'admin') {
+                appContent.innerHTML = renderAdmin(window.cachedBankSettings);
+            }
+            showToast('Coordonnées bancaires enregistrées', 'success');
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            showToast(errorData.error || 'Échec de la sauvegarde bancaire', 'error');
+        }
+    } catch (err) {
+        showToast('Erreur de communication avec le serveur', 'error');
     }
 };
 
@@ -3168,7 +3255,10 @@ window.toggleEmailNotifications = async function () {
             currentUser.company_notifications = newVal;
             setCurrentUser(currentUser);
             showToast(newVal ? "Notifications email activées" : "Notifications email désactivées", "info");
-            router('admin'); // Re-render pour mettre à jour le switch visuel
+            const appContent = document.getElementById('app-content');
+            if (appContent && window.currentAppRoute === 'admin') {
+                appContent.innerHTML = renderAdmin(window.cachedBankSettings);
+            }
         }
     } catch (err) {
         showToast("Erreur lors de la modification des notifications", "error");
@@ -3672,7 +3762,18 @@ async function router(route) {
             break;
         case 'admin':
             title = 'Administration';
-            content = renderAdmin();
+            try {
+                const bankRes = await apiFetch('bank-settings');
+                if (bankRes.ok) {
+                    const bankJson = await bankRes.json();
+                    window.cachedBankSettings = bankJson.data || null;
+                } else {
+                    window.cachedBankSettings = null;
+                }
+            } catch (e) {
+                window.cachedBankSettings = null;
+            }
+            content = renderAdmin(window.cachedBankSettings);
             break;
         case 'pricing':
             title = 'Tarifs';

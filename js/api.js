@@ -35,8 +35,7 @@ async function apiFetch(url, options = {}) {
         }
 
         if (response.status === 403 && !isAuthRoute && !isAuthPage) {
-            logout();
-            return Promise.reject(new Error('Accès refusé'));
+            return response;
         }
 
         return response;
