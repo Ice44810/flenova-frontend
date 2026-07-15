@@ -55,6 +55,7 @@ function getStatusBorderClass(status) {
 
 let transportFilters = { status: '', search: '' };
 let currentTransportDetail = null;
+let completedTransportSelection = new Set();
 
 const MVP_CYCLE_STEPS = [
     { id: 'create', label: 'Créer' },
@@ -311,7 +312,10 @@ function renderTransportDetailModal(t) {
     if (typeof canShowDispatchButton === 'function' && canShowDispatchButton(t)) {
         actionsHtml += `<button onclick="closeTransportDetail(); openDispatchModal(${t.id})" class="px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 mr-2"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>`;
     }
-    if (t.assignment_type === 'SUBCONTRACTED' || t.status === 'Affrété') {
+    if (typeof canWriteTransport === 'function' && canWriteTransport() && !['Validé', 'Clôturé', 'Terminé', 'Annulé'].includes(t.status)) {
+        actionsHtml += `<button onclick="closeTransportDetail(); openEditOrderModal(${t.id})" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 mr-2"><i class="fa-solid fa-pen mr-1"></i>Modifier affectation</button>`;
+    }
+    if (typeof isOrderSubcontracted === 'function' ? isOrderSubcontracted(t) : (t.assignment_type === 'SUBCONTRACTED' || t.status === 'Affrété')) {
         actionsHtml += `<button onclick="closeTransportDetail(); openAffretementConfirmation(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-file-contract mr-1"></i>Confirmation</button>`;
     }
     if (typeof canValidateTransport === 'function' && canValidateTransport() && t.status === 'Livré') {
@@ -334,6 +338,9 @@ function renderTransportDetailModal(t) {
 }
 
 function getNextStatuses(current) {
+    const terminal = ['Validé', 'Clôturé', 'Terminé', 'Annulé'];
+    if (terminal.includes(current)) return [];
+
     const allowed = typeof getAllowedStatusTransitions === 'function' ? getAllowedStatusTransitions() : [];
     const flow = {
         'Brouillon': ['À planifier', 'Planifié', 'Annulé'],
@@ -341,12 +348,14 @@ function getNextStatuses(current) {
         'Pris en charge': ['En cours', 'Livré'],
         'En cours': ['Livré'],
         'Planifié': ['En cours', 'Pris en charge', 'Annulé'],
-        'Livré': getUserRole() === 'admin' ? ['Validé'] : []
+        'Affrété': ['En cours', 'Livré', 'Annulé'],
+        'Livré': (typeof canValidateTransport === 'function' && canValidateTransport()) ? ['Validé'] : []
     };
     const candidates = flow[current] || [];
-    if (getUserRole() === 'admin') return candidates.length ? candidates : allowed;
     return candidates.filter(s => !allowed.length || allowed.includes(s));
 }
+
+window.getNextStatuses = getNextStatuses;
 
 window.closeTransportDetail = function() {
     document.getElementById('transport-detail-modal').classList.add('hidden');
@@ -444,6 +453,7 @@ window.createInvoiceDraftFromTransport = async function (orderId) {
         if (res.ok) {
             const data = await res.json();
             showToast(`Préfacture ${data.invoice_draft_id} créée`, 'success');
+            if (typeof completedTransportSelection !== 'undefined') completedTransportSelection.delete(orderId);
             await refreshAfterMvpStep({
                 orderId,
                 step: 'preinvoice',
@@ -471,7 +481,135 @@ window.renderOrdersInProgress = function() {
 
 window.renderOrdersCompleted = function() {
     const orders = (db.orders || []).filter(o => ['Livré', 'Validé', 'Clôturé', 'Terminé'].includes(o.status));
-    return renderOrdersTable(orders, 'Transports réalisés / clôturés', false);
+    const preinvoiceCandidates = orders.filter(o => o.status === 'Validé' && !o.invoice_draft_id);
+    const selectedCount = preinvoiceCandidates.filter(o => completedTransportSelection.has(o.id)).length;
+    const allCandidatesSelected = preinvoiceCandidates.length > 0
+        && preinvoiceCandidates.every(o => completedTransportSelection.has(o.id));
+
+    const canPreinvoice = typeof canManageFinance === 'function' && canManageFinance();
+
+    return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
+        <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+            <div>
+                <h3 class="font-bold text-lg text-gray-800">Transports réalisés</h3>
+                <p class="text-xs text-gray-500">Transports livrés, validés ou clôturés — sélectionnez les validés à préfacturer</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">${orders.length} transport(s)</span>
+                ${canPreinvoice && preinvoiceCandidates.length ? `
+                    <button type="button" onclick="bulkPreinvoiceCompletedTransports()"
+                        class="bg-orange-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        ${selectedCount === 0 ? 'disabled' : ''}>
+                        <i class="fa-solid fa-file-invoice mr-1"></i>Préfacturer la sélection (${selectedCount})
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+        <table class="w-full text-sm text-left text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 w-10">
+                        ${canPreinvoice && preinvoiceCandidates.length ? `
+                            <input type="checkbox" class="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                ${allCandidatesSelected ? 'checked' : ''}
+                                onchange="toggleSelectAllCompletedTransports(this.checked)"
+                                title="Tout sélectionner (validés à préfacturer)">
+                        ` : ''}
+                    </th>
+                    <th class="px-4 py-3">Réf.</th>
+                    <th class="px-4 py-3">Client</th>
+                    <th class="px-4 py-3">Trajet</th>
+                    <th class="px-4 py-3">Montant</th>
+                    <th class="px-4 py-3">Statut</th>
+                    <th class="px-4 py-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${orders.length ? orders.map(o => {
+        const canSelect = o.status === 'Validé' && !o.invoice_draft_id;
+        const isSelected = completedTransportSelection.has(o.id);
+        return `
+                    <tr class="border-b hover:bg-gray-50 ${isSelected ? 'bg-orange-50/60' : ''}">
+                        <td class="px-4 py-3">
+                            ${canSelect && canPreinvoice ? `
+                                <input type="checkbox" class="completed-transport-checkbox rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                    data-order-id="${o.id}" ${isSelected ? 'checked' : ''}
+                                    onchange="toggleCompletedTransportSelect(${o.id}, this.checked)">
+                            ` : ''}
+                        </td>
+                        <td class="px-4 py-3 font-medium">${o.ref || o.id}</td>
+                        <td class="px-4 py-3">${o.client_name || '-'}</td>
+                        <td class="px-4 py-3 text-xs">${o.origin} → ${o.dest}</td>
+                        <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString()} €</td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(o.status)}">${o.status}</span>
+                            ${o.invoice_draft_id ? `<div class="text-[10px] text-gray-400 mt-1">Préfacture ${o.invoice_draft_id}</div>` : ''}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs">Détail</button>
+                            ${o.status === 'Livré' && typeof canValidateTransport === 'function' && canValidateTransport()
+                                ? `<button onclick="validateTransportFromDetail(${o.id})" class="text-green-600 hover:underline text-xs ml-2">Valider</button>`
+                                : ''}
+                            ${canSelect && canPreinvoice
+                                ? `<button onclick="createInvoiceDraftFromTransport(${o.id})" class="text-orange-600 hover:underline text-xs ml-2">Préfacturer</button>`
+                                : ''}
+                        </td>
+                    </tr>`;
+    }).join('') : '<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport réalisé</td></tr>'}
+            </tbody>
+        </table>
+    </div>`;
+};
+
+window.toggleCompletedTransportSelect = function (orderId, checked) {
+    if (checked) completedTransportSelection.add(orderId);
+    else completedTransportSelection.delete(orderId);
+    router('completed_transports');
+};
+
+window.toggleSelectAllCompletedTransports = function (checked) {
+    const candidates = (db.orders || []).filter(o => o.status === 'Validé' && !o.invoice_draft_id);
+    if (checked) candidates.forEach(o => completedTransportSelection.add(o.id));
+    else candidates.forEach(o => completedTransportSelection.delete(o.id));
+    router('completed_transports');
+};
+
+window.bulkPreinvoiceCompletedTransports = async function () {
+    const ids = [...completedTransportSelection].filter(id => {
+        const o = (db.orders || []).find(x => x.id === id);
+        return o && o.status === 'Validé' && !o.invoice_draft_id;
+    });
+    if (!ids.length) {
+        showToast('Sélectionnez au moins un transport validé à préfacturer', 'info');
+        return;
+    }
+    if (!confirm(`Générer ${ids.length} préfacture(s) pour les transports sélectionnés ?`)) return;
+
+    let ok = 0;
+    let failed = 0;
+    for (const orderId of ids) {
+        try {
+            const res = await apiFetch(`transport-orders/${orderId}/invoice-draft`, { method: 'POST' });
+            if (res.ok) {
+                ok++;
+                completedTransportSelection.delete(orderId);
+            } else {
+                failed++;
+            }
+        } catch (e) {
+            failed++;
+        }
+    }
+
+    if (ok) showToast(`${ok} préfacture(s) créée(s)${failed ? ` — ${failed} échec(s)` : ''}`, failed ? 'info' : 'success');
+    else showToast('Échec de la préfacturation', 'error');
+
+    await refreshAfterMvpStep({
+        step: 'preinvoice',
+        route: failed && ok ? 'completed_transports' : 'preinvoicing',
+        closeDetail: true,
+        reopenDetail: false
+    });
 };
 
 function renderOrdersTable(orders, title, showActions) {

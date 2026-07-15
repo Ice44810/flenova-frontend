@@ -82,9 +82,13 @@ function renderAppPricingPage() {
         ? `<p class="text-sm text-gray-500 mt-2">Utilisateurs : ${usage.users || 0} / ${limits.maxUsers} · Chauffeurs mobile : ${usage.mobileDrivers || 0} / ${limits.maxMobileDrivers ?? '∞'}</p>`
         : `<p class="text-sm text-gray-500 mt-2">Forfait illimité — Utilisateurs : ${usage.users || 0} · Chauffeurs mobile : ${usage.mobileDrivers || 0}</p>`;
 
+    const companyName = (typeof getCurrentUser === 'function' ? getCurrentUser()?.company_name : null) || '';
+    const safeCompany = typeof escapeHtml === 'function' ? escapeHtml(companyName) : companyName;
+
     return `<div class="max-w-6xl mx-auto fade-in py-10">
         <div class="text-center mb-12">
             <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Tarifs Flenova</h1>
+            <p class="text-sm text-gray-500 mb-2">Entreprise : <strong>${safeCompany || '—'}</strong></p>
             <p class="text-lg text-gray-600">Forfait actuel : <strong>${sub.planName || '—'}</strong>${sub.isDemo ? ` — essai Premium (${sub.demoDaysRemaining ?? '—'} j. restants)` : ''}</p>
             ${sub.isDemo && sub.targetPlanName ? `<p class="text-sm text-purple-700 mt-2">Après l'essai : forfait ${sub.targetPlanName}</p>` : ''}
             ${usageLine}

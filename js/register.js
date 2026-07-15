@@ -77,6 +77,16 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     }
 
     try {
+        await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+    } catch (e) {
+        // ignore
+    }
+    localStorage.removeItem('user');
+
+    try {
         const response = await apiFetch('auth/register', {
             method: 'POST',
             body: { company_name: companyName, name, email, password, plan }

@@ -796,6 +796,20 @@ function initPublicSite() {
 }
 
 // --- BOOTSTRAP ---
+function updateAppCompanyHeader(user) {
+    const el = document.getElementById('header-company-name');
+    if (!el) return;
+    const name = user?.company_name || currentUser?.company_name;
+    if (name) {
+        el.textContent = name;
+        el.classList.remove('hidden');
+    } else {
+        el.textContent = '';
+        el.classList.add('hidden');
+    }
+}
+window.updateAppCompanyHeader = updateAppCompanyHeader;
+
 (async () => {
     // On vérifie systématiquement la validité de la session avec le serveur au démarrage.
     // Cela évite de lancer des requêtes de données en parallèle si le jeton est expiré.
@@ -809,6 +823,7 @@ function initPublicSite() {
                 setPermissionsFromServer(data.permissions);
             }
             if (typeof hydrateSubscription === 'function') hydrateSubscription(data);
+            if (typeof updateAppCompanyHeader === 'function') updateAppCompanyHeader(data.user);
             isAuthenticated = true;
         } else {
             throw new Error('Session expirée ou invalide');
@@ -1332,17 +1347,22 @@ function renderPlanning() {
                         <div class="p-3 text-center border-b font-semibold text-sm text-gray-600 ${isToday ? 'bg-blue-100 text-blue-700' : ''}">${day}</div>
                         <div class="p-2 space-y-2 flex-1 overflow-y-auto">
                             ${dayMissions.length > 0 ? dayMissions.map(m => {
-            const isSub = m.assignment_type === 'SUBCONTRACTED' || m.status === 'Affrété';
+            const isSub = isOrderSubcontracted(m);
             const subName = m.subcontractor_name || (db.subcontractors.find(s => s.id === m.subcontractor_id) || {}).name;
+            const driverName = m.driver_name || (db.drivers.find(d => d.id === m.driver_id) || {}).name;
             const dispatchBtn = canShowDispatchButton(m) ? `<button onclick="event.stopPropagation(); openDispatchModal(${m.id})" class="text-[10px] text-purple-600 hover:underline ml-1" title="Affréter"><i class="fa-solid fa-handshake"></i></button>` : '';
+            const editBtn = canEditPlanningOrder(m)
+                ? `<button onclick="event.stopPropagation(); openEditOrderModal(${m.id})" class="text-[10px] text-blue-600 hover:underline ml-1" title="Modifier l'affectation"><i class="fa-solid fa-pencil"></i> Modifier</button>`
+                : '';
             return `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition cursor-pointer relative group" onclick="openTransportDetail(${m.id})">
                                 <div class="font-bold text-gray-800 mb-1">#${m.ref || m.id}${isSub ? ' <span class="text-purple-600 text-[10px]"><i class="fa-solid fa-handshake"></i></span>' : ''}</div>
                                 <div class="text-gray-500 truncate text-[10px]">${m.origin} <i class="fa-solid fa-arrow-right mx-1"></i> ${m.dest}</div>
-                                ${isSub && subName ? `<div class="text-[10px] text-purple-600 truncate">${subName}</div>` : ''}
+                                ${isSub && subName ? `<div class="text-[10px] text-purple-600 truncate"><i class="fa-solid fa-handshake mr-1"></i>${subName}</div>` : ''}
+                                ${!isSub && driverName ? `<div class="text-[10px] text-blue-600 truncate"><i class="fa-solid fa-user mr-1"></i>${driverName}</div>` : ''}
                                 <div class="mt-1 text-xs text-gray-400"><i class="fa-regular fa-clock mr-1"></i>${formatDisplayDate(m.delivery_date) || '--/--'}</div>
                                 <div class="mt-2 flex justify-between items-center">
                                     <span class="bg-gray-100 px-1 rounded text-[10px]">${m.price}€</span>
-                                    <span class="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition">${dispatchBtn}<i class="fa-solid fa-pencil ml-1"></i> Modifier</span>
+                                    <span class="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition flex items-center gap-1">${dispatchBtn}${editBtn}</span>
                                 </div>
                             </div>`;
         }).join('') : '<div class="h-full min-h-[100px] border-2 border-dashed border-gray-200 rounded flex items-center justify-center text-gray-300 text-xs">Disponible</div>'}
@@ -1447,10 +1467,21 @@ function complianceBadgeClass(status) {
     return 'text-gray-400 bg-gray-100';
 }
 
+function isOrderSubcontracted(order) {
+    if (!order) return false;
+    return order.assignment_type === 'SUBCONTRACTED' || order.status === 'Affrété';
+}
+
+function canEditPlanningOrder(order) {
+    if (!order) return false;
+    if (typeof canWriteTransport === 'function' && !canWriteTransport()) return false;
+    return !['Validé', 'Clôturé', 'Terminé', 'Annulé'].includes(order.status);
+}
+
 function canShowDispatchButton(order) {
     if (typeof planHasFeature === 'function' && !planHasFeature('subcontractor')) return false;
     if (!order || typeof canDispatchSubcontractor !== 'function' || !canDispatchSubcontractor()) return false;
-    if (order.assignment_type === 'SUBCONTRACTED' || order.status === 'Affrété') return false;
+    if (isOrderSubcontracted(order)) return false;
     return !['Validé', 'Clôturé', 'Terminé', 'Annulé'].includes(order.status);
 }
 
@@ -3007,6 +3038,7 @@ function renderAdmin() {
 
     return `<div class="space-y-6 fade-in">
         <h2 class="text-2xl font-bold text-gray-800">Paramètres de l'Entreprise</h2>
+        <p class="text-sm text-gray-500">Espace isolé : <strong class="text-gray-800">${escapeHtml(currentUser?.company_name || 'Votre entreprise')}</strong> — seuls les utilisateurs de cette société sont visibles ci-dessous.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Utilisateurs Plateforme</h3>
@@ -5781,6 +5813,37 @@ async function submitAddOrder() {
     }
 }
 
+function populateEditOrderStatusSelect(order) {
+    const select = document.getElementById('edit-order-status');
+    const readonlyEl = document.getElementById('edit-order-status-readonly');
+    const wrap = document.getElementById('edit-order-status-wrap');
+    if (!select || !order) return;
+
+    const terminal = ['Validé', 'Clôturé', 'Terminé', 'Annulé'];
+    const current = order.status || 'Brouillon';
+
+    if (terminal.includes(current)) {
+        select.classList.add('hidden');
+        select.disabled = true;
+        if (readonlyEl) {
+            readonlyEl.textContent = `Statut verrouillé : ${current}`;
+            readonlyEl.classList.remove('hidden');
+        }
+        select.innerHTML = `<option value="${current}">${current}</option>`;
+        select.value = current;
+        return;
+    }
+
+    select.classList.remove('hidden');
+    select.disabled = false;
+    if (readonlyEl) readonlyEl.classList.add('hidden');
+
+    const nextStatuses = typeof getNextStatuses === 'function' ? getNextStatuses(current) : [];
+    const options = [current, ...nextStatuses.filter(s => s !== current)];
+    select.innerHTML = options.map(s => `<option value="${s}">${s}</option>`).join('');
+    select.value = current;
+}
+
 function openEditOrderModal(orderId) {
     hideAllModals();
     const order = db.orders.find(o => o.id === orderId);
@@ -5806,7 +5869,7 @@ function openEditOrderModal(orderId) {
 
     populateSubcontractorSelect(document.getElementById('edit-order-subcontractor'), order.subcontractor_id);
 
-    const isSub = order.assignment_type === 'SUBCONTRACTED';
+    const isSub = isOrderSubcontracted(order);
     const assignRadio = document.querySelector(`input[name="edit-order-assignment"][value="${isSub ? 'SUBCONTRACTED' : 'INTERNAL'}"]`);
     if (assignRadio) assignRadio.checked = true;
     document.getElementById('edit-order-purchase-price').value = order.purchase_price || '';
@@ -5824,7 +5887,7 @@ function openEditOrderModal(orderId) {
     document.getElementById('edit-order-pallet-exchange').checked = !!order.pallet_exchange;
     document.getElementById('edit-order-pallets-returned').value = order.pallets_returned || 0;
     document.getElementById('edit-order-price').value = order.price || '';
-    document.getElementById('edit-order-status').value = order.status || 'Brouillon';
+    populateEditOrderStatusSelect(order);
     toggleOrderPalletFields('edit-order');
     toggleOrderPalletExchange('edit-order');
 
@@ -5838,9 +5901,12 @@ function openEditOrderModal(orderId) {
     modal.classList.remove('hidden');
     if (!modal.classList.contains('flex')) modal.classList.add('flex', 'items-center', 'justify-center');
 }
+window.populateEditOrderStatusSelect = populateEditOrderStatusSelect;
 window.openEditOrderModal = openEditOrderModal;
 window.openDispatchModal = openDispatchModal;
 window.canShowDispatchButton = canShowDispatchButton;
+window.isOrderSubcontracted = isOrderSubcontracted;
+window.canEditPlanningOrder = canEditPlanningOrder;
 
 function closeEditOrderModal() {
     hideAllModals();
@@ -5853,10 +5919,20 @@ async function submitEditOrder() {
     if (order) {
         const assignment = getOrderAssignmentPayload('edit-order');
         const pallet = getOrderPalletPayload('edit-order');
-        const updatedStatus = document.getElementById('edit-order-status').value;
+        const statusSelect = document.getElementById('edit-order-status');
+        const statusLocked = statusSelect?.disabled || statusSelect?.classList.contains('hidden');
+        const updatedStatus = statusLocked ? order.status : statusSelect.value;
 
         if (assignment.assignment_type === 'SUBCONTRACTED' && !assignment.subcontractor_id) {
             showToast('Veuillez sélectionner un sous-traitant', 'error');
+            return;
+        }
+        if (assignment.assignment_type === 'SUBCONTRACTED' && !(assignment.purchase_price > 0)) {
+            showToast('Indiquez le prix d\'achat pour l\'affrètement', 'error');
+            return;
+        }
+        if (assignment.assignment_type === 'INTERNAL' && isOrderSubcontracted(order) && !assignment.driver_id) {
+            showToast('Sélectionnez un chauffeur de votre flotte pour la réaffectation interne', 'error');
             return;
         }
 
