@@ -1,5 +1,5 @@
 /* ============================================
-   Transfact - Styles CSS
+   Flenova - Styles CSS
    ============================================ */
 
 /* Import Font */
@@ -1412,7 +1412,7 @@ body.public-site-active {
     display: none;
 }
 
-/* Pourquoi Transfact */
+/* Pourquoi Flenova */
 .public-why-section {
     padding: 3.5rem 0 4rem;
     background: linear-gradient(180deg, #eef5fc 0%, #fff 100%);

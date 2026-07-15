@@ -1,5 +1,5 @@
 /**
- * Transfact API Wrapper
+ * Flenova API Wrapper
  * Global fetch interceptor with automatic 401 handling
  */
 const API_URL = '/api';

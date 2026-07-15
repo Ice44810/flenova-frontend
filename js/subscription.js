@@ -1,5 +1,5 @@
 /**
- * Abonnements Transfact — tarifs unifiés et gating UI par forfait
+ * Abonnements Flenova — tarifs unifiés et gating UI par forfait
  */
 window.cachedSubscription = null;
 window.cachedPlans = null;
@@ -66,7 +66,7 @@ async function renderPublicPricingAsync() {
     return `<div class="fade-in">
         <div class="public-page-header py-12">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
-                <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Tarifs Transfact</h1>
+                <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Tarifs Flenova</h1>
                 <p class="text-lg text-gray-600">Des solutions adaptées à vos besoins, sans frais cachés.</p>
             </div>
         </div>
@@ -84,7 +84,7 @@ function renderAppPricingPage() {
 
     return `<div class="max-w-6xl mx-auto fade-in py-10">
         <div class="text-center mb-12">
-            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Tarifs Transfact</h1>
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Tarifs Flenova</h1>
             <p class="text-lg text-gray-600">Forfait actuel : <strong>${sub.planName || '—'}</strong>${sub.isDemo ? ` — essai Premium (${sub.demoDaysRemaining ?? '—'} j. restants)` : ''}</p>
             ${sub.isDemo && sub.targetPlanName ? `<p class="text-sm text-purple-700 mt-2">Après l'essai : forfait ${sub.targetPlanName}</p>` : ''}
             ${usageLine}

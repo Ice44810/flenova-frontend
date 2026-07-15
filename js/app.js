@@ -1,5 +1,5 @@
 /**
- * Transfact - Application JavaScript (SPA TMS + site public)
+ * Flenova - Application JavaScript (SPA TMS + site public)
  */
 
 // --- MOCK DATABASE ---
@@ -352,12 +352,12 @@ function initPublicReviewsCarousel() {
 
 const PUBLIC_FAQ_ITEMS = [
     {
-        q: 'Qu\'est-ce qu\'un TMS et à quoi sert Transfact ?',
-        a: 'Un TMS (Transport Management System) centralise vos ordres de transport, planning, exécution terrain et facturation. Transfact est conçu pour les PME et indépendants : une seule plateforme web + mobile, sans ERP lourd.'
+        q: 'Qu\'est-ce qu\'un TMS et à quoi sert Flenova ?',
+        a: 'Un TMS (Transport Management System) centralise vos ordres de transport, planning, exécution terrain et facturation. Flenova est conçu pour les PME et indépendants : une seule plateforme web + mobile, sans ERP lourd.'
     },
     {
-        q: 'Transfact remplace-t-il Excel et les échanges WhatsApp ?',
-        a: 'Oui, c\'est l\'objectif : fini les ressaisies entre tableur, mails et messagerie. Commandes, statuts, signatures chauffeurs et facturation vivent au même endroit.'
+        q: 'Flenova remplace-t-il Excel et les outils dispersés ?',
+        a: 'Oui, c\'est l\'objectif : fini les ressaisies entre tableur, mails et fichiers séparés. Commandes, statuts, signatures chauffeurs et facturation vivent au même endroit.'
     },
     {
         q: 'Comment fonctionne l\'essai gratuit ?',
@@ -365,14 +365,14 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'La facturation électronique et Factur-X sont-ils inclus ?',
-        a: 'Oui. Transfact génère vos factures clients au format Factur-X et propose un export comptable CSV pour votre expert-comptable — prêt pour les évolutions réglementaires 2026.'
+        a: 'Oui. Flenova génère vos factures clients au format Factur-X et propose un export comptable CSV pour votre expert-comptable — prêt pour les évolutions réglementaires 2026.'
     },
     {
         q: 'L\'application mobile chauffeur est-elle incluse ?',
         a: 'Oui. Vos chauffeurs consultent leurs missions, confirment les arrivées, collectent les signatures et envoient les preuves de livraison depuis leur smartphone.'
     },
     {
-        q: 'Transfact convient-il aux petites structures ?',
+        q: 'Flenova convient-il aux petites structures ?',
         a: 'Absolument. Le forfait Indépendant démarre à 99 €/mois HT pour 1 utilisateur et 3 chauffeurs mobiles. Pas de mise en place complexe ni de déploiement sur site.'
     }
 ];
@@ -399,7 +399,7 @@ function renderPublicSocialProof() {
     const logos = ['LogiTrans Ouest', 'Transports MD', 'Routage Express', 'KB Fret', 'PME Routière'];
     return `<section class="public-social-proof" aria-label="Transporteurs qui nous font confiance">
         <div class="public-social-proof-inner">
-            <p class="public-social-proof-lead">Des transporteurs PME centralisent déjà leur exploitation avec Transfact</p>
+            <p class="public-social-proof-lead">Des transporteurs PME centralisent déjà leur exploitation avec Flenova</p>
             <div class="public-social-proof-logos">
                 ${logos.map((name) => `<span class="public-social-logo">${escapePublicHtml(name)}</span>`).join('')}
             </div>
@@ -415,7 +415,7 @@ function renderPublicPainPoints() {
     ];
     return `<section class="public-pain-section">
         <div class="public-section-inner">
-            <h2 class="public-section-title">Transfact est fait pour vous si…</h2>
+            <h2 class="public-section-title">Flenova est fait pour vous si…</h2>
             <div class="public-pain-grid">
                 ${items.map((item) => `
                     <article class="public-pain-card">
@@ -472,7 +472,7 @@ function renderPublicMvpCycle(compact) {
     </section>`;
 }
 
-function renderPublicWhyTransfact() {
+function renderPublicWhyFlenova() {
     const items = [
         { icon: 'fa-euro-sign', title: 'Abordable', desc: 'Dès 99 €/mois HT. Pas de devis opaque ni de licence enterprise.' },
         { icon: 'fa-wand-magic-sparkles', title: 'Simple', desc: 'Interface pensée pour les PME. Prise en main rapide, sans intégrateur.' },
@@ -480,7 +480,7 @@ function renderPublicWhyTransfact() {
     ];
     return `<section class="public-why-section">
         <div class="public-section-inner">
-            <h2 class="public-section-title">Pourquoi choisir Transfact ?</h2>
+            <h2 class="public-section-title">Pourquoi choisir Flenova ?</h2>
             <div class="public-why-grid">
                 ${items.map((item) => `
                     <article class="public-why-card">
@@ -564,7 +564,7 @@ function renderPublicHome() {
                     <p class="public-hero-note">À partir de <strong>99 €/mois HT</strong> · Sans engagement · Premium offert à l'inscription</p>
                 </div>
                 <div class="public-hero-image-wrap">
-                    <img src="assets/public-hero-illustration.png" alt="Tableau de bord TMS Transfact — cartes, statistiques et flotte" class="public-hero-image" width="1024" height="622">
+                    <img src="assets/public-hero-illustration.png" alt="Tableau de bord TMS Flenova — cartes, statistiques et flotte" class="public-hero-image" width="1024" height="622">
                 </div>
             </div>
         </section>
@@ -573,7 +573,7 @@ function renderPublicHome() {
         ${renderPublicPainPoints()}
         ${renderPublicProductPillars()}
         ${renderPublicMvpCycle(false)}
-        ${renderPublicWhyTransfact()}
+        ${renderPublicWhyFlenova()}
         ${renderPublicReviewsLoading()}
         ${renderPublicFaq()}
         ${renderPublicCtaBand('Prêt à passer la vitesse supérieure ?', 'Rejoignez les transporteurs qui ont quitté Excel pour un TMS simple et complet.')}
@@ -648,7 +648,7 @@ function renderPublicFeatures() {
 
         ${renderPublicMvpCycle(true)}
         ${renderPublicFaq()}
-        ${renderPublicCtaBand('Testez Transfact gratuitement pendant 30 jours', 'Premium offert à l\'inscription — toutes les fonctionnalités débloquées, sans carte bancaire.')}
+        ${renderPublicCtaBand('Testez Flenova gratuitement pendant 30 jours', 'Premium offert à l\'inscription — toutes les fonctionnalités débloquées, sans carte bancaire.')}
     </div>`;
 }
 
@@ -668,7 +668,7 @@ function renderPublicContact() {
                     <div class="public-contact-info-box">
                         <i class="fa-solid fa-envelope"></i>
                         <h4>Email</h4>
-                        <p>support@transfact.fr</p>
+                        <p>support@flenova.fr</p>
                     </div>
                 </div>
                 <form id="public-contact-form" class="public-contact-form" onsubmit="submitPublicContact(event)">
@@ -2295,7 +2295,7 @@ function renderSettingInvoices() {
                             <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Logo sur les factures</label>
                             <div class="flex items-center gap-4 p-3 border border-gray-200 rounded-xl bg-gray-50">
                                 <img src="${logoSrc}" alt="Logo" class="h-12 max-w-[120px] object-contain"
-                                     onerror="this.src='assets/transfact_icon_512.jpg'">
+                                     onerror="this.src='assets/flenova_icon_512.jpg'">
                                 <p class="text-xs text-gray-500">Modifiable dans <button type="button" onclick="router('admin')" class="text-blue-600 hover:underline font-medium">Paramètres entreprise</button>.</p>
                             </div>
                         </div>
@@ -2622,7 +2622,7 @@ function previewInvoice() {
             </div>
 
             <div class="mt-20 pt-8 border-t border-dashed text-center">
-                <p class="text-[9px] text-gray-400 uppercase tracking-widest">Aperçu généré par Transfact TMS - Ce document n'a pas de valeur légale tant qu'il n'est pas validé.</p>
+                <p class="text-[9px] text-gray-400 uppercase tracking-widest">Aperçu généré par Flenova TMS - Ce document n'a pas de valeur légale tant qu'il n'est pas validé.</p>
             </div>
         </div>
     `;
@@ -2947,7 +2947,7 @@ function getInvoiceFormData(status) {
 }
 
 function resolveCompanyLogoUrl(logoPath) {
-    if (!logoPath) return 'assets/transfact_icon_512.jpg';
+    if (!logoPath) return 'assets/flenova_icon_512.jpg';
     if (logoPath.startsWith('http://') || logoPath.startsWith('https://') || logoPath.startsWith('/')) return logoPath;
     return logoPath;
 }
@@ -3054,7 +3054,7 @@ function renderAdmin() {
                         <div class="w-28 h-28 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
                             <img id="admin-company-logo-preview" src="${logoSrc}" alt="Logo entreprise"
                                  class="max-w-full max-h-full object-contain p-2"
-                                 onerror="this.src='assets/transfact_icon_512.jpg'">
+                                 onerror="this.src='assets/flenova_icon_512.jpg'">
                         </div>
                         <div class="flex-1 space-y-3">
                             <input type="file" id="admin-company-logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml"
@@ -3219,7 +3219,7 @@ function renderContact() {
             <div class="text-center p-6 bg-blue-50 rounded-lg">
                 <i class="fa-solid fa-envelope text-3xl text-blue-600 mb-3"></i>
                 <h4 class="font-bold text-gray-800">Email</h4>
-                <p class="text-gray-600">support@transfact.fr</p>
+                <p class="text-gray-600">support@flenova.fr</p>
                 <p class="text-sm text-gray-500">Réponse sous 24h</p>
             </div>
         </div>
@@ -3236,11 +3236,11 @@ function renderAbout() {
     return `<div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 fade-in">
         <div class="text-center mb-8">
             <i class="fa-solid fa-truck-fast text-5xl text-blue-600 mb-4"></i>  
-            <h2 class="text-3xl font-bold text-gray-900 mb-2">À propos de Transfact</h2>
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">À propos de Flenova</h2>
             <p class="text-gray-600">Votre solution de gestion de transport</p>
         </div>
         <div class="space-y-6 text-gray-700">
-            <p>Transfact est une application de gestion de transport (TMS) complète conçue pour simplifier la planification, 
+            <p>Flenova est une application de gestion de transport (TMS) complète conçue pour simplifier la planification, 
             le suivi et la facturation de vos opérations de Transports.</p>
             
             <h3 class="text-xl font-bold text-gray-800">Nos Services</h3>
@@ -3256,7 +3256,7 @@ function renderAbout() {
             
             <h3 class="text-xl font-bold text-gray-800">Informations Légales</h3>
             <div class="bg-gray-50 p-2 rounded-lg">
-                <p><strong>Entreprise:</strong> Transfact SAS</p>
+                <p><strong>Entreprise:</strong> Flenova SAS</p>
                 <p><strong>SIRET:</strong> SIRET A VOIR</p>
                 <p><strong>TVA:</strong> TVA A VOIR</p>
                 <p><strong>Adresse:</strong> ADRESSE A VOIR LORS DE LA CREATION DU START UP</p>
@@ -3402,7 +3402,7 @@ async function saveQuotation() {
             <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
                 <div>
                     <h1 style="color: #2563eb; margin: 0; font-size: 24px;">Offre Commerciale</h1>
-                    <p style="margin: 5px 0; font-weight: bold;">${currentUser?.company_name || 'Transfact'} - Votre partenaire transport</p>
+                    <p style="margin: 5px 0; font-weight: bold;">${currentUser?.company_name || 'Flenova'} - Votre partenaire transport</p>
                 </div>
                 <div style="text-align: right;">
                     <p style="margin: 0;">Date: ${new Date().toLocaleDateString('fr-FR')}</p>
@@ -3446,14 +3446,14 @@ async function saveQuotation() {
 
             <div style="font-size: 11px; color: #64748b; margin-top: 60px; border-top: 1px solid #e2e8f0; padding-top: 20px; line-height: 1.6;">
                 <p style="margin: 0;"><strong>Validité :</strong> Cette offre est valable pour une durée de 30 jours à compter de la date d'émission.</p>
-                <p style="margin: 5px 0 0 0;">Cette simulation a été générée via Transfact TMS. Les prix sont indiqués Hors Taxes.</p>
+                <p style="margin: 5px 0 0 0;">Cette simulation a été générée via Flenova TMS. Les prix sont indiqués Hors Taxes.</p>
             </div>
         </div>
     `;
 
     const opt = {
         margin: [0.5, 0.5],
-        filename: `Offre_Commerciale_Transfact_${Date.now().toString().slice(-6)}.pdf`,
+        filename: `Offre_Commerciale_Flenova_${Date.now().toString().slice(-6)}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }

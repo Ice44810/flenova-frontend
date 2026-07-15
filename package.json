@@ -1,7 +1,7 @@
 {
-  "name": "transfact-frontend",
+  "name": "flenova-frontend",
   "version": "1.0.0",
-  "description": "Transfact Frontend - TMS Complet",
+  "description": "Flenova Frontend - TMS Complet",
   "scripts": {
     "build:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --minify",
     "watch:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --watch"
