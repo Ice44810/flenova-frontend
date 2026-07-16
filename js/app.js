@@ -1755,6 +1755,24 @@ async function sendAffretementConfirmation() {
 window.openAffretementConfirmation = openAffretementConfirmation;
 window.sendAffretementConfirmation = sendAffretementConfirmation;
 
+function renderSecureHtmlPreview(container, html, emptyMessage) {
+    if (!container) return;
+    container.replaceChildren();
+    if (!html) {
+        const empty = document.createElement('p');
+        empty.className = 'p-8 text-center text-gray-400';
+        empty.textContent = emptyMessage || 'Aucun contenu';
+        container.appendChild(empty);
+        return;
+    }
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('sandbox', 'allow-same-origin');
+    iframe.setAttribute('title', 'Aperçu document');
+    iframe.className = 'w-full min-h-[800px] border-0';
+    iframe.srcdoc = html;
+    container.appendChild(iframe);
+}
+
 function renderCmrPreviewShell() {
     return `<div class="fade-in h-full flex flex-col">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
@@ -1803,7 +1821,7 @@ async function loadCmrPreviewPage() {
         if (subtitle) {
             subtitle.textContent = `Transport ${data.orderRef}${data.hasSignatures ? ' — signatures présentes' : ''}`;
         }
-        if (preview) preview.innerHTML = data.html || '<p class="p-8 text-center text-gray-400">Aucun contenu</p>';
+        renderSecureHtmlPreview(preview, data.html, 'Aucun contenu');
 
         if (pdfLink && data.pdfUrl) {
             pdfLink.href = normalizeUploadUrl(data.pdfUrl);
