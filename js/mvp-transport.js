@@ -429,6 +429,7 @@ function renderTransportDetailModal(t) {
     if (typeof isOrderSubcontracted === 'function' ? isOrderSubcontracted(t) : (t.assignment_type === 'SUBCONTRACTED' || t.status === 'Affrété')) {
         actionsHtml += `<button onclick="closeTransportDetail(); openAffretementConfirmation(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-file-contract mr-1"></i>Confirmation</button>`;
     }
+    actionsHtml += `<button onclick="closeTransportDetail(); openTransportCmr(${t.id})" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 mr-2"><i class="fa-solid fa-truck-ramp-box mr-1"></i>CMR</button>`;
     if (typeof canValidateTransport === 'function' && canValidateTransport() && t.status === 'Livré') {
         actionsHtml += `<button onclick="validateTransportFromDetail(${t.id})" class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 mr-2">Valider transport</button>`;
     }

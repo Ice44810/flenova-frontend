@@ -7,6 +7,7 @@ let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], use
 let subcontractorFilters = { search: '', status: '', compliance: '' };
 let purchaseInvoiceFilter = { subcontractor_id: '', type: '' };
 let affretementConfirmationOrderId = null;
+let cmrPreviewOrderId = null;
 
 let salesChartInstance = null;
 let invoiceLines = [];
@@ -1741,6 +1742,100 @@ async function sendAffretementConfirmation() {
 window.openAffretementConfirmation = openAffretementConfirmation;
 window.sendAffretementConfirmation = sendAffretementConfirmation;
 
+function renderCmrPreviewShell() {
+    return `<div class="fade-in h-full flex flex-col">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <div>
+                <button onclick="router('planning')" class="text-sm text-gray-600 hover:text-blue-600 mb-1"><i class="fa-solid fa-arrow-left mr-1"></i>Retour au planning</button>
+                <h3 class="font-bold text-lg text-gray-800">Lettre de voiture internationale (CMR)</h3>
+                <p class="text-xs text-gray-500" id="cmr-page-subtitle">Chargement…</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <a id="cmr-pdf-link" href="#" target="_blank" class="hidden px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">
+                    <i class="fa-solid fa-file-pdf mr-1 text-red-500"></i>Télécharger PDF
+                </a>
+                <button id="cmr-generate-btn" onclick="generateTransportCmr()" class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                    <i class="fa-solid fa-file-circle-plus mr-1"></i>Générer / Régénérer PDF
+                </button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-auto bg-slate-100 rounded-xl border border-gray-200 p-4">
+            <div id="cmr-preview" class="bg-white rounded-xl shadow-sm mx-auto max-w-5xl">
+                <p class="p-8 text-center text-gray-400">Chargement de la lettre de voiture…</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function loadCmrPreviewPage() {
+    const orderId = cmrPreviewOrderId;
+    const preview = document.getElementById('cmr-preview');
+    const subtitle = document.getElementById('cmr-page-subtitle');
+    const pdfLink = document.getElementById('cmr-pdf-link');
+    const generateBtn = document.getElementById('cmr-generate-btn');
+
+    if (!orderId) {
+        if (preview) preview.innerHTML = '<p class="p-8 text-center text-red-500">Aucun transport sélectionné.</p>';
+        return;
+    }
+
+    try {
+        const res = await apiFetch(`transport-orders/${orderId}/cmr`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'CMR introuvable');
+        }
+        const { data } = await res.json();
+
+        if (subtitle) {
+            subtitle.textContent = `Transport ${data.orderRef}${data.hasSignatures ? ' — signatures présentes' : ''}`;
+        }
+        if (preview) preview.innerHTML = data.html || '<p class="p-8 text-center text-gray-400">Aucun contenu</p>';
+
+        if (pdfLink && data.pdfUrl) {
+            pdfLink.href = normalizeUploadUrl(data.pdfUrl);
+            pdfLink.classList.remove('hidden');
+        } else if (pdfLink) {
+            pdfLink.classList.add('hidden');
+        }
+
+        if (generateBtn) generateBtn.disabled = false;
+    } catch (e) {
+        if (preview) preview.innerHTML = `<p class="p-8 text-center text-red-500">${e.message}</p>`;
+        showToast(e.message, 'error');
+    }
+}
+
+function openTransportCmr(orderId) {
+    cmrPreviewOrderId = parseInt(orderId, 10);
+    router('cmr_preview');
+}
+
+async function generateTransportCmr() {
+    const orderId = cmrPreviewOrderId;
+    if (!orderId) return;
+
+    const generateBtn = document.getElementById('cmr-generate-btn');
+    if (generateBtn) generateBtn.disabled = true;
+
+    try {
+        const res = await apiFetch(`transport-orders/${orderId}/cmr`, { method: 'POST' });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(payload.error || 'Génération impossible');
+        }
+        showToast('Lettre de voiture générée', 'success');
+        await loadCmrPreviewPage();
+    } catch (e) {
+        showToast(e.message, 'error');
+    } finally {
+        if (generateBtn) generateBtn.disabled = false;
+    }
+}
+
+window.openTransportCmr = openTransportCmr;
+window.generateTransportCmr = generateTransportCmr;
+
 // --- RENDER: Flotte ---
 function renderDrivers() {
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
@@ -3330,11 +3425,8 @@ function renderSolutions() {
         </div>
         
         <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-8 text-white text-center">
-            <h2 class="text-2xl font-bold mb-4">Prêt à simplifier votre gestion?</h2>
-            <p class="text-blue-100 mb-6">Démarrez gratuitement et adaptez votre solution à vos besoins.</p>
-            <div class="flex justify-center gap-4">
-                <button onclick="router('contact')" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">Nous contacter</button>
-            </div>
+            <h2 class="text-2xl font-bold mb-4">Prêt à simplifier votre gestion ?</h2>
+            <p class="text-blue-100">Utilisez le menu pour accéder à toutes les fonctionnalités de votre espace Flenova.</p>
         </div>
     </div>`;
 }
@@ -3744,6 +3836,11 @@ async function router(route) {
             title = 'Confirmation d\'affrètement';
             content = renderAffretementConfirmationShell();
             setTimeout(() => loadAffretementConfirmationPage(), 0);
+            break;
+        case 'cmr_preview':
+            title = 'Lettre de voiture (CMR)';
+            content = renderCmrPreviewShell();
+            setTimeout(() => loadCmrPreviewPage(), 0);
             break;
         case 'sales_invoices':
             title = 'Factures Ventes';

@@ -44,7 +44,7 @@ function renderPricingCards(options = {}) {
         } else if (selectedPlan === plan.id) {
             buttonHtml = `<div class="w-full py-2.5 text-center bg-green-50 border border-green-200 text-green-800 rounded-lg font-semibold">Votre forfait actuel</div>`;
         } else {
-            buttonHtml = `<p class="text-center text-sm text-gray-500 py-2">Changement de forfait sur demande — <a href="#" onclick="router('contact'); return false;" class="text-blue-600 hover:underline">contactez-nous</a></p>`;
+            buttonHtml = `<p class="text-center text-sm text-gray-500 py-2">Changement de forfait sur demande — contactez notre équipe.</p>`;
         }
 
         return `<div class="bg-white p-8 rounded-2xl shadow-lg ${borderClass}">
@@ -163,6 +163,6 @@ window.applyDemoBanner = function () {
     const endLabel = sub.demoEndsAt
         ? new Date(sub.demoEndsAt).toLocaleDateString('fr-FR')
         : '';
-    textEl.innerHTML = `<i class="fa-solid fa-gift mr-2"></i>Essai Premium — <strong>${days} jour(s)</strong> restant(s)${endLabel ? ` (jusqu'au ${endLabel})` : ''}. Toutes les fonctionnalités sont débloquées.`;
+    textEl.innerHTML = `<i class="fa-solid fa-gift mr-2"></i>Essai Premium — <strong>${days} jour(s)</strong> restant(s)${endLabel ? ` (jusqu'au ${endLabel})` : ''}. Toutes les fonctionnalités sont débloquées.${sub.targetPlanName ? ` Forfait prévu après l'essai : <strong>${sub.targetPlanName}</strong>.` : ''}`;
     banner.classList.remove('hidden');
 };

@@ -103,6 +103,7 @@ function canAccessRoute(routeName) {
         admin: ['settings', 'view'],
         margin_dashboard: ['reports', 'view'],
         affretement_confirmation: ['transports', 'view'],
+        cmr_preview: ['transports', 'view'],
         quotation: ['reports', 'view'],
         invoice_settings: ['settings', 'view'],
         create_invoice: ['billing', 'create']
