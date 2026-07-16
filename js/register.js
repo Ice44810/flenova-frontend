@@ -76,6 +76,14 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
         return;
     }
 
+    const privacyAccepted = document.getElementById('reg-privacy')?.checked;
+    if (!privacyAccepted) {
+        showToast('Veuillez accepter la politique de confidentialité et les CGU', 'error');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        return;
+    }
+
     try {
         await fetch('/api/auth/logout', {
             method: 'POST',
@@ -89,7 +97,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     try {
         const response = await apiFetch('auth/register', {
             method: 'POST',
-            body: { company_name: companyName, name, email, password, plan }
+            body: { company_name: companyName, name, email, password, plan, privacy_accepted: true }
         });
 
         let result = {};

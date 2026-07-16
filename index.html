@@ -49,6 +49,7 @@
         <footer id="public-footer" class="public-footer py-6 text-center text-sm text-gray-500 border-t bg-gray-50">
             <p>© Flenova — TMS transport &amp; logistique</p>
             <p class="mt-1 text-xs text-gray-400">support@flenova.fr · 02 99 00 00 00</p>
+            <div id="public-legal-footer" class="mt-3"></div>
         </footer>
     </div>
 
@@ -223,6 +224,13 @@
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-info-circle w-6"></i>
                             <span>À propos</span>
+                        </a>
+                    </li>
+                    <li data-nav-route="privacy">
+                        <a href="#" onclick="router('privacy'); return false;"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-shield-halved w-6"></i>
+                            <span>Mes données</span>
                         </a>
                     </li>
                 </ul>
@@ -1408,6 +1416,7 @@
     <!-- JAVASCRIPT -->
     <script src="js/security.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/legal-pages.js"></script>
     <script src="js/permissions.js"></script>
     <script src="js/subscription.js"></script>
     <script src="js/app.js"></script>

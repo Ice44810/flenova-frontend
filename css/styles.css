@@ -2046,3 +2046,26 @@ body.public-site-active {
     .public-header-nav-mobile { padding: 0.5rem 1rem 0.75rem; }
 }
 
+/* Pages légales RGPD */
+.legal-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem 0.5rem;
+    color: #64748b;
+}
+.legal-footer-links a {
+    color: #2563eb;
+    text-decoration: none;
+}
+.legal-footer-links a:hover {
+    text-decoration: underline;
+}
+.legal-doc-body h2 {
+    margin-top: 1rem;
+}
+.legal-doc-body ul {
+    margin-left: 1rem;
+}
+

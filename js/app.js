@@ -181,7 +181,7 @@ function makeElementDraggable(el) {
 }
 
 // --- SITE PUBLIC ---
-const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact'];
+const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact', 'privacy', 'legal', 'terms', 'cookies'];
 let isAuthenticated = false;
 let publicReviewsTimer = null;
 
@@ -732,6 +732,14 @@ function publicRouter(route) {
                 renderPublicPricingAsync().then((html) => { container.innerHTML = html; });
             }
             break;
+        case 'privacy':
+        case 'legal':
+        case 'terms':
+        case 'cookies':
+            container.innerHTML = typeof renderLegalPage === 'function'
+                ? renderLegalPage(route === 'legal' ? 'legal' : route)
+                : '<p class="p-8 text-center text-gray-500">Page indisponible</p>';
+            break;
         default:
             container.innerHTML = renderPublicHome();
             loadPublicReviews();
@@ -785,6 +793,11 @@ function initPublicSite() {
     document.body.classList.add('public-site-active');
 
     if (typeof loadPublicPlans === 'function') loadPublicPlans();
+
+    const legalFooter = document.getElementById('public-legal-footer');
+    if (legalFooter && typeof renderLegalFooterLinks === 'function') {
+        legalFooter.innerHTML = renderLegalFooterLinks('justify-center text-xs');
+    }
 
     const hash = (window.location.hash || '').replace('#', '').trim();
     publicRouter(PUBLIC_ROUTES.includes(hash) ? hash : 'home');
@@ -3480,12 +3493,14 @@ function renderAbout() {
             </ul>
             
             <h3 class="text-xl font-bold text-gray-800">Informations Légales</h3>
-            <div class="bg-gray-50 p-2 rounded-lg">
-                <p><strong>Entreprise:</strong> Flenova SAS</p>
-                <p><strong>SIRET:</strong> SIRET A VOIR</p>
-                <p><strong>TVA:</strong> TVA A VOIR</p>
-                <p><strong>Adresse:</strong> ADRESSE A VOIR LORS DE LA CREATION DU START UP</p>
+            <div class="bg-gray-50 p-4 rounded-lg text-sm">
+                <p><strong>Entreprise :</strong> ${typeof FLENOVA_LEGAL !== 'undefined' ? FLENOVA_LEGAL.company : 'Flenova SAS'}</p>
+                <p><strong>SIRET :</strong> ${typeof FLENOVA_LEGAL !== 'undefined' ? FLENOVA_LEGAL.siret : '—'}</p>
+                <p><strong>TVA :</strong> ${typeof FLENOVA_LEGAL !== 'undefined' ? FLENOVA_LEGAL.tva : '—'}</p>
+                <p><strong>Adresse :</strong> ${typeof FLENOVA_LEGAL !== 'undefined' ? FLENOVA_LEGAL.address : '—'}</p>
+                <p class="mt-3"><strong>Données personnelles :</strong> <a href="#" onclick="router('privacy'); return false;" class="text-blue-600 hover:underline">Mes données</a></p>
             </div>
+            ${typeof renderLegalFooterLinks === 'function' ? renderLegalFooterLinks('mt-4 text-sm') : ''}
         </div>
     </div>`;
 }
@@ -3907,6 +3922,16 @@ async function router(route) {
         case 'about':
             title = 'À propos';
             content = renderAbout();
+            break;
+        case 'privacy':
+            title = 'Mes données personnelles';
+            content = typeof renderPrivacySettingsPage === 'function' ? renderPrivacySettingsPage() : '';
+            break;
+        case 'legal_page':
+            title = 'Informations légales';
+            content = typeof renderLegalPage === 'function'
+                ? renderLegalPage(window._legalPageType || 'privacy')
+                : '';
             break;
         case 'quotation':
             title = 'Calculateur de Cotation';
