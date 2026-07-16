@@ -856,6 +856,13 @@ window.updateAppCompanyHeader = updateAppCompanyHeader;
     if (ok) {
         router(initialRoute);
     }
+    window.addEventListener('hashchange', () => {
+        if (!isAuthenticated) return;
+        const next = (window.location.hash || '').replace('#', '').split('&')[0].trim();
+        if (next && next !== window.currentAppRoute) {
+            router(next);
+        }
+    });
     if (window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
         showOverdueBillingModal(window.cachedSubscription.billingAlert);
     }
@@ -3628,15 +3635,23 @@ async function router(route) {
     window.currentAppRoute = route;
     const appContent = document.getElementById('app-content');
     const pageTitle = document.getElementById('page-title');
-    const navItems = document.querySelectorAll('.nav-item');
 
-    // Update active nav
-    navItems.forEach(item => {
-        item.classList.remove('active');
-        const action = item.getAttribute('onclick');
-        if (action && action.includes(route)) {
-            item.classList.add('active');
+    // Sync URL hash (évite qu'un ancien #contact réapparaisse au clic sur href="#")
+    try {
+        const base = `${window.location.pathname}${window.location.search}`;
+        const desiredHash = route === 'dashboard' ? '' : `#${route}`;
+        if (window.location.hash !== desiredHash) {
+            history.replaceState(null, '', base + desiredHash);
         }
+    } catch (_) { /* ignore */ }
+
+    // Active nav — correspondance exacte (évite transports / inprogress_transports / completed_transports)
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        const navRoute = item.closest('[data-nav-route]')?.dataset?.navRoute;
+        const onclickMatch = item.getAttribute('onclick')?.match(/router\('([^']+)'\)/);
+        const itemRoute = navRoute || onclickMatch?.[1];
+        if (itemRoute === route) item.classList.add('active');
     });
 
     let content = '';

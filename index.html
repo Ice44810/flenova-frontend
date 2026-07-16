@@ -65,7 +65,7 @@
             <nav class="flex-1 overflow-y-auto py-4">
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Général</p>
                 <ul class="space-y-1 mb-6">
-                    <li data-nav-route="dashboard"><a href="#" onclick="router('dashboard')"
+                    <li data-nav-route="dashboard"><a href="#" onclick="router('dashboard'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-chart-pie w-6"></i>
                             <span>Tableau de bord</span>
@@ -75,33 +75,33 @@
 
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Opérations</p>
                 <ul class="space-y-1 mb-6">
-                    <li data-nav-route="transports"><a href="#" onclick="router('transports')"
+                    <li data-nav-route="transports"><a href="#" onclick="router('transports'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-list w-6"></i>
                             <span>Transports</span>
                         </a>
                     </li>
-                    <li data-nav-route="planning"><a href="#" onclick="router('planning')"
+                    <li data-nav-route="planning"><a href="#" onclick="router('planning'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-calendar-days w-6"></i>
                             <span>Planning</span>
                         </a>
                     </li>
 
-                    <li data-nav-route="inprogress_transports"><a href="#" onclick="router('inprogress_transports')"
+                    <li data-nav-route="inprogress_transports"><a href="#" onclick="router('inprogress_transports'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-truck-moving w-6"></i>
                             <span>Transports En cours</span>
                         </a>
                     </li>
 
-                    <li data-nav-route="completed_transports"><a href="#" onclick="router('completed_transports')"
+                    <li data-nav-route="completed_transports"><a href="#" onclick="router('completed_transports'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-truck-moving w-6"></i>
                             <span>Transports Réalisés</span>
                         </a>
                     </li>
-                    <li data-nav-route="clients"><a href="#" onclick="router('clients')"
+                    <li data-nav-route="clients"><a href="#" onclick="router('clients'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-building-user w-6"></i>
                             <span>Clients</span>
@@ -111,19 +111,19 @@
 
 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Ressources</p>
                 <ul class="space-y-1 mb-6">
-                    <li data-nav-route="drivers"><a href="#" onclick="router('drivers')"
+                    <li data-nav-route="drivers"><a href="#" onclick="router('drivers'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-id-card w-6"></i>
                             <span>Chauffeurs</span>
                         </a>
                     </li>
-                    <li data-nav-route="fleet"><a href="#" onclick="router('fleet')"
+                    <li data-nav-route="fleet"><a href="#" onclick="router('fleet'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-truck w-6"></i>
                             <span>Flotte</span>
                         </a>
                     </li>
-                    <li data-nav-route="subcontractors"><a href="#" onclick="router('subcontractors')"
+                    <li data-nav-route="subcontractors"><a href="#" onclick="router('subcontractors'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-handshake w-6"></i>
                             <span>Sous-traitants</span>
@@ -134,21 +134,21 @@
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Finances & Admin</p>
                 <ul class="space-y-1 mb-6">
                     <li data-nav-route="preinvoicing">
-                        <a href="#" onclick="router('preinvoicing')"
+                        <a href="#" onclick="router('preinvoicing'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-file-circle-check w-6"></i>
                             <span>Préfacturation</span>
                         </a>
                     </li>
                     <li data-nav-route="sales_invoices">
-                        <a href="#" onclick="router('sales_invoices')"
+                        <a href="#" onclick="router('sales_invoices'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-file-invoice-dollar w-6"></i>
                             <span>Factures Ventes</span>
                         </a>
                     </li>
                     <li data-nav-route="purchase_invoices">
-                        <a href="#" onclick="router('purchase_invoices')"
+                        <a href="#" onclick="router('purchase_invoices'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-file-invoice w-6"></i>
                             <span>Factures Achats</span>
@@ -159,7 +159,7 @@
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Comptabilité</p>
                 <ul class="space-y-1 mb-6">
                     <li data-nav-route="accounting_export">
-                        <a href="#" onclick="router('accounting_export')"
+                        <a href="#" onclick="router('accounting_export'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-file-csv w-6"></i>
                             <span>Export comptable</span>
@@ -170,7 +170,7 @@
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Administration</p>
                 <ul class="space-y-1 mb-6">
                     <li data-nav-route="admin">
-                        <a href="#" onclick="router('admin')"
+                        <a href="#" onclick="router('admin'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-lock w-6"></i>
                             <span>Administration</span>
@@ -180,13 +180,13 @@
 
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Analyse</p>
                 <ul class="space-y-1 mb-6">
-                    <li data-nav-route="margin_dashboard"><a href="#" onclick="router('margin_dashboard')"
+                    <li data-nav-route="margin_dashboard"><a href="#" onclick="router('margin_dashboard'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-chart-line w-6"></i>
                             <span>Marge</span>
                         </a>
                     </li>
-                    <li data-nav-route="quotation"><a href="#" onclick="router('quotation')"
+                    <li data-nav-route="quotation"><a href="#" onclick="router('quotation'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-calculator w-6"></i>
                             <span>Calculateur</span>
@@ -197,29 +197,29 @@
                 <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Support</p>
                 <ul class="space-y-1">
                     <li data-nav-route="pricing">
-                        <a href="#" onclick="router('pricing')"
+                        <a href="#" onclick="router('pricing'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-tags w-6"></i>
                             <span>Tarifs</span>
                         </a>
                     </li>
-                    <li>
-                        <a href="#" onclick="router('solutions')"
+                    <li data-nav-route="solutions">
+                        <a href="#" onclick="router('solutions'); return false;"
                             class="nav-item nav-item-muted flex items-center px-6 py-3 transition-colors text-gray-500 opacity-60 border-r-4 border-transparent cursor-pointer"
                             title="Présentation marketing — même contenu que le site public">
                             <i class="fa-solid fa-lightbulb w-6"></i>
                             <span>Nos Solutions</span>
                         </a>
                     </li>
-                    <li>
-                        <a href="#" onclick="router('contact')"
+                    <li data-nav-route="contact">
+                        <a href="#" onclick="router('contact'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-headset w-6"></i>
                             <span>Contact & Aide</span>
                         </a>
                     </li>
-                    <li>
-                        <a href="#" onclick="router('about')"
+                    <li data-nav-route="about">
+                        <a href="#" onclick="router('about'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-info-circle w-6"></i>
                             <span>À propos</span>
@@ -248,7 +248,7 @@
             </header>
             <div id="demo-banner" class="hidden shrink-0 bg-gradient-to-r from-purple-700 to-blue-600 text-white px-6 py-2.5 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <span id="demo-banner-text"><i class="fa-solid fa-gift mr-2"></i>Essai Premium en cours</span>
-                <button type="button" onclick="router('contact')" class="text-left sm:text-right underline font-semibold hover:text-purple-100">Souscrire après l'essai</button>
+                <button type="button" onclick="router('pricing'); return false;" class="text-left sm:text-right underline font-semibold hover:text-purple-100">Souscrire après l'essai</button>
             </div>
             <div id="app-content" class="flex-1 overflow-auto p-6"></div>
         </main>
