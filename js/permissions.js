@@ -74,7 +74,7 @@ function can(module, action) {
 function fallbackCan(role, module, action) {
     const matrix = {
         admin: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], clients: ['view','create','edit','delete'], carriers: ['view','create','edit','delete','assign'], billing: ['view','create','edit','delete','generate_invoice'], settings: ['view','edit'], users: ['manage_users','view','create','edit','delete'], dashboard: ['view'], reports: ['view'] },
-        exploitant: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], clients: ['view','create','edit'], carriers: ['view','assign'], billing: ['view'], dashboard: ['view'], reports: ['view'] },
+        exploitant: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], clients: ['view','create','edit'], carriers: ['view','create','edit','delete','assign'], billing: ['view','generate_invoice'], dashboard: ['view'], reports: ['view'] },
         comptabilite: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], billing: ['view','create','edit','generate_invoice','export'], dashboard: ['view'], reports: ['view','export'] },
         chauffeur: { transports: ['view'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], dashboard: ['view'] },
         lecture: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], dashboard: ['view'], reports: ['view'] }
@@ -122,7 +122,7 @@ function getAllowedStatusTransitions() {
     const role = getUserRole();
     const map = {
         admin: ['Brouillon','À planifier','Pris en charge','En cours','Livré','Validé','Clôturé','Planifié','Annulé'],
-        exploitant: ['Brouillon','À planifier','Pris en charge','Planifié','Annulé','Affrété'],
+        exploitant: ['Brouillon','À planifier','Pris en charge','En cours','Livré','Planifié','Annulé','Affrété'],
         chauffeur: ['Pris en charge','En cours','Livré'],
         comptabilite: [],
         lecture: []
@@ -143,8 +143,8 @@ window.canExportAccounting = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.EXPORT
     && (typeof planHasFeature !== 'function' || planHasFeature('accounting_export'));
 window.canChangeTransportStatus = () => can(PERM_MODULES.STATUSES, PERM_ACTIONS.CHANGE_STATUS);
 window.canManageUsers = () => can(PERM_MODULES.USERS, PERM_ACTIONS.MANAGE_USERS);
-window.canManageClients = () => can(PERM_MODULES.CLIENTS, PERM_ACTIONS.CREATE);
-window.canManageCarriers = () => can(PERM_MODULES.CARRIERS, PERM_ACTIONS.CREATE);
+window.canManageClients = () => can(PERM_MODULES.CLIENTS, PERM_ACTIONS.CREATE) || can(PERM_MODULES.CLIENTS, PERM_ACTIONS.EDIT);
+window.canManageCarriers = () => can(PERM_MODULES.CARRIERS, PERM_ACTIONS.CREATE) || can(PERM_MODULES.CARRIERS, PERM_ACTIONS.EDIT);
 window.isAdmin = () => getUserRole() === 'admin';
 window.getUserRole = getUserRole;
 
