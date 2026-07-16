@@ -890,6 +890,10 @@ async function fetchAllData() {
     try {
         const fetchJson = async (url) => {
             const res = await apiFetch(url);
+            if (res.status === 402) {
+                console.warn(`Abonnement requis pour ${url}`);
+                return [];
+            }
             if (!res.ok) return [];
             const data = await res.json();
             if (Array.isArray(data)) return data;

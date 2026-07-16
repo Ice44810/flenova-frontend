@@ -83,6 +83,9 @@ function fallbackCan(role, module, action) {
 }
 
 function canAccessRoute(routeName) {
+    const openRoutes = new Set(['pricing', 'solutions', 'contact', 'about']);
+    if (openRoutes.has(routeName)) return true;
+
     const rules = {
         dashboard: ['dashboard', 'view'],
         transports: ['transports', 'view'],
