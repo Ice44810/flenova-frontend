@@ -5896,6 +5896,91 @@ function getOrderPalletPayload(prefix) {
     };
 }
 
+function getOrderCmrPayload(prefix) {
+    const ref = document.getElementById(`${prefix}-ref`)?.value?.trim() || '';
+    const shipperRef = document.getElementById(`${prefix}-shipper-ref`)?.value?.trim() || ref || null;
+    const adrEnabled = document.getElementById(`${prefix}-adr`)?.checked;
+    const volumeRaw = document.getElementById(`${prefix}-volume`)?.value;
+    const unloadDriverVal = document.getElementById(`${prefix}-unload-driver`)?.value;
+    return {
+        consignee_name: document.getElementById(`${prefix}-consignee`)?.value?.trim() || null,
+        shipper_ref: shipperRef,
+        temperature_controlled: !!document.getElementById(`${prefix}-temperature`)?.checked,
+        adr_class: adrEnabled ? (document.getElementById(`${prefix}-adr-class`)?.value?.trim() || null) : null,
+        adr_un: adrEnabled ? (document.getElementById(`${prefix}-adr-un`)?.value?.trim() || null) : null,
+        volume: volumeRaw !== '' && volumeRaw != null ? parseFloat(volumeRaw) : null,
+        origin_country: document.getElementById(`${prefix}-origin-country`)?.value?.trim() || 'France',
+        dest_country: document.getElementById(`${prefix}-dest-country`)?.value?.trim() || 'France',
+        notes: document.getElementById(`${prefix}-notes`)?.value?.trim() || null,
+        unload_driver_id: unloadDriverVal ? parseInt(unloadDriverVal, 10) : null
+    };
+}
+
+function populateOrderUnloadDriverSelect(selectEl, selectedId) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '<option value="">-- Même chauffeur --</option>' +
+        (db.drivers || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    if (selectedId) selectEl.value = String(selectedId);
+}
+
+function resetOrderCmrFields(prefix) {
+    const setVal = (id, value) => {
+        const el = document.getElementById(`${prefix}-${id}`);
+        if (el) el.value = value;
+    };
+    const setChecked = (id, checked) => {
+        const el = document.getElementById(`${prefix}-${id}`);
+        if (el) el.checked = checked;
+    };
+    setVal('consignee', '');
+    setVal('shipper-ref', '');
+    setVal('origin-country', 'France');
+    setVal('dest-country', 'France');
+    setVal('volume', '');
+    setVal('adr-class', '');
+    setVal('adr-un', '');
+    setVal('notes', '');
+    setChecked('temperature', false);
+    setChecked('adr', false);
+    populateOrderUnloadDriverSelect(document.getElementById(`${prefix}-unload-driver`));
+    toggleOrderAdrFields(prefix);
+}
+
+function populateOrderCmrFields(prefix, order) {
+    if (!order) return;
+    const setVal = (id, value) => {
+        const el = document.getElementById(`${prefix}-${id}`);
+        if (el) el.value = value ?? '';
+    };
+    const setChecked = (id, checked) => {
+        const el = document.getElementById(`${prefix}-${id}`);
+        if (el) el.checked = !!checked;
+    };
+    setVal('consignee', order.consignee_name || '');
+    setVal('shipper-ref', order.shipper_ref || order.ref || '');
+    setVal('origin-country', order.origin_country || 'France');
+    setVal('dest-country', order.dest_country || 'France');
+    setVal('volume', order.volume ?? '');
+    setVal('adr-class', order.adr_class || '');
+    setVal('adr-un', order.adr_un || '');
+    setVal('notes', order.notes || '');
+    setChecked('temperature', order.temperature_controlled);
+    setChecked('adr', !!(order.adr_class || order.adr_un));
+    populateOrderUnloadDriverSelect(document.getElementById(`${prefix}-unload-driver`), order.unload_driver_id);
+    toggleOrderAdrFields(prefix);
+}
+
+window.toggleOrderAdrFields = function (prefix) {
+    const enabled = document.getElementById(`${prefix}-adr`)?.checked;
+    document.getElementById(`${prefix}-adr-fields`)?.classList.toggle('hidden', !enabled);
+    if (!enabled) {
+        const classEl = document.getElementById(`${prefix}-adr-class`);
+        const unEl = document.getElementById(`${prefix}-adr-un`);
+        if (classEl) classEl.value = '';
+        if (unEl) unEl.value = '';
+    }
+};
+
 function renderDashboardPalletTable(byClient, totals, highlightClientId) {
     const body = document.getElementById('dashboard-pallet-balance-body');
     const foot = document.getElementById('dashboard-pallet-balance-foot');
@@ -6016,6 +6101,7 @@ function openAddOrderModal() {
     document.getElementById('add-order-purchase-price').value = '';
     toggleOrderPalletFields('add-order');
     toggleOrderPalletExchange('add-order');
+    resetOrderCmrFields('add-order');
     updateAddOrderMargin();
 
     const modal = document.getElementById('add-order-modal');
@@ -6031,6 +6117,7 @@ function closeAddOrderModal() {
 async function submitAddOrder() {
     const assignment = getOrderAssignmentPayload('add-order');
     const pallet = getOrderPalletPayload('add-order');
+    const cmr = getOrderCmrPayload('add-order');
     const newOrder = {
         ref: document.getElementById('add-order-ref').value,
         client_id: parseInt(document.getElementById('add-order-client').value, 10),
@@ -6043,7 +6130,8 @@ async function submitAddOrder() {
         price: parseFloat(document.getElementById('add-order-price').value) || 0,
         status: 'Brouillon',
         ...assignment,
-        ...pallet
+        ...pallet,
+        ...cmr
     };
 
     if (assignment.assignment_type === 'SUBCONTRACTED' && !assignment.subcontractor_id) {
@@ -6150,6 +6238,7 @@ function openEditOrderModal(orderId) {
     populateEditOrderStatusSelect(order);
     toggleOrderPalletFields('edit-order');
     toggleOrderPalletExchange('edit-order');
+    populateOrderCmrFields('edit-order', order);
 
     const dispatchBtn = document.getElementById('edit-order-dispatch-btn');
     if (dispatchBtn) {
@@ -6179,6 +6268,7 @@ async function submitEditOrder() {
     if (order) {
         const assignment = getOrderAssignmentPayload('edit-order');
         const pallet = getOrderPalletPayload('edit-order');
+        const cmr = getOrderCmrPayload('edit-order');
         const statusSelect = document.getElementById('edit-order-status');
         const statusLocked = statusSelect?.disabled || statusSelect?.classList.contains('hidden');
         const updatedStatus = statusLocked ? order.status : statusSelect.value;
@@ -6208,7 +6298,8 @@ async function submitEditOrder() {
                 weight: parseFloat(document.getElementById('edit-order-weight').value) || 0,
                 price: parseFloat(document.getElementById('edit-order-price').value) || 0,
                 ...assignment,
-                ...pallet
+                ...pallet,
+                ...cmr
             }
         });
         if (updatedStatus !== order.status) {
