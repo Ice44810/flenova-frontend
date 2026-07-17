@@ -3814,7 +3814,10 @@ async function router(route) {
             }
             break;
         case 'transports':
-            title = 'Transports';
+            title = transportFilters.view === 'trash' ? 'Corbeille transports' : 'Transports';
+            if (transportFilters.view === 'trash' && typeof loadDeletedTransports === 'function') {
+                await loadDeletedTransports();
+            }
             content = renderTransportList();
             break;
         case 'preinvoicing':
@@ -6318,16 +6321,31 @@ async function submitEditOrder() {
     }
 }
 
-function deleteOrder() {
-    const orderId = parseInt(document.getElementById('edit-order-id').value);
-    const orderIndex = db.orders.findIndex(o => o.id === orderId);
+async function deleteOrder() {
+    const orderId = parseInt(document.getElementById('edit-order-id').value, 10);
+    const order = db.orders.find(o => o.id === orderId);
+    if (!order) {
+        showToast('Commande non trouvée', 'error');
+        return;
+    }
+    if (typeof transportCanDelete === 'function' && !transportCanDelete(order)) {
+        showToast('Ce transport ne peut pas être supprimé (Validé ou Clôturé)', 'error');
+        return;
+    }
+    if (!confirm('Déplacer cette commande vers la corbeille ?')) return;
 
-    if (orderIndex !== -1) {
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) {
-            db.orders.splice(orderIndex, 1);
-            showToast('Commande supprimée avec succès', 'success');
-            closeEditOrderModal();
-            router('planning');
+    try {
+        const res = await apiFetch(`transport-orders/${orderId}`, { method: 'DELETE' });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || 'Échec de la suppression', 'error');
+            return;
         }
+        showToast('Commande déplacée vers la corbeille', 'success');
+        closeEditOrderModal();
+        if (typeof fetchAllData === 'function') await fetchAllData();
+        router('planning');
+    } catch (e) {
+        showToast('Erreur serveur', 'error');
     }
 }

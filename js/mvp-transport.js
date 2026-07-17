@@ -53,10 +53,29 @@ function getStatusBorderClass(status) {
     return map[status] || 'border-l-4 border-gray-300';
 }
 
-let transportFilters = { status: '', search: '' };
+let transportFilters = { status: '', search: '', view: 'active' };
 let currentTransportDetail = null;
 let completedTransportSelection = new Set();
 let transportSelection = new Set();
+let deletedTransportOrders = [];
+
+const CLOSED_TRANSPORT_STATUSES = ['Validé', 'Clôturé'];
+
+function transportCanDelete(order) {
+    return typeof canDeleteTransport === 'function' && canDeleteTransport()
+        && order && !CLOSED_TRANSPORT_STATUSES.includes(order.status);
+}
+window.transportCanDelete = transportCanDelete;
+
+function transportIsSelectable(order) {
+    if (!order) return false;
+    if (transportFilters.view === 'trash') return true;
+    return transportHasBillingActions(order) || transportCanDelete(order);
+}
+
+function getTransportListSource() {
+    return transportFilters.view === 'trash' ? deletedTransportOrders : (db.orders || []);
+}
 
 const MVP_CYCLE_STEPS = [
     { id: 'create', label: 'Créer' },
@@ -180,8 +199,16 @@ function countSelectedTransportsForAction(action) {
     }).length;
 }
 
+function countSelectedTransportsForDelete() {
+    if (transportFilters.view === 'trash') return transportSelection.size;
+    return [...transportSelection].filter(id => {
+        const o = (db.orders || []).find(x => x.id === id);
+        return transportCanDelete(o);
+    }).length;
+}
+
 function renderTransportList() {
-    let orders = [...(db.orders || [])];
+    let orders = [...getTransportListSource()];
     if (transportFilters.status) orders = orders.filter(o => o.status === transportFilters.status);
     if (transportFilters.search) {
         const q = transportFilters.search.toLowerCase();
@@ -197,7 +224,7 @@ function renderTransportList() {
         .concat(MVP_STATUSES.map(s => `<option value="${s}" ${transportFilters.status === s ? 'selected' : ''}>${s}</option>`))
         .join('');
 
-    const selectableOrders = orders.filter(transportHasBillingActions);
+    const selectableOrders = orders.filter(transportIsSelectable);
     const selectedCount = selectableOrders.filter(o => transportSelection.has(o.id)).length;
     const allSelectableSelected = selectableOrders.length > 0
         && selectableOrders.every(o => transportSelection.has(o.id));
@@ -205,40 +232,64 @@ function renderTransportList() {
     const validateCount = countSelectedTransportsForAction('validate');
     const deliveredCount = countSelectedTransportsForAction('delivered');
     const invoiceCount = countSelectedTransportsForAction('invoice');
+    const deleteCount = countSelectedTransportsForDelete();
+    const restoreCount = transportFilters.view === 'trash' ? selectedCount : 0;
+    const inTrash = transportFilters.view === 'trash';
+    const canDelete = typeof canDeleteTransport === 'function' && canDeleteTransport();
 
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
         <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
             <div>
-                <h3 class="font-bold text-lg text-gray-800">Transports</h3>
-                <p class="text-xs text-gray-500">Cycle MVP : créer → affecter → exécuter → valider → préfacturer</p>
+                <h3 class="font-bold text-lg text-gray-800">${inTrash ? 'Corbeille — Transports supprimés' : 'Transports'}</h3>
+                <p class="text-xs text-gray-500">${inTrash ? 'Restaurez les transports supprimés ou videz la sélection' : 'Cycle MVP : créer → affecter → exécuter → valider → préfacturer'}</p>
             </div>
             <div class="flex flex-wrap gap-2 items-center">
+                <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                    <button type="button" onclick="setTransportListView('active')"
+                        class="px-3 py-1.5 ${!inTrash ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}">Actifs</button>
+                    ${canDelete ? `<button type="button" onclick="setTransportListView('trash')"
+                        class="px-3 py-1.5 ${inTrash ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}"><i class="fa-solid fa-trash-can mr-1"></i>Corbeille</button>` : ''}
+                </div>
                 <input type="text" id="transport-search" placeholder="Rechercher ref, client, trajet…" value="${transportFilters.search || ''}"
                     oninput="transportFilters.search=this.value; router('transports')"
                     class="border rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
                 <select id="transport-status-filter" onchange="transportFilters.status=this.value; router('transports')"
                     class="border rounded px-3 py-2 text-sm">${statusOptions}</select>
-                ${canWriteTransport() ? `<button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Créer un transport</button>` : ''}
+                ${!inTrash && canWriteTransport() ? `<button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Créer un transport</button>` : ''}
             </div>
         </div>
         ${selectableOrders.length ? `
         <div class="flex flex-wrap items-center gap-2 mb-4 p-3 bg-slate-50 border border-slate-100 rounded-lg">
             <span class="text-xs text-gray-500 mr-1"><i class="fa-solid fa-check-double mr-1"></i>Sélection : <strong>${selectedCount}</strong></span>
-            ${typeof canChangeTransportStatus === 'function' && canChangeTransportStatus() ? `
+            ${inTrash && canDelete ? `
+                <button type="button" onclick="bulkRestoreTransports()"
+                    class="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    ${restoreCount === 0 ? 'disabled' : ''}>
+                    <i class="fa-solid fa-rotate-left mr-1"></i>Restaurer (${restoreCount})
+                </button>
+            ` : ''}
+            ${!inTrash && canDelete ? `
+                <button type="button" onclick="bulkDeleteTransports()"
+                    class="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    ${deleteCount === 0 ? 'disabled' : ''}>
+                    <i class="fa-solid fa-trash mr-1"></i>Supprimer (${deleteCount})
+                </button>
+            ` : ''}
+            ${!inTrash && typeof canChangeTransportStatus === 'function' && canChangeTransportStatus() ? `
                 <button type="button" onclick="bulkMarkDeliveredTransports()"
                     class="bg-teal-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     ${deliveredCount === 0 ? 'disabled' : ''}>
                     <i class="fa-solid fa-truck-fast mr-1"></i>Marquer livré (${deliveredCount})
                 </button>
             ` : ''}
-            ${typeof canValidateTransport === 'function' && canValidateTransport() ? `
+            ${!inTrash && typeof canValidateTransport === 'function' && canValidateTransport() ? `
                 <button type="button" onclick="bulkValidateTransports()"
                     class="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     ${validateCount === 0 ? 'disabled' : ''}>
                     <i class="fa-solid fa-check mr-1"></i>Valider (${validateCount})
                 </button>
             ` : ''}
-            ${typeof canManageFinance === 'function' && canManageFinance() ? `
+            ${!inTrash && typeof canManageFinance === 'function' && canManageFinance() ? `
                 <button type="button" onclick="bulkPreinvoiceTransports()"
                     class="bg-orange-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     ${preinvoiceCount === 0 ? 'disabled' : ''}>
@@ -271,13 +322,15 @@ function renderTransportList() {
                         <th class="px-4 py-3">Statut</th>
                         <th class="px-4 py-3">Montant</th>
                         <th class="px-4 py-3">Actions</th>
-                        <th class="px-4 py-3">Facturation</th>
+                        ${inTrash ? '' : '<th class="px-4 py-3">Facturation</th>'}
+                        ${inTrash ? '<th class="px-4 py-3">Supprimé le</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
                     ${orders.length ? orders.map(o => {
-        const canSelect = transportHasBillingActions(o);
+        const canSelect = transportIsSelectable(o);
         const isSelected = transportSelection.has(o.id);
+        const deletedLabel = o.deleted_at ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(o.deleted_at) : String(o.deleted_at).slice(0, 10)) : '—';
         return `
                         <tr class="bg-white border-b hover:bg-gray-50 ${isSelected ? 'bg-blue-50/60' : ''}">
                             <td class="px-4 py-3">
@@ -298,13 +351,17 @@ function renderTransportList() {
                             </td>
                             <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString()} €</td>
                             <td class="px-4 py-3 whitespace-nowrap">
+                                ${inTrash ? `
+                                    ${canDelete ? `<button onclick="restoreTransport(${o.id})" class="text-emerald-600 hover:underline text-xs"><i class="fa-solid fa-rotate-left mr-1"></i>Restaurer</button>` : ''}
+                                ` : `
                                 <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs mr-2">Détail</button>
                                 ${canShowDispatchButton(o) ? `<button onclick="openDispatchModal(${o.id})" class="text-purple-600 hover:underline text-xs mr-2"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>` : ''}
                                 ${canWriteTransport() ? `<button onclick="openEditOrderModal(${o.id})" class="text-gray-500 hover:text-blue-600 text-xs"><i class="fa-solid fa-pen"></i></button>` : ''}
+                                `}
                             </td>
-                            <td class="px-4 py-3">${renderTransportBillingSelect(o)}</td>
+                            ${inTrash ? `<td class="px-4 py-3 text-xs text-gray-500">${deletedLabel}</td>` : `<td class="px-4 py-3">${renderTransportBillingSelect(o)}</td>`}
                         </tr>`;
-    }).join('') : '<tr><td colspan="10" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport</td></tr>'}
+    }).join('') : `<tr><td colspan="${inTrash ? 10 : 10}" class="px-4 py-10 text-center text-gray-400 italic">${inTrash ? 'Aucun transport dans la corbeille' : 'Aucun transport'}</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -668,7 +725,7 @@ window.toggleTransportSelect = function (orderId, checked) {
 };
 
 window.toggleSelectAllTransports = function (checked) {
-    let orders = [...(db.orders || [])];
+    let orders = [...getTransportListSource()];
     if (transportFilters.status) orders = orders.filter(o => o.status === transportFilters.status);
     if (transportFilters.search) {
         const q = transportFilters.search.toLowerCase();
@@ -679,10 +736,110 @@ window.toggleSelectAllTransports = function (checked) {
             (o.client_name || '').toLowerCase().includes(q)
         );
     }
-    const selectable = orders.filter(transportHasBillingActions);
+    const selectable = orders.filter(transportIsSelectable);
     if (checked) selectable.forEach(o => transportSelection.add(o.id));
     else selectable.forEach(o => transportSelection.delete(o.id));
     router('transports');
+};
+
+window.setTransportListView = async function (view) {
+    transportFilters.view = view === 'trash' ? 'trash' : 'active';
+    transportSelection.clear();
+    if (transportFilters.view === 'trash') {
+        await loadDeletedTransports();
+    }
+    router('transports');
+};
+
+window.loadDeletedTransports = async function () {
+    try {
+        const res = await apiFetch('transport-orders/deleted');
+        if (!res.ok) {
+            deletedTransportOrders = [];
+            return [];
+        }
+        const payload = await res.json();
+        deletedTransportOrders = payload.data || [];
+        return deletedTransportOrders;
+    } catch (e) {
+        deletedTransportOrders = [];
+        return [];
+    }
+};
+
+window.bulkDeleteTransports = async function () {
+    const ids = [...transportSelection].filter(id => {
+        const o = (db.orders || []).find(x => x.id === id);
+        return transportCanDelete(o);
+    });
+    if (!ids.length) {
+        showToast('Sélectionnez des transports supprimables (hors Validé/Clôturé)', 'info');
+        return;
+    }
+    if (!confirm(`Déplacer ${ids.length} transport(s) vers la corbeille ?`)) return;
+
+    try {
+        const res = await apiFetch('transport-orders/bulk-delete', { method: 'POST', body: { ids } });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || 'Échec de la suppression', 'error');
+            return;
+        }
+        const deleted = payload.deleted?.length || 0;
+        const skipped = payload.skipped?.length || 0;
+        ids.forEach(id => transportSelection.delete(id));
+        showToast(`${deleted} transport(s) supprimé(s)${skipped ? ` — ${skipped} ignoré(s)` : ''}`, skipped ? 'info' : 'success');
+        if (typeof fetchAllData === 'function') await fetchAllData();
+        router('transports');
+    } catch (e) {
+        showToast('Erreur serveur', 'error');
+    }
+};
+
+window.bulkRestoreTransports = async function () {
+    const ids = [...transportSelection];
+    if (!ids.length) {
+        showToast('Sélectionnez des transports à restaurer', 'info');
+        return;
+    }
+    if (!confirm(`Restaurer ${ids.length} transport(s) ?`)) return;
+
+    try {
+        const res = await apiFetch('transport-orders/bulk-restore', { method: 'POST', body: { ids } });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || 'Échec de la restauration', 'error');
+            return;
+        }
+        const restored = payload.restored?.length || 0;
+        const skipped = payload.skipped?.length || 0;
+        ids.forEach(id => transportSelection.delete(id));
+        showToast(`${restored} transport(s) restauré(s)${skipped ? ` — ${skipped} ignoré(s)` : ''}`, skipped ? 'info' : 'success');
+        await loadDeletedTransports();
+        if (typeof fetchAllData === 'function') await fetchAllData();
+        router('transports');
+    } catch (e) {
+        showToast('Erreur serveur', 'error');
+    }
+};
+
+window.restoreTransport = async function (orderId) {
+    if (!confirm('Restaurer ce transport ?')) return;
+    try {
+        const res = await apiFetch(`transport-orders/${orderId}/restore`, { method: 'POST', body: {} });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || 'Échec de la restauration', 'error');
+            return;
+        }
+        transportSelection.delete(orderId);
+        showToast('Transport restauré', 'success');
+        await loadDeletedTransports();
+        if (typeof fetchAllData === 'function') await fetchAllData();
+        router('transports');
+    } catch (e) {
+        showToast('Erreur serveur', 'error');
+    }
 };
 
 window.bulkMarkDeliveredTransports = async function () {

@@ -132,6 +132,7 @@ function getAllowedStatusTransitions() {
 
 window.PERM = { ACTIONS: PERM_ACTIONS, MODULES: PERM_MODULES, can, canAccessRoute, getUserRole, normalizeRole, loadPermissions, setPermissionsFromServer, getAllowedStatusTransitions };
 
+window.canDeleteTransport = () => can(PERM_MODULES.TRANSPORTS, PERM_ACTIONS.DELETE);
 window.canWriteTransport = () => can(PERM_MODULES.TRANSPORTS, PERM_ACTIONS.CREATE) || can(PERM_MODULES.TRANSPORTS, PERM_ACTIONS.EDIT);
 window.canAssignTransport = () => can(PERM_MODULES.TRANSPORTS, PERM_ACTIONS.ASSIGN);
 window.canDispatchSubcontractor = () => can(PERM_MODULES.CARRIERS, PERM_ACTIONS.ASSIGN) || can(PERM_MODULES.TRANSPORTS, PERM_ACTIONS.ASSIGN);
