@@ -100,11 +100,16 @@ function renderAppPricingPage() {
 
 window.applyPlanBasedNav = function () {
     const sub = window.cachedSubscription;
+    const transportRoutes = new Set(sub?.transportRoutes || [
+        'transports', 'planning', 'inprogress_transports', 'completed_transports',
+        'create_order', 'cmr_preview', 'affretement_confirmation'
+    ]);
     document.querySelectorAll('[data-nav-route]').forEach((el) => {
         const route = el.dataset.navRoute;
         if (el.style.display === 'none') return;
         if (!sub?.allowedRoutes) return;
         if (['pricing', 'contact', 'about', 'solutions'].includes(route)) return;
+        if (transportRoutes.has(route)) return;
         if (!sub.allowedRoutes.includes(route)) {
             el.style.display = 'none';
         }
@@ -117,6 +122,11 @@ window.planHasFeature = function (featureKey) {
 
 window.canAccessPlanRoute = function (routeName) {
     const sub = window.cachedSubscription;
+    const transportRoutes = sub?.transportRoutes || [
+        'transports', 'planning', 'inprogress_transports', 'completed_transports',
+        'create_order', 'cmr_preview', 'affretement_confirmation'
+    ];
+    if (transportRoutes.includes(routeName)) return true;
     if (!sub?.allowedRoutes) return true;
     if (['pricing', 'contact', 'about', 'solutions'].includes(routeName)) return true;
     return sub.allowedRoutes.includes(routeName);
