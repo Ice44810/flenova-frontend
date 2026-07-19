@@ -365,6 +365,14 @@ const PUBLIC_FAQ_ITEMS = [
         a: 'À l\'inscription, vous bénéficiez de 30 jours d\'essai Premium avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait (à partir de 99 €/mois HT) et payez par virement bancaire.'
     },
     {
+        q: 'Flenova remplace-t-il GedMouv pour les documents sous-traitants ?',
+        a: 'Pour la conformité courante — assurance RC Pro, attestation URSSAF, alertes d\'expiration et blocage à l\'affrètement — oui, c\'est intégré dans Flenova. Vous évitez un abonnement séparé dédié à la gestion documentaire sous-traitants.'
+    },
+    {
+        q: 'La facture achat affrètement est-elle créée automatiquement ?',
+        a: 'Oui. Dès que vous affrétez un transport à un sous-traitant, Flenova génère la confirmation PDF Factur-X et une facture achat brouillon pré-remplie (fournisseur, montant, lien transport). Aucune ressaisie manuelle.'
+    },
+    {
         q: 'La facturation électronique et Factur-X sont-ils inclus ?',
         a: 'Oui. Flenova génère vos factures clients au format Factur-X et propose un export comptable CSV pour votre expert-comptable — prêt pour les évolutions réglementaires 2026.'
     },
@@ -473,6 +481,39 @@ function renderPublicMvpCycle(compact) {
     </section>`;
 }
 
+function renderPublicDifferentiators() {
+    const items = [
+        {
+            icon: 'fa-shield-halved',
+            badge: 'Sans GedMouv',
+            title: 'Documents sous-traitants intégrés',
+            desc: 'Déposez les attestations assurance RC Pro et URSSAF, recevez des alertes avant expiration et bloquez l\'affrètement si un document est périmé — le tout dans Flenova, sans payer une plateforme dédiée.'
+        },
+        {
+            icon: 'fa-file-circle-check',
+            badge: 'Petit plus Flenova',
+            title: 'Facture achat affrètement auto',
+            desc: 'À chaque affrètement, Flenova génère la confirmation PDF Factur-X et la facture achat brouillon pré-remplie (fournisseur, montant, transport). Zéro ressaisie.'
+        }
+    ];
+    return `<section class="public-diff-section">
+        <div class="public-section-inner">
+            <h2 class="public-section-title">Ce qui fait gagner du temps — et de l'argent</h2>
+            <p class="public-section-lead">Deux fonctionnalités que les TMS généralistes ne couvrent pas, incluses dans votre abonnement Flenova.</p>
+            <div class="public-diff-grid">
+                ${items.map((item) => `
+                    <article class="public-diff-card">
+                        <span class="public-diff-badge">${escapePublicHtml(item.badge)}</span>
+                        <div class="public-diff-icon"><i class="fa-solid ${item.icon}" aria-hidden="true"></i></div>
+                        <h3>${escapePublicHtml(item.title)}</h3>
+                        <p>${escapePublicHtml(item.desc)}</p>
+                    </article>
+                `).join('')}
+            </div>
+        </div>
+    </section>`;
+}
+
 function renderPublicWhyFlenova() {
     const items = [
         { icon: 'fa-euro-sign', title: 'Abordable', desc: 'Dès 99 €/mois HT. Pas de devis opaque ni de licence enterprise.' },
@@ -573,6 +614,7 @@ function renderPublicHome() {
         ${renderPublicSocialProof()}
         ${renderPublicPainPoints()}
         ${renderPublicProductPillars()}
+        ${renderPublicDifferentiators()}
         ${renderPublicMvpCycle(false)}
         ${renderPublicWhyFlenova()}
         ${renderPublicReviewsLoading()}
@@ -587,7 +629,7 @@ function renderPublicFeatures() {
             tag: 'Exploitation',
             title: 'Commandes, planning &amp; affrètement',
             lead: 'Créez vos ordres de transport, planifiez sur un calendrier hebdomadaire et pilotez vos marges en temps réel.',
-            bullets: ['Ordres de transport et gestion des statuts', 'Planning visuel et affectation chauffeurs / véhicules', 'Affrètement sous-traitant avec confirmation PDF', 'Tableau de bord CA, marges et indicateurs clés'],
+            bullets: ['Ordres de transport et gestion des statuts', 'Planning visuel et affectation chauffeurs / véhicules', 'Affrètement sous-traitant avec confirmation PDF Factur-X', 'Documents sous-traitants : RC Pro, URSSAF et alertes d\'expiration', 'Tableau de bord CA, marges et indicateurs clés'],
             icon: 'fa-calendar-days',
             visualLabel: 'Planning & transports',
             reverse: false
@@ -605,7 +647,7 @@ function renderPublicFeatures() {
             tag: 'Facturation',
             title: 'De la livraison à la facture, sans ressaisie',
             lead: 'Validez le transport, générez le brouillon facture et exportez vers votre comptabilité.',
-            bullets: ['Préfacturation depuis les transports validés', 'Factures clients Factur-X et avoirs', 'Factures achats et sous-traitance', 'Export comptable CSV paramétrable'],
+            bullets: ['Préfacturation depuis les transports validés', 'Factures clients Factur-X et avoirs', 'Facture achat affrètement générée automatiquement', 'Export comptable CSV paramétrable'],
             icon: 'fa-file-invoice-dollar',
             visualLabel: 'Factur-X & export CSV',
             reverse: false
@@ -617,7 +659,7 @@ function renderPublicFeatures() {
         { icon: 'fa-truck', title: 'Gestion de flotte', desc: 'Véhicules, maintenance, assurance et kilométrage.' },
         { icon: 'fa-building-user', title: 'Clients & CRM', desc: 'Fiches clients, contacts et historique des transports.' },
         { icon: 'fa-pallet', title: 'Palettes Europe', desc: 'Suivi des échanges et retours de palettes (forfaits PME+).' },
-        { icon: 'fa-handshake-angle', title: 'Sous-traitants', desc: 'Conformité RC Pro, URSSAF et documents d\'assurance.' },
+        { icon: 'fa-handshake-angle', title: 'Sous-traitants', desc: 'Assurance, URSSAF, rappels d\'échéance — pas besoin de GedMouv en plus.' },
         { icon: 'fa-users-gear', title: 'Multi-utilisateurs', desc: 'Rôles exploitant, manager, compta — droits par forfait.' }
     ];
 

@@ -1452,6 +1452,63 @@ body.public-site-active {
     line-height: 1.5;
 }
 
+/* Différenciateurs commerciaux */
+.public-diff-section {
+    padding: 3.5rem 0 4rem;
+    background: #fff;
+}
+.public-diff-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+.public-diff-card {
+    position: relative;
+    padding: 2rem 1.75rem;
+    border-radius: 14px;
+    border: 1px solid #dbeafe;
+    background: linear-gradient(145deg, #f8fbff 0%, #fff 100%);
+    box-shadow: 0 8px 24px rgba(0, 60, 120, 0.06);
+}
+.public-diff-badge {
+    display: inline-block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--public-blue);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    padding: 0.25rem 0.625rem;
+    margin-bottom: 1rem;
+}
+.public-diff-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--public-blue);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+}
+.public-diff-card h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--public-heading);
+    margin-bottom: 0.625rem;
+}
+.public-diff-card p {
+    font-size: 0.9375rem;
+    color: #64748b;
+    line-height: 1.6;
+    margin: 0;
+}
+
 /* FAQ */
 .public-faq-section {
     padding: 3.5rem 0 4rem;
@@ -2029,6 +2086,7 @@ body.public-site-active {
     .public-pain-grid,
     .public-pillars-grid,
     .public-why-grid,
+    .public-diff-grid,
     .public-extras-grid { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
     .public-module-inner { grid-template-columns: 1fr; gap: 2rem; }
     .public-module-section--reverse .public-module-inner { direction: ltr; }
