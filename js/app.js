@@ -6094,8 +6094,19 @@ function openAddOrderModal() {
     document.getElementById('add-order-load-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('add-order-delivery-date').value = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
-    const nextNum = (db.orders || []).length + 1;
-    document.getElementById('add-order-ref').value = `CMD-${new Date().getFullYear()}-${String(nextNum).padStart(3, '0')}`;
+    const refInput = document.getElementById('add-order-ref');
+    if (refInput) refInput.value = '…';
+    apiFetch('transport-orders/next-ref')
+        .then(res => res.ok ? res.json() : null)
+        .then(json => {
+            if (refInput && json?.data?.ref) refInput.value = json.data.ref;
+        })
+        .catch(() => {
+            if (refInput) {
+                const year = new Date().getFullYear();
+                refInput.value = `CMD-${year}-${String((db.orders || []).length + 1).padStart(3, '0')}`;
+            }
+        });
 
     document.getElementById('add-order-pallet-type').value = 'palette_europe';
     document.getElementById('add-order-pallet-count').value = '0';
@@ -6117,7 +6128,10 @@ function closeAddOrderModal() {
     hideAllModals();
 }
 
+let isSubmittingOrder = false;
+
 async function submitAddOrder() {
+    if (isSubmittingOrder) return;
     const assignment = getOrderAssignmentPayload('add-order');
     const pallet = getOrderPalletPayload('add-order');
     const cmr = getOrderCmrPayload('add-order');
@@ -6143,7 +6157,9 @@ async function submitAddOrder() {
     }
 
     if (newOrder.client_id && newOrder.origin && newOrder.dest && newOrder.load_date) {
+        isSubmittingOrder = true;
         const res = await apiFetch('transport-orders', { method: 'POST', body: newOrder });
+        isSubmittingOrder = false;
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || 'Erreur lors de la création', 'error');
@@ -6151,6 +6167,10 @@ async function submitAddOrder() {
         }
         const created = await res.json().catch(() => ({}));
         const orderId = created?.id || created?.data?.id;
+        if (created?.ref) {
+            const refInput = document.getElementById('add-order-ref');
+            if (refInput) refInput.value = created.ref;
+        }
         showToast('Commande créée avec succès !', 'success');
         closeAddOrderModal();
         if (typeof refreshAfterMvpStep === 'function') {
