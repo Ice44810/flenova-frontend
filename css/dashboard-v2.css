@@ -83,6 +83,15 @@
     margin-left: auto;
 }
 
+.dash-v2-saved-view-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    white-space: nowrap;
+}
+
 .dash-v2-saved-view-select {
     border: 1px solid #e2e8f0;
     border-radius: 0.375rem;
@@ -200,8 +209,7 @@
     cursor: pointer;
 }
 
-.dash-v2-btn-refresh,
-.dash-v2-btn-save-view {
+.dash-v2-btn-refresh {
     border: 1px solid #e2e8f0;
     background: #fff;
     color: #334155;
@@ -213,6 +221,21 @@
     white-space: nowrap;
 }
 
+.dash-v2-btn-save-view {
+    border: 1px solid #d97706;
+    background: #d97706;
+    color: #fff;
+    border-radius: 0.375rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
 .dash-v2-btn-refresh {
     background: #0f172a;
     color: #fff;
@@ -221,9 +244,20 @@
 
 .dash-v2-btn-refresh:hover { background: #1e293b; }
 
-.dash-v2-btn-save-view {
-    padding: 0.45rem 0.55rem;
-    color: #d97706;
+.dash-v2-btn-save-view:hover {
+    background: #b45309;
+    border-color: #b45309;
+}
+
+.dash-v2-btn-save-view--footer {
+    font-size: 0.78rem;
+}
+
+.dash-v2-filters-footer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-left: auto;
 }
 
 .dash-v2-filters {

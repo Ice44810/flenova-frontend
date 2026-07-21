@@ -1424,7 +1424,10 @@ function renderDashboardFiltersBody() {
         <div class="dash-v2-filters-footer">
             <label class="dash-v2-checkbox"><input type="checkbox" id="dash-inline-invoiced" ${f.invoicedOnly ? 'checked' : ''}> Afficher uniquement les missions facturées</label>
             <label class="dash-v2-checkbox"><input type="checkbox" id="dash-inline-paid" ${f.paidOnly ? 'checked' : ''}> Uniquement factures payées</label>
-            <button type="button" class="dash-v2-btn-reset" onclick="resetDashboardInlineFilters()">Réinitialiser</button>
+            <div class="dash-v2-filters-footer-actions">
+                <button type="button" class="dash-v2-btn-save-view dash-v2-btn-save-view--footer" onclick="promptSaveDashboardView()"><i class="fa-solid fa-star"></i> Enregistrer la vue actuelle</button>
+                <button type="button" class="dash-v2-btn-reset" onclick="resetDashboardInlineFilters()">Réinitialiser</button>
+            </div>
         </div>`;
 }
 
@@ -1441,11 +1444,12 @@ function renderDashboardFiltersBar() {
         </button>
         <span class="dash-v2-cockpit-badge" title="Vue adaptée à votre profil"><i class="fa-solid ${cockpitMeta.icon}"></i> Cockpit ${cockpitMeta.label}</span>
         <div class="dash-v2-filters-bar-actions">
-            <select id="dash-inline-saved-view" class="dash-v2-saved-view-select" title="Vos vues enregistrées">
-                <option value="">${savedViews.length ? '— Mes vues —' : 'Aucune vue enregistrée'}</option>
+            <label class="dash-v2-saved-view-label">Vues enregistrées</label>
+            <select id="dash-inline-saved-view" class="dash-v2-saved-view-select" title="Charger une vue enregistrée">
+                <option value="">${savedViews.length ? '— Choisir une vue —' : 'Aucune vue enregistrée'}</option>
                 ${savedViews.map(v => `<option value="${v.id}">⭐ ${v.name}</option>`).join('')}
             </select>
-            <button type="button" class="dash-v2-btn-save-view" onclick="promptSaveDashboardView()" title="Enregistrer cette vue"><i class="fa-solid fa-star"></i></button>
+            <button type="button" class="dash-v2-btn-save-view" onclick="promptSaveDashboardView()"><i class="fa-solid fa-star"></i> Enregistrer la vue</button>
             <button type="button" class="dash-v2-btn-delete-view" onclick="deleteDashboardSavedView()" title="Supprimer la vue sélectionnée"><i class="fa-solid fa-trash"></i></button>
             <button type="button" class="dash-v2-btn-refresh" onclick="refreshDashboardStatsOnly()" title="Actualiser"><i class="fa-solid fa-arrows-rotate"></i></button>
         </div>
