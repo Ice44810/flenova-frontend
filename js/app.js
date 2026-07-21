@@ -956,14 +956,24 @@ const DASHBOARD_METRIC_OPTIONS = [
 function getDefaultDashboardFilters() {
     const year = new Date().getFullYear();
     return {
+        periodPreset: 'year',
         startDate: `${year}-01-01`,
         endDate: new Date().toISOString().split('T')[0],
         clientId: null,
         driverId: null,
         vehicleId: null,
         country: null,
+        originCountry: null,
+        destCountry: null,
+        activity: null,
+        region: null,
         status: null,
         assignmentType: null,
+        cargoType: null,
+        missionRef: null,
+        invoicedOnly: false,
+        paidOnly: false,
+        cockpitMode: typeof getDefaultCockpitMode === 'function' ? getDefaultCockpitMode() : 'dirigeant',
         reportName: null,
         metrics: []
     };
@@ -971,6 +981,71 @@ function getDefaultDashboardFilters() {
 
 window.dashboardFilters = getDefaultDashboardFilters();
 window.dashboardCustomView = false;
+window._dashFilterDebounce = null;
+window._dashFilterListenersBound = false;
+
+const DASHBOARD_PERIOD_PRESETS = {
+    today: 'Aujourd\'hui',
+    week: 'Cette semaine',
+    month: 'Ce mois',
+    quarter: 'Ce trimestre',
+    year: 'Cette année',
+    custom: 'Personnalisé'
+};
+
+const DASHBOARD_COCKPIT_MODES = {
+    dirigeant: { label: 'Dirigeant', icon: 'fa-chart-pie' },
+    exploitant: { label: 'Exploitant', icon: 'fa-truck-fast' },
+    comptabilite: { label: 'Comptable', icon: 'fa-file-invoice-dollar' },
+    flotte: { label: 'Responsable flotte', icon: 'fa-gears' }
+};
+
+function getDefaultCockpitMode() {
+    const role = typeof getUserRole === 'function' ? getUserRole() : 'lecture';
+    if (role === 'comptabilite') return 'comptabilite';
+    if (role === 'exploitant') return 'exploitant';
+    if (role === 'admin') return 'dirigeant';
+    return 'dirigeant';
+}
+
+function resolvePeriodDates(preset) {
+    const now = new Date();
+    const fmt = (d) => d.toISOString().split('T')[0];
+    const start = new Date(now);
+    if (preset === 'today') return { startDate: fmt(now), endDate: fmt(now) };
+    if (preset === 'week') {
+        const day = now.getDay() || 7;
+        start.setDate(now.getDate() - day + 1);
+        return { startDate: fmt(start), endDate: fmt(now) };
+    }
+    if (preset === 'month') return { startDate: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), endDate: fmt(now) };
+    if (preset === 'quarter') {
+        const q = Math.floor(now.getMonth() / 3) * 3;
+        return { startDate: fmt(new Date(now.getFullYear(), q, 1)), endDate: fmt(now) };
+    }
+    if (preset === 'year') return { startDate: `${now.getFullYear()}-01-01`, endDate: fmt(now) };
+    return null;
+}
+
+function getDashboardSavedViews() {
+    try { return JSON.parse(localStorage.getItem('flenova_dashboard_views') || '[]'); } catch { return []; }
+}
+
+function saveDashboardSavedViews(views) {
+    localStorage.setItem('flenova_dashboard_views', JSON.stringify(views.slice(-20)));
+}
+
+function ensureDefaultDashboardViews() {
+    if (getDashboardSavedViews().length) return;
+    const base = getDefaultDashboardFilters();
+    saveDashboardSavedViews([
+        { id: 'view_fr', name: 'Mes KPI France', filters: { ...base, periodPreset: 'month', originCountry: 'France' } },
+        { id: 'view_es', name: 'KPI Espagne', filters: { ...base, periodPreset: 'month', destCountry: 'Espagne' } },
+        { id: 'view_aff', name: 'KPI Affrètement', filters: { ...base, periodPreset: 'month', assignmentType: 'SUBCONTRACTED' } },
+        { id: 'view_fleet', name: 'KPI Flotte propre', filters: { ...base, periodPreset: 'month', assignmentType: 'INTERNAL' } },
+        { id: 'view_inv', name: 'KPI Facturation', filters: { ...base, periodPreset: 'month', invoicedOnly: true } }
+    ]);
+}
 
 function isDashboardMetricEnabled(key) {
     if (!window.dashboardCustomView) return true;
@@ -987,10 +1062,22 @@ function normalizeDashboardFilters(raw = {}) {
     const norm = (v) => (v === '' || v === undefined ? null : v);
     return {
         ...raw,
+        periodPreset: raw.periodPreset || 'custom',
         clientId: norm(raw.clientId),
         driverId: norm(raw.driverId),
+        vehicleId: norm(raw.vehicleId),
+        country: norm(raw.country),
+        originCountry: norm(raw.originCountry),
+        destCountry: norm(raw.destCountry),
+        activity: norm(raw.activity),
+        region: norm(raw.region),
         status: norm(raw.status),
         assignmentType: norm(raw.assignmentType),
+        cargoType: norm(raw.cargoType),
+        missionRef: norm(raw.missionRef),
+        invoicedOnly: !!raw.invoicedOnly,
+        paidOnly: !!raw.paidOnly,
+        cockpitMode: raw.cockpitMode || getDefaultCockpitMode(),
         reportName: norm(raw.reportName),
         startDate: norm(raw.startDate),
         endDate: norm(raw.endDate),
@@ -998,12 +1085,17 @@ function normalizeDashboardFilters(raw = {}) {
     };
 }
 
-async function refreshDashboardView() {
+async function refreshDashboardView(options = {}) {
+    const { preserveScroll = true } = options;
+    const scrollTop = preserveScroll ? document.getElementById('app-content')?.scrollTop : 0;
     destroyAllChartInstances();
     const appContent = document.getElementById('app-content');
     if (!appContent) return;
 
     appContent.innerHTML = renderDashboard();
+    window._dashFilterListenersBound = false;
+    const loadingEl = document.getElementById('dash-kpi-loading');
+    if (loadingEl) loadingEl.classList.remove('hidden');
 
     try {
         const res = await apiFetch(`dashboard/stats${buildDashboardQueryString()}`);
@@ -1013,16 +1105,17 @@ async function refreshDashboardView() {
         }
         const stats = await res.json();
         appContent.innerHTML = renderDashboard(stats);
+        window._dashFilterListenersBound = false;
+        initDashboardFilterAutoApply();
         if (window.activeDashboardTab === 'pallets' && !window.dashboardCustomView) {
             loadDashboardPallets();
         } else {
             initDashboardCharts(stats);
         }
+        if (preserveScroll && scrollTop) appContent.scrollTop = scrollTop;
     } catch (err) {
         console.warn('Statistiques indisponibles', err);
-        if (window.dashboardCustomView) {
-            showToast(err.message || 'Impossible de charger la vue filtrée', 'error');
-        }
+        showToast(err.message || 'Impossible de charger les KPI filtrés', 'error');
     }
 }
 
@@ -1035,6 +1128,14 @@ function buildDashboardQueryString() {
     if (f.driverId) p.append('driverId', f.driverId);
     if (f.vehicleId) p.append('vehicleId', f.vehicleId);
     if (f.country) p.append('country', f.country);
+    if (f.originCountry) p.append('originCountry', f.originCountry);
+    if (f.destCountry) p.append('destCountry', f.destCountry);
+    if (f.activity) p.append('activity', f.activity);
+    if (f.region) p.append('region', f.region);
+    if (f.cargoType) p.append('cargoType', f.cargoType);
+    if (f.missionRef) p.append('missionRef', f.missionRef);
+    if (f.invoicedOnly) p.append('invoicedOnly', 'true');
+    if (f.paidOnly) p.append('paidOnly', 'true');
     if (f.status) p.append('status', f.status);
     if (f.assignmentType) p.append('assignmentType', f.assignmentType);
     if (f.reportName) p.append('reportName', f.reportName);
@@ -1264,141 +1365,333 @@ function renderDashboardInlineFilters() {
     const clients = db.clients || [];
     const drivers = db.drivers || [];
     const vehicles = db.vehicles || [];
-    return `<div class="dash-v2-filters">
-        <div><label>Période début</label><input type="date" id="dash-inline-start" value="${f.startDate || ''}"></div>
-        <div><label>Période fin</label><input type="date" id="dash-inline-end" value="${f.endDate || ''}"></div>
-        <div><label>Client</label><select id="dash-inline-client"><option value="">Tous</option>${clients.map(c => `<option value="${c.id}" ${String(c.id) === String(f.clientId) ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
-        <div><label>Conducteur</label><select id="dash-inline-driver"><option value="">Tous</option>${drivers.map(d => `<option value="${d.id}" ${String(d.id) === String(f.driverId) ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div>
-        <div><label>Véhicule</label><select id="dash-inline-vehicle"><option value="">Tous</option>${vehicles.map(v => `<option value="${v.id}" ${String(v.id) === String(f.vehicleId) ? 'selected' : ''}>${v.plate || v.model}</option>`).join('')}</select></div>
-        <div><label>Pays</label><select id="dash-inline-country"><option value="">Tous</option><option value="France" ${f.country === 'France' ? 'selected' : ''}>France</option><option value="Belgique" ${f.country === 'Belgique' ? 'selected' : ''}>Belgique</option><option value="Espagne" ${f.country === 'Espagne' ? 'selected' : ''}>Espagne</option><option value="Allemagne" ${f.country === 'Allemagne' ? 'selected' : ''}>Allemagne</option></select></div>
-        <div><label>Type mission</label><select id="dash-inline-assignment"><option value="">Tous</option><option value="INTERNAL" ${f.assignmentType === 'INTERNAL' ? 'selected' : ''}>Flotte propre</option><option value="SUBCONTRACTED" ${f.assignmentType === 'SUBCONTRACTED' ? 'selected' : ''}>Affrètement</option></select></div>
-        <div><label>Statut</label><select id="dash-inline-status"><option value="">Tous</option><option value="Livré" ${f.status === 'Livré' ? 'selected' : ''}>Livré</option><option value="En cours" ${f.status === 'En cours' ? 'selected' : ''}>En cours</option><option value="Planifié" ${f.status === 'Planifié' ? 'selected' : ''}>Planifié</option><option value="Validé" ${f.status === 'Validé' ? 'selected' : ''}>Validé</option><option value="Annulé" ${f.status === 'Annulé' ? 'selected' : ''}>Annulé</option></select></div>
-        <div class="dash-v2-filter-actions">
-            <button type="button" class="dash-v2-btn-filter" onclick="applyDashboardInlineFilters()"><i class="fa-solid fa-filter mr-1"></i>Filtrer</button>
+    const savedViews = getDashboardSavedViews();
+    const preset = f.periodPreset || 'year';
+    const presetOpts = Object.entries(DASHBOARD_PERIOD_PRESETS).map(([k, lbl]) =>
+        `<option value="${k}" ${preset === k ? 'selected' : ''}>${lbl}</option>`
+    ).join('');
+    const cockpitOpts = Object.entries(DASHBOARD_COCKPIT_MODES).map(([k, m]) =>
+        `<option value="${k}" ${f.cockpitMode === k ? 'selected' : ''}>${m.label}</option>`
+    ).join('');
+    const countries = ['France', 'Belgique', 'Espagne', 'Allemagne', 'Italie', 'Pays-Bas', 'Portugal'];
+    const countryOptions = (selected) => countries.map(c =>
+        `<option value="${c}" ${selected === c ? 'selected' : ''}>${c}</option>`
+    ).join('');
+
+    return `<div class="dash-v2-filters-panel">
+        <div class="dash-v2-filters-toolbar">
+            <div class="dash-v2-filters-toolbar-left">
+                <div class="dash-v2-filter-field dash-v2-filter-field--period">
+                    <label>Période</label>
+                    <select id="dash-inline-preset">${presetOpts}</select>
+                </div>
+                <div class="dash-v2-filter-dates ${preset === 'custom' ? '' : 'dash-v2-filter-dates--hidden'}" id="dash-inline-dates-wrap">
+                    <input type="date" id="dash-inline-start" value="${f.startDate || ''}">
+                    <span>→</span>
+                    <input type="date" id="dash-inline-end" value="${f.endDate || ''}">
+                </div>
+                <div class="dash-v2-filter-field">
+                    <label>Mode Cockpit</label>
+                    <select id="dash-inline-cockpit">${cockpitOpts}</select>
+                </div>
+                <div class="dash-v2-filter-field">
+                    <label>Vues enregistrées</label>
+                    <select id="dash-inline-saved-view">
+                        <option value="">— Choisir une vue —</option>
+                        ${savedViews.map(v => `<option value="${v.id}">⭐ ${v.name}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="dash-v2-filters-toolbar-right">
+                <button type="button" class="dash-v2-btn-save-view" onclick="promptSaveDashboardView()" title="Enregistrer les filtres actuels"><i class="fa-solid fa-star"></i></button>
+                <button type="button" class="dash-v2-btn-refresh" onclick="refreshDashboardStatsOnly()" title="Actualiser"><i class="fa-solid fa-arrows-rotate"></i> Actualiser</button>
+            </div>
+        </div>
+        <div class="dash-v2-filters-grid">
+            <div><label>Client</label><select id="dash-inline-client"><option value="">Tous</option>${clients.map(c => `<option value="${c.id}" ${String(c.id) === String(f.clientId) ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
+            <div><label>Conducteur</label><select id="dash-inline-driver"><option value="">Tous</option>${drivers.map(d => `<option value="${d.id}" ${String(d.id) === String(f.driverId) ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div>
+            <div><label>Véhicule</label><select id="dash-inline-vehicle"><option value="">Tous</option>${vehicles.map(v => `<option value="${v.id}" ${String(v.id) === String(f.vehicleId) ? 'selected' : ''}>${v.plate || v.model || v.name}</option>`).join('')}</select></div>
+            <div><label>Remorque</label><select id="dash-inline-trailer" disabled><option value="">Toutes</option></select></div>
+            <div><label>Activité</label><select id="dash-inline-activity"><option value="">Toutes</option><option value="national" ${f.activity === 'national' ? 'selected' : ''}>National</option><option value="international" ${f.activity === 'international' ? 'selected' : ''}>International</option></select></div>
+            <div><label>Agence</label><select id="dash-inline-agency" disabled><option value="">Toutes</option></select></div>
+            <div><label>Type mission</label><select id="dash-inline-assignment"><option value="">Tous</option><option value="INTERNAL" ${f.assignmentType === 'INTERNAL' ? 'selected' : ''}>Flotte propre</option><option value="SUBCONTRACTED" ${f.assignmentType === 'SUBCONTRACTED' ? 'selected' : ''}>Affrètement</option></select></div>
+            <div><label>Statut</label><select id="dash-inline-status"><option value="">Tous</option><option value="Livré" ${f.status === 'Livré' ? 'selected' : ''}>Livré</option><option value="En cours" ${f.status === 'En cours' ? 'selected' : ''}>En cours</option><option value="Planifié" ${f.status === 'Planifié' ? 'selected' : ''}>Planifié</option><option value="Validé" ${f.status === 'Validé' ? 'selected' : ''}>Validé</option><option value="Annulé" ${f.status === 'Annulé' ? 'selected' : ''}>Annulé</option></select></div>
+            <div><label>Départ</label><select id="dash-inline-origin"><option value="">Tous</option>${countryOptions(f.originCountry)}</select></div>
+            <div><label>Destination</label><select id="dash-inline-dest"><option value="">Toutes</option>${countryOptions(f.destCountry)}</select></div>
+            <div><label>Région</label><input type="text" id="dash-inline-region" placeholder="Ex. Île-de-France" value="${f.region || ''}"></div>
+            <div><label>Marchandise</label><select id="dash-inline-cargo"><option value="">Toutes</option><option value="standard" ${f.cargoType === 'standard' ? 'selected' : ''}>Standard</option><option value="frigo" ${f.cargoType === 'frigo' ? 'selected' : ''}>Frigorifique</option><option value="adr" ${f.cargoType === 'adr' ? 'selected' : ''}>ADR</option></select></div>
+            <div><label>N° mission</label><input type="text" id="dash-inline-mission-ref" placeholder="Réf." value="${f.missionRef || ''}"></div>
+        </div>
+        <div class="dash-v2-filters-footer">
+            <label class="dash-v2-checkbox"><input type="checkbox" id="dash-inline-invoiced" ${f.invoicedOnly ? 'checked' : ''}> Afficher uniquement les missions facturées</label>
+            <label class="dash-v2-checkbox"><input type="checkbox" id="dash-inline-paid" ${f.paidOnly ? 'checked' : ''}> Uniquement factures payées</label>
             <button type="button" class="dash-v2-btn-reset" onclick="resetDashboardInlineFilters()">Réinitialiser</button>
         </div>
     </div>`;
 }
 
-window.applyDashboardInlineFilters = async function () {
-    window.dashboardFilters = normalizeDashboardFilters({
-        ...getDefaultDashboardFilters(),
-        startDate: document.getElementById('dash-inline-start')?.value || null,
-        endDate: document.getElementById('dash-inline-end')?.value || null,
+function readDashboardInlineFilters() {
+    const preset = document.getElementById('dash-inline-preset')?.value || 'custom';
+    let startDate = document.getElementById('dash-inline-start')?.value || null;
+    let endDate = document.getElementById('dash-inline-end')?.value || null;
+    if (preset !== 'custom') {
+        const resolved = resolvePeriodDates(preset);
+        if (resolved) { startDate = resolved.startDate; endDate = resolved.endDate; }
+    }
+    return normalizeDashboardFilters({
+        ...window.dashboardFilters,
+        periodPreset: preset,
+        startDate,
+        endDate,
         clientId: document.getElementById('dash-inline-client')?.value || null,
         driverId: document.getElementById('dash-inline-driver')?.value || null,
         vehicleId: document.getElementById('dash-inline-vehicle')?.value || null,
-        country: document.getElementById('dash-inline-country')?.value || null,
+        originCountry: document.getElementById('dash-inline-origin')?.value || null,
+        destCountry: document.getElementById('dash-inline-dest')?.value || null,
+        activity: document.getElementById('dash-inline-activity')?.value || null,
+        region: document.getElementById('dash-inline-region')?.value?.trim() || null,
         assignmentType: document.getElementById('dash-inline-assignment')?.value || null,
         status: document.getElementById('dash-inline-status')?.value || null,
+        cargoType: document.getElementById('dash-inline-cargo')?.value || null,
+        missionRef: document.getElementById('dash-inline-mission-ref')?.value?.trim() || null,
+        invoicedOnly: !!document.getElementById('dash-inline-invoiced')?.checked,
+        paidOnly: !!document.getElementById('dash-inline-paid')?.checked,
+        cockpitMode: document.getElementById('dash-inline-cockpit')?.value || getDefaultCockpitMode(),
         metrics: []
     });
-    window.dashboardCustomView = false;
-    window.activeDashboardTab = 'general';
-    await refreshDashboardView();
+}
+
+function scheduleDashboardFilterRefresh() {
+    clearTimeout(window._dashFilterDebounce);
+    window._dashFilterDebounce = setTimeout(() => refreshDashboardStatsOnly(), 400);
+}
+
+function initDashboardFilterAutoApply() {
+    ensureDefaultDashboardViews();
+    if (window._dashFilterListenersBound) return;
+    const root = document.getElementById('dash-filters-root');
+    if (!root) return;
+    window._dashFilterListenersBound = true;
+
+    root.addEventListener('change', (e) => {
+        const t = e.target;
+        if (t.id === 'dash-inline-preset') {
+            const wrap = document.getElementById('dash-inline-dates-wrap');
+            if (wrap) wrap.classList.toggle('dash-v2-filter-dates--hidden', t.value !== 'custom');
+            if (t.value !== 'custom') {
+                const resolved = resolvePeriodDates(t.value);
+                if (resolved) {
+                    const s = document.getElementById('dash-inline-start');
+                    const en = document.getElementById('dash-inline-end');
+                    if (s) s.value = resolved.startDate;
+                    if (en) en.value = resolved.endDate;
+                }
+            }
+        }
+        if (t.id === 'dash-inline-cockpit') {
+            applyCockpitMode(t.value, true);
+            return;
+        }
+        if (t.id === 'dash-inline-saved-view' && t.value) loadDashboardSavedView(t.value);
+        scheduleDashboardFilterRefresh();
+    });
+    root.addEventListener('input', (e) => {
+        if (['dash-inline-region', 'dash-inline-mission-ref'].includes(e.target.id)) scheduleDashboardFilterRefresh();
+    });
+}
+
+window.applyCockpitMode = function (mode, refresh = true) {
+    const presets = {
+        dirigeant: { periodPreset: 'year', status: null, assignmentType: null, invoicedOnly: false },
+        exploitant: { periodPreset: 'week', status: null, assignmentType: null, invoicedOnly: false },
+        comptabilite: { periodPreset: 'month', status: null, invoicedOnly: false, paidOnly: false },
+        flotte: { periodPreset: 'month', assignmentType: 'INTERNAL', status: null, invoicedOnly: false }
+    };
+    const p = presets[mode] || presets.dirigeant;
+    window.dashboardFilters = normalizeDashboardFilters({ ...getDefaultDashboardFilters(), ...p, cockpitMode: mode });
+    window._dashFilterListenersBound = false;
+    if (refresh) refreshDashboardView();
 };
+
+window.promptSaveDashboardView = function () {
+    const name = prompt('Nom de la vue enregistrée (ex. KPI France, KPI Client Amazon) :');
+    if (!name || !name.trim()) return;
+    window.dashboardFilters = readDashboardInlineFilters();
+    const views = getDashboardSavedViews();
+    const id = 'view_' + Date.now();
+    views.push({ id, name: name.trim(), filters: { ...window.dashboardFilters } });
+    saveDashboardSavedViews(views);
+    showToast(`Vue « ${name.trim()} » enregistrée`, 'success');
+    window._dashFilterListenersBound = false;
+    refreshDashboardView();
+};
+
+window.loadDashboardSavedView = function (viewId) {
+    const view = getDashboardSavedViews().find(v => v.id === viewId);
+    if (!view) return;
+    window.dashboardFilters = normalizeDashboardFilters(view.filters);
+    window._dashFilterListenersBound = false;
+    refreshDashboardView();
+};
+
+async function refreshDashboardStatsOnly() {
+    window.dashboardFilters = readDashboardInlineFilters();
+    window.dashboardCustomView = true;
+    const loadingEl = document.getElementById('dash-kpi-loading');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+
+    try {
+        const res = await apiFetch(`dashboard/stats${buildDashboardQueryString()}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Erreur ${res.status}`);
+        }
+        const stats = await res.json();
+        const root = document.getElementById('dash-kpi-root');
+        if (root) {
+            destroyAllChartInstances();
+            root.innerHTML = renderDashboardKpiBody(stats);
+            initDashboardCharts(stats);
+        } else {
+            await refreshDashboardView();
+        }
+    } catch (err) {
+        showToast(err.message || 'Impossible de mettre à jour les KPI', 'error');
+    } finally {
+        if (loadingEl) loadingEl.classList.add('hidden');
+    }
+}
+
+window.refreshDashboardStatsOnly = refreshDashboardStatsOnly;
+window.applyDashboardInlineFilters = refreshDashboardStatsOnly;
 
 window.resetDashboardInlineFilters = async function () {
     window.dashboardFilters = getDefaultDashboardFilters();
     window.dashboardCustomView = false;
+    window._dashFilterListenersBound = false;
     await refreshDashboardView();
 };
 
-function renderDashboardGeneralV2(stats = {}) {
-    const f = window.dashboardFilters || getDefaultDashboardFilters();
+function renderDashboardCostBars(categories = []) {
+    if (!categories.length) return '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune donnée de coûts</p>';
+    return categories.map(c => `<div class="dash-v2-cost-bar">
+        <div class="dash-v2-cost-bar-head"><span>${c.label}</span><span>${c.percent ?? 0} %</span></div>
+        <div class="dash-v2-cost-bar-track"><div class="dash-v2-cost-bar-fill" style="width:${c.percent ?? 0}%"></div></div>
+    </div>`).join('');
+}
+
+function renderDashboardMissionCounts(counts = {}) {
+    const rows = [
+        ['Livrées', counts.delivered ?? 0],
+        ['En cours', counts.inProgress ?? 0],
+        ['Retards', counts.late ?? 0],
+        ['Annulées', counts.cancelled ?? 0]
+    ];
+    return rows.map(([label, val]) => `<div class="dash-v2-mission-count"><span>${label}</span><strong>${val}</strong></div>`).join('');
+}
+
+function renderDashboardKpiBody(stats = {}) {
     const revenue = stats.filteredTransportRevenue ?? stats.totalRevenue ?? 0;
     const trends = stats.kpiTrends || {};
     const perf = stats.missionPerformance || {};
+    const counts = perf.counts || {};
     const today = stats.todayStats || {};
     const fleet = stats.fleetAvailability || { vehicles: {}, drivers: {} };
     const mapMissions = stats.activeMissionsMap || [];
+    const costCats = stats.costCategories || [];
 
     const mapDots = mapMissions.map((m, i) => {
         const pos = dashMapPosition(m.dest || m.origin, i);
         const cls = dashMapStatusClass(m.status);
         return `<div class="dash-v2-map-dot ${cls}" style="left:${pos.left};top:${pos.top}" title="${m.ref || ''} ${m.origin || ''} → ${m.dest || ''}"><i class="fa-solid fa-truck"></i></div>`;
-    }).join('') || '<p class="absolute inset-0 flex items-center justify-center text-xs text-slate-400">Aucune mission active</p>';
+    }).join('');
 
     const topDrivers = stats.topDrivers || [];
     const topVehicles = stats.topVehicles || [];
     const topClients = stats.topClients || [];
     const alerts = stats.alerts || [];
+    const fillRate = stats.fillRate ?? stats.avgLoadFactor ?? 0;
 
     return `
-    ${renderDashboardInlineFilters()}
-    <div class="dash-v2-kpi-grid">
-        ${dashV2Kpi('fa-euro-sign', '#2563eb', "Chiffre d'affaires", `${Number(revenue).toLocaleString('fr-FR')} €`, trends.revenue ? `${trends.revenue > 0 ? '+' : ''}${trends.revenue}% vs mois préc.` : '', trends.revenue > 0 ? 'up' : 'neutral')}
+    <div id="dash-kpi-loading" class="dash-v2-loading hidden"><i class="fa-solid fa-spinner fa-spin"></i> Mise à jour…</div>
+
+    <div class="dash-v2-kpi-grid dash-v2-kpi-grid--primary">
+        ${dashV2Kpi('fa-euro-sign', '#2563eb', "Chiffre d'affaires", `${Number(revenue).toLocaleString('fr-FR')} €`, trends.revenue ? `${trends.revenue > 0 ? '+' : ''}${trends.revenue}%` : '', trends.revenue > 0 ? 'up' : 'neutral')}
         ${dashV2Kpi('fa-chart-line', '#059669', 'Marge brute', `${Number(stats.grossMargin || 0).toLocaleString('fr-FR')} €`, trends.margin ? `${trends.margin > 0 ? '+' : ''}${trends.margin}%` : '', 'up')}
-        ${dashV2Kpi('fa-clipboard-check', '#7c3aed', 'Missions réalisées', stats.completedMissions ?? 0, trends.missions || '', 'up')}
+        ${dashV2Kpi('fa-clipboard-check', '#7c3aed', 'Nb missions', stats.completedMissions ?? counts.delivered ?? 0, trends.missions || '', 'up')}
         ${dashV2Kpi('fa-road', '#ea580c', 'Km parcourus', `${Number(stats.totalKm || 0).toLocaleString('fr-FR')} km`, trends.km || '', 'up')}
         ${dashV2Kpi('fa-gauge-high', '#0891b2', 'CA / km', `${stats.revenuePerKm ?? 0} €/km`, trends.revenuePerKm || '', 'neutral')}
-        ${dashV2Kpi('fa-basket-shopping', '#db2777', 'Panier moyen', `${Number(stats.avgOrderValue || 0).toLocaleString('fr-FR')} €`, trends.avgOrder || '', 'up')}
     </div>
 
+    <div class="dash-v2-kpi-grid dash-v2-kpi-grid--secondary">
+        ${dashV2Kpi('fa-route', '#64748b', 'Km à vide', `${Number(stats.emptyKm || 0).toLocaleString('fr-FR')} km`, '', 'neutral')}
+        ${dashV2Kpi('fa-boxes-stacked', '#8b5cf6', 'Taux de remplissage', `${fillRate} %`, '', 'up')}
+        ${dashV2Kpi('fa-coins', '#d97706', 'Coût moyen / mission', `${Number(stats.avgCostPerMission || 0).toLocaleString('fr-FR')} €`, '', 'neutral')}
+        ${dashV2Kpi('fa-basket-shopping', '#db2777', 'Panier moyen mission', `${Number(stats.avgOrderValue || 0).toLocaleString('fr-FR')} €`, trends.avgOrder || '', 'up')}
+    </div>
+
+    <h3 class="dash-v2-section-title">Performance financière</h3>
     <div class="dash-v2-mid-grid">
         <div class="dash-v2-card">
             <div class="flex justify-between items-center mb-2">
-                <h4 class="dash-v2-card-title mb-0">Évolution du chiffre d'affaires</h4>
+                <h4 class="dash-v2-card-title mb-0">Évolution CA</h4>
                 <span class="text-xs text-gray-400">${new Date().getFullYear()}</span>
             </div>
             <div class="dash-v2-chart-h"><canvas id="dashRevChart"></canvas></div>
         </div>
         <div class="dash-v2-card">
             <h4 class="dash-v2-card-title">Répartition des coûts</h4>
-            <div class="dash-v2-chart-h"><canvas id="dashCostChart"></canvas></div>
-        </div>
-        <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Carte des missions en temps réel</h4>
-            <div class="dash-v2-map">
-                <div class="dash-v2-map-fr"></div>
-                ${mapDots}
-                <div class="dash-v2-map-legend">
-                    <span class="lg-progress">En cours</span>
-                    <span class="lg-done">Livrée</span>
-                    <span class="lg-wait">En attente</span>
-                    <span class="lg-late">Retard</span>
-                </div>
-            </div>
+            ${renderDashboardCostBars(costCats)}
+            <div class="dash-v2-chart-h dash-v2-chart-h--sm mt-2"><canvas id="dashCostChart"></canvas></div>
         </div>
     </div>
 
-    <div class="dash-v2-mini-row">
+    <h3 class="dash-v2-section-title">Performance exploitation</h3>
+    <div class="dash-v2-exploit-grid">
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Performance des missions</h4>
-            <div class="dash-v2-chart-sm"><canvas id="dashMissionPerfChart"></canvas></div>
+            <h4 class="dash-v2-card-title">Missions réalisées</h4>
+            ${renderDashboardMissionCounts(counts)}
+        </div>
+        <div class="dash-v2-card dash-v2-card--map">
+            <h4 class="dash-v2-card-title">Carte opérationnelle</h4>
+            <div class="dash-v2-map">
+                <div class="dash-v2-map-fr"></div>
+                ${mapDots || '<p class="dash-v2-map-empty">Aucune mission active sur la période</p>'}
+                <div class="dash-v2-map-legend">
+                    <span class="lg-available">🟢 Camions dispo (${fleet.vehicles?.available ?? 0})</span>
+                    <span class="lg-progress">🔵 Missions en cours</span>
+                    <span class="lg-wait">🟠 Chargements</span>
+                    <span class="lg-late">🔴 Retards</span>
+                </div>
+            </div>
         </div>
         <div class="dash-v2-card">
             <h4 class="dash-v2-card-title">Taux de remplissage</h4>
             <div class="dash-v2-gauge-wrap">
                 <canvas id="dashFillGauge"></canvas>
-                <span class="dash-v2-gauge-value">${stats.fillRate ?? 0}%</span>
+                <span class="dash-v2-gauge-value">${fillRate}%</span>
             </div>
-        </div>
-        <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Coût moyen / mission</h4>
-            <div class="dash-v2-stat-big">${Number(stats.avgCostPerMission || 0).toLocaleString('fr-FR')} €</div>
-            <p class="text-center text-xs text-gray-400 mt-1">achat moyen par transport</p>
         </div>
     </div>
 
     <div class="dash-v2-lower-grid">
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Top 5 Conducteurs</h4>
+            <h4 class="dash-v2-card-title">Conducteurs</h4>
             <table class="dash-v2-table">
-                <thead><tr><th>#</th><th>Nom</th><th>Miss.</th><th>CA</th><th>Marge</th><th>Ponct.</th></tr></thead>
-                <tbody>${topDrivers.length ? topDrivers.map(d => `<tr><td>${d.rank}</td><td>${d.name}</td><td>${d.missions}</td><td>${Number(d.revenue).toLocaleString('fr-FR')} €</td><td>${Number(d.margin).toLocaleString('fr-FR')} €</td><td>${d.punctuality}%</td></tr>`).join('') : '<tr><td colspan="6" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
+                <thead><tr><th>Conducteur</th><th>Miss.</th><th>CA</th><th>Marge</th><th>Retards</th></tr></thead>
+                <tbody>${topDrivers.length ? topDrivers.map(d => `<tr><td>${d.name}</td><td>${d.missions}</td><td>${Number(d.revenue).toLocaleString('fr-FR')} €</td><td>${Number(d.margin).toLocaleString('fr-FR')} €</td><td>${d.delays ?? 0}</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
             </table>
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Top 5 Véhicules</h4>
+            <h4 class="dash-v2-card-title">Véhicules</h4>
             <table class="dash-v2-table">
-                <thead><tr><th>Véhicule</th><th>Miss.</th><th>Km</th><th>Conso</th><th>Dispo</th></tr></thead>
-                <tbody>${topVehicles.length ? topVehicles.map(v => `<tr><td>${v.name}</td><td>${v.missions}</td><td>${Number(v.km).toLocaleString('fr-FR')}</td><td>${v.avgConsumption != null ? v.avgConsumption + ' L' : '—'}</td><td>${v.availability}%</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
+                <thead><tr><th>Camion</th><th>Km</th><th>Miss.</th><th>Conso</th><th>Dispo</th></tr></thead>
+                <tbody>${topVehicles.length ? topVehicles.map(v => `<tr><td>${v.name}</td><td>${Number(v.km).toLocaleString('fr-FR')}</td><td>${v.missions}</td><td>${v.avgConsumption != null ? v.avgConsumption + ' L' : '—'}</td><td>${v.availability}%</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
             </table>
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Top 5 Clients</h4>
-            ${topClients.length ? topClients.map(c => `<div class="dash-v2-client-bar"><div class="dash-v2-client-bar-head"><span>${c.name}</span><span>${c.share}% · ${Number(c.revenue).toLocaleString('fr-FR')} €</span></div><div class="dash-v2-client-bar-track"><div class="dash-v2-client-bar-fill" style="width:${c.share}%"></div></div></div>`).join('') : '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune donnée</p>'}
+            <h4 class="dash-v2-card-title">Top clients</h4>
+            ${topClients.length ? topClients.map(c => `<div class="dash-v2-client-bar"><div class="dash-v2-client-bar-head"><span>${c.name}</span><span>${c.share}%</span></div><div class="dash-v2-client-bar-track"><div class="dash-v2-client-bar-fill" style="width:${c.share}%"></div></div></div>`).join('') : '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune donnée</p>'}
         </div>
         <div class="dash-v2-card">
             <h4 class="dash-v2-card-title">Alertes</h4>
@@ -1414,6 +1707,12 @@ function renderDashboardGeneralV2(stats = {}) {
         <span><i class="fa-solid fa-road text-orange-500 mr-1"></i> Km aujourd'hui : <strong>${Number(today.km || 0).toLocaleString('fr-FR')} km</strong></span>
         <span><i class="fa-solid fa-euro-sign text-green-600 mr-1"></i> CA aujourd'hui : <strong>${Number(today.revenue || 0).toLocaleString('fr-FR')} €</strong></span>
     </div>`;
+}
+
+function renderDashboardGeneralV2(stats = {}) {
+    return `
+    <div id="dash-filters-root">${renderDashboardInlineFilters()}</div>
+    <div id="dash-kpi-root">${renderDashboardKpiBody(stats)}</div>`;
 }
 
 // --- RENDER: Dashboard & transports ---
