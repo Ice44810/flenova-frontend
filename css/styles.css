@@ -236,6 +236,106 @@ body.invoice-modal-open {
     color: #1e40af;
 }
 
+/* Dashboard advanced filter modal — responsive, entièrement visible */
+#dashboard-advanced-filter-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(0.75rem, env(safe-area-inset-top, 0px)) max(0.75rem, env(safe-area-inset-right, 0px)) max(0.75rem, env(safe-area-inset-bottom, 0px)) max(0.75rem, env(safe-area-inset-left, 0px));
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+#dashboard-advanced-filter-modal.hidden {
+    display: none !important;
+}
+
+#dashboard-advanced-filter-modal .dash-filter-panel {
+    width: 100%;
+    max-width: min(42rem, calc(100vw - 1.5rem));
+    max-height: calc(100dvh - 1.5rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+#dashboard-advanced-filter-modal .dash-filter-header {
+    flex-shrink: 0;
+}
+
+#dashboard-advanced-filter-modal .dash-filter-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem;
+}
+
+#dashboard-advanced-filter-modal .dash-filter-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 1rem;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.08);
+}
+
+#dashboard-advanced-filter-modal .dash-filter-btn-validate {
+    background: #0891b2;
+    color: #fff;
+    font-weight: 600;
+    min-width: 7.5rem;
+}
+
+#dashboard-advanced-filter-modal .dash-filter-btn-validate:hover {
+    background: #0e7490;
+}
+
+#dashboard-advanced-filter-modal .dash-filter-grid-2,
+#dashboard-advanced-filter-modal #dash-filter-metrics {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    #dashboard-advanced-filter-modal .dash-filter-body {
+        padding: 1.25rem;
+    }
+
+    #dashboard-advanced-filter-modal .dash-filter-grid-2,
+    #dashboard-advanced-filter-modal #dash-filter-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 639px) {
+    #dashboard-advanced-filter-modal .dash-filter-header h3 {
+        font-size: 1rem;
+        line-height: 1.35;
+    }
+
+    #dashboard-advanced-filter-modal .dash-filter-footer {
+        flex-direction: column-reverse;
+    }
+
+    #dashboard-advanced-filter-modal .dash-filter-btn-validate,
+    #dashboard-advanced-filter-modal .dash-filter-footer button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
 /* Transport detail modal — centré à l'écran */
 #transport-detail-modal.transport-detail-overlay {
     position: fixed;
@@ -1463,6 +1563,9 @@ body.public-site-active {
     gap: 1.5rem;
     margin-top: 2rem;
 }
+.public-diff-grid--three {
+    grid-template-columns: repeat(3, 1fr);
+}
 .public-diff-card {
     position: relative;
     padding: 2rem 1.75rem;
@@ -2087,6 +2190,7 @@ body.public-site-active {
     .public-pillars-grid,
     .public-why-grid,
     .public-diff-grid,
+    .public-diff-grid--three,
     .public-extras-grid { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
     .public-module-inner { grid-template-columns: 1fr; gap: 2rem; }
     .public-module-section--reverse .public-module-inner { direction: ltr; }

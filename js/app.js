@@ -98,7 +98,7 @@ function hideAllModals() {
         'driver-card-modal', 'driver-modal', 'add-vehicle-modal', 'edit-vehicle-modal',
         'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
         'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
-        'invoice-modal', 'transport-detail-modal', 'credit-note-modal'
+        'invoice-modal', 'transport-detail-modal', 'credit-note-modal', 'dashboard-advanced-filter-modal'
     ];
 
     // Invariant: le modal aperçu facture A4 (modal-overlay/modal-content) ne doit jamais être visible
@@ -357,8 +357,8 @@ const PUBLIC_FAQ_ITEMS = [
         a: 'Un TMS (Transport Management System) centralise vos ordres de transport, planning, exécution terrain et facturation. Flenova est conçu pour les PME et indépendants : une seule plateforme web + mobile, sans ERP lourd.'
     },
     {
-        q: 'Flenova remplace-t-il Excel et les outils dispersés ?',
-        a: 'Oui, c\'est l\'objectif : fini les ressaisies entre tableur, mails et fichiers séparés. Commandes, statuts, signatures chauffeurs et facturation vivent au même endroit.'
+        q: 'Puis-je créer mes propres rapports de performance ?',
+        a: 'Oui. Le filtre avancé du tableau de bord permet de choisir une période, un client, un chauffeur ou un statut, puis d\'afficher uniquement les indicateurs qui vous intéressent (CA par client, taux d\'annulation, statuts…) directement sur le tableau de bord.'
     },
     {
         q: 'Comment fonctionne l\'essai gratuit ?',
@@ -494,13 +494,19 @@ function renderPublicDifferentiators() {
             badge: 'Petit plus Flenova',
             title: 'Facture achat affrètement auto',
             desc: 'À chaque affrètement, Flenova génère la confirmation PDF Factur-X et la facture achat brouillon pré-remplie (fournisseur, montant, transport). Zéro ressaisie.'
+        },
+        {
+            icon: 'fa-chart-line',
+            badge: 'Reporting intégré',
+            title: 'Filtre avancé tableau de bord',
+            desc: 'Choisissez vos filtres (période, client, statut…) et les indicateurs à afficher — le tableau de bord ne montre que ce qui compte pour vous, sans scroll inutile.'
         }
     ];
     return `<section class="public-diff-section">
         <div class="public-section-inner">
             <h2 class="public-section-title">Ce qui fait gagner du temps — et de l'argent</h2>
-            <p class="public-section-lead">Deux fonctionnalités que les TMS généralistes ne couvrent pas, incluses dans votre abonnement Flenova.</p>
-            <div class="public-diff-grid">
+            <p class="public-section-lead">Trois atouts que les TMS généralistes ne couvrent pas, inclus dans votre abonnement Flenova.</p>
+            <div class="public-diff-grid public-diff-grid--three">
                 ${items.map((item) => `
                     <article class="public-diff-card">
                         <span class="public-diff-badge">${escapePublicHtml(item.badge)}</span>
@@ -933,7 +939,214 @@ window.updateAppCompanyHeader = updateAppCompanyHeader;
 
 // --- DASHBOARD STATE ---
 window.activeDashboardTab = 'general';
-window.dashboardFilters = { startDate: null, endDate: null };
+const DASHBOARD_METRIC_OPTIONS = [
+    { id: 'kpi_activity', label: 'Activité (transports actifs, livrés, à préfacturer)' },
+    { id: 'kpi_financial', label: 'Synthèse financière (CA, dépenses, économies)' },
+    { id: 'operational_rates', label: 'Taux opérationnels (annulation, livraison…)' },
+    { id: 'client_revenue', label: 'CA par client' },
+    { id: 'status_distribution', label: 'Répartition des statuts' },
+    { id: 'client_volume', label: 'Volume expéditions par client' },
+    { id: 'revenue_evolution', label: 'Évolution CA mensuel' },
+    { id: 'cost_breakdown', label: 'Propre vs affrètement' },
+    { id: 'geo_performance', label: 'Top destinations' },
+    { id: 'fill_rate', label: 'Taux remplissage flotte' },
+    { id: 'carbon', label: 'Empreinte carbone CO2e' }
+];
+
+function getDefaultDashboardFilters() {
+    const year = new Date().getFullYear();
+    return {
+        startDate: `${year}-01-01`,
+        endDate: new Date().toISOString().split('T')[0],
+        clientId: null,
+        driverId: null,
+        vehicleId: null,
+        country: null,
+        status: null,
+        assignmentType: null,
+        reportName: null,
+        metrics: []
+    };
+}
+
+window.dashboardFilters = getDefaultDashboardFilters();
+window.dashboardCustomView = false;
+
+function isDashboardMetricEnabled(key) {
+    if (!window.dashboardCustomView) return true;
+    const metrics = window.dashboardFilters?.metrics;
+    if (!metrics || !metrics.length) return false;
+    return metrics.includes(key);
+}
+
+function hasActiveDashboardFilters() {
+    return !!window.dashboardCustomView;
+}
+
+function normalizeDashboardFilters(raw = {}) {
+    const norm = (v) => (v === '' || v === undefined ? null : v);
+    return {
+        ...raw,
+        clientId: norm(raw.clientId),
+        driverId: norm(raw.driverId),
+        status: norm(raw.status),
+        assignmentType: norm(raw.assignmentType),
+        reportName: norm(raw.reportName),
+        startDate: norm(raw.startDate),
+        endDate: norm(raw.endDate),
+        metrics: Array.isArray(raw.metrics) ? raw.metrics.filter(Boolean) : []
+    };
+}
+
+async function refreshDashboardView() {
+    destroyAllChartInstances();
+    const appContent = document.getElementById('app-content');
+    if (!appContent) return;
+
+    appContent.innerHTML = renderDashboard();
+
+    try {
+        const res = await apiFetch(`dashboard/stats${buildDashboardQueryString()}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Erreur ${res.status}`);
+        }
+        const stats = await res.json();
+        appContent.innerHTML = renderDashboard(stats);
+        if (window.activeDashboardTab === 'pallets' && !window.dashboardCustomView) {
+            loadDashboardPallets();
+        } else {
+            initDashboardCharts(stats);
+        }
+    } catch (err) {
+        console.warn('Statistiques indisponibles', err);
+        if (window.dashboardCustomView) {
+            showToast(err.message || 'Impossible de charger la vue filtrée', 'error');
+        }
+    }
+}
+
+function buildDashboardQueryString() {
+    const f = window.dashboardFilters || {};
+    const p = new URLSearchParams();
+    if (f.startDate) p.append('startDate', f.startDate);
+    if (f.endDate) p.append('endDate', f.endDate);
+    if (f.clientId) p.append('clientId', f.clientId);
+    if (f.driverId) p.append('driverId', f.driverId);
+    if (f.vehicleId) p.append('vehicleId', f.vehicleId);
+    if (f.country) p.append('country', f.country);
+    if (f.status) p.append('status', f.status);
+    if (f.assignmentType) p.append('assignmentType', f.assignmentType);
+    if (f.reportName) p.append('reportName', f.reportName);
+    if (f.metrics?.length) p.append('metrics', f.metrics.join(','));
+    const qs = p.toString();
+    return qs ? `?${qs}` : '';
+}
+
+function getDashboardFilterSummaryText() {
+    const f = window.dashboardFilters || {};
+    const parts = [];
+    if (f.reportName) parts.push(f.reportName);
+    if (f.startDate || f.endDate) parts.push(`${f.startDate || '…'} → ${f.endDate || '…'}`);
+    if (f.clientId) {
+        const c = (db.clients || []).find(x => String(x.id) === String(f.clientId));
+        if (c) parts.push(`Client: ${c.name}`);
+    }
+    if (f.driverId) {
+        const d = (db.drivers || []).find(x => String(x.id) === String(f.driverId));
+        if (d) parts.push(`Chauffeur: ${d.name}`);
+    }
+    if (f.status) parts.push(`Statut: ${f.status}`);
+    if (f.assignmentType === 'INTERNAL') parts.push('Flotte propre');
+    if (f.assignmentType === 'SUBCONTRACTED') parts.push('Affrètement');
+    const metricCount = f.metrics?.length || 0;
+    if (metricCount) parts.push(`${metricCount} indicateur${metricCount > 1 ? 's' : ''}`);
+    return parts.join(' · ') || 'Période par défaut (année en cours)';
+}
+
+function renderDashboardMetricCheckboxes() {
+    const box = document.getElementById('dash-filter-metrics');
+    if (!box) return;
+    const selected = new Set(window.dashboardFilters?.metrics || []);
+    box.innerHTML = DASHBOARD_METRIC_OPTIONS.map(m => `
+        <label class="flex items-center gap-2 p-2 rounded border border-gray-100 hover:bg-gray-50 cursor-pointer">
+            <input type="checkbox" class="dash-metric-cb rounded" value="${m.id}" ${selected.has(m.id) ? 'checked' : ''}>
+            <span>${m.label}</span>
+        </label>`).join('');
+}
+
+function populateDashboardFilterSelects() {
+    const clientSel = document.getElementById('dash-filter-client');
+    if (clientSel) {
+        const cur = window.dashboardFilters.clientId || '';
+        clientSel.innerHTML = '<option value="">Tous</option>' + (db.clients || []).map(c =>
+            `<option value="${c.id}" ${String(c.id) === String(cur) ? 'selected' : ''}>${c.name}</option>`
+        ).join('');
+    }
+    const driverSel = document.getElementById('dash-filter-driver');
+    if (driverSel) {
+        const cur = window.dashboardFilters.driverId || '';
+        driverSel.innerHTML = '<option value="">Tous</option>' + (db.drivers || []).map(d =>
+            `<option value="${d.id}" ${String(d.id) === String(cur) ? 'selected' : ''}>${d.name}</option>`
+        ).join('');
+    }
+}
+
+window.openDashboardAdvancedFilter = function () {
+    hideAllModals();
+    const f = window.dashboardFilters || getDefaultDashboardFilters();
+    document.getElementById('dash-filter-report-name').value = f.reportName || '';
+    document.getElementById('dash-filter-start').value = f.startDate || '';
+    document.getElementById('dash-filter-end').value = f.endDate || '';
+    document.getElementById('dash-filter-status').value = f.status || '';
+    document.getElementById('dash-filter-assignment').value = f.assignmentType || '';
+    populateDashboardFilterSelects();
+    renderDashboardMetricCheckboxes();
+    const modal = document.getElementById('dashboard-advanced-filter-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+};
+
+window.closeDashboardAdvancedFilter = function () {
+    document.getElementById('dashboard-advanced-filter-modal')?.classList.add('hidden');
+};
+
+function readDashboardFilterForm() {
+    const metrics = [...document.querySelectorAll('.dash-metric-cb:checked')].map(el => el.value);
+    return {
+        reportName: document.getElementById('dash-filter-report-name')?.value?.trim() || null,
+        startDate: document.getElementById('dash-filter-start')?.value || null,
+        endDate: document.getElementById('dash-filter-end')?.value || null,
+        clientId: document.getElementById('dash-filter-client')?.value || null,
+        driverId: document.getElementById('dash-filter-driver')?.value || null,
+        status: document.getElementById('dash-filter-status')?.value || null,
+        assignmentType: document.getElementById('dash-filter-assignment')?.value || null,
+        metrics
+    };
+}
+
+window.applyDashboardAdvancedFilter = async function () {
+    const filters = normalizeDashboardFilters(readDashboardFilterForm());
+    if (!filters.metrics?.length) {
+        showToast('Sélectionnez au moins un indicateur à afficher', 'warning');
+        return;
+    }
+    window.dashboardFilters = filters;
+    window.dashboardCustomView = true;
+    window.activeDashboardTab = 'general';
+    closeDashboardAdvancedFilter();
+    await refreshDashboardView();
+    showToast('Vue filtrée appliquée', 'success');
+    document.getElementById('app-content')?.scrollTo?.({ top: 0, behavior: 'smooth' });
+};
+
+window.resetDashboardFilters = async function () {
+    window.dashboardFilters = getDefaultDashboardFilters();
+    window.dashboardCustomView = false;
+    closeDashboardAdvancedFilter();
+    await refreshDashboardView();
+};
+
 window.switchDashboardTab = function (tab) {
     destroyAllChartInstances();
     window.activeDashboardTab = tab;
@@ -1015,6 +1228,194 @@ async function deleteSelectedInvoices() {
 
 // --- RENDERERS ---
 
+// --- DASHBOARD V2 (onglet Général — maquette TMS) ---
+
+function dashMapStatusClass(status) {
+    if (['Livré', 'Validé', 'Clôturé', 'Terminé'].includes(status)) return 'status-done';
+    if (['En cours', 'Pris en charge', 'Affrété'].includes(status)) return 'status-progress';
+    if (status === 'Annulé') return 'status-late';
+    return 'status-wait';
+}
+
+function dashMapPosition(city, index) {
+    const norm = (city || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const map = {
+        paris: [48, 28], lille: [48, 12], lyon: [58, 48], marseille: [62, 72],
+        bordeaux: [28, 58], nantes: [22, 38], toulouse: [32, 68], strasbourg: [78, 32],
+        rennes: [18, 32], nice: [72, 70], montpellier: [42, 72], rouen: [38, 22]
+    };
+    for (const [key, pos] of Object.entries(map)) {
+        if (norm.includes(key)) return { left: pos[0] + '%', top: pos[1] + '%' };
+    }
+    return { left: (18 + (index * 19) % 62) + '%', top: (22 + (index * 17) % 58) + '%' };
+}
+
+function dashV2Kpi(icon, bg, label, value, trend, trendClass) {
+    return `<div class="dash-v2-kpi">
+        <div class="dash-v2-kpi-icon" style="background:${bg}20;color:${bg}"><i class="fa-solid ${icon}"></i></div>
+        <div class="dash-v2-kpi-value">${value}</div>
+        <div class="dash-v2-kpi-label">${label}</div>
+        ${trend ? `<div class="dash-v2-kpi-trend ${trendClass || 'neutral'}">${trend}</div>` : ''}
+    </div>`;
+}
+
+function renderDashboardInlineFilters() {
+    const f = window.dashboardFilters || getDefaultDashboardFilters();
+    const clients = db.clients || [];
+    const drivers = db.drivers || [];
+    const vehicles = db.vehicles || [];
+    return `<div class="dash-v2-filters">
+        <div><label>Période début</label><input type="date" id="dash-inline-start" value="${f.startDate || ''}"></div>
+        <div><label>Période fin</label><input type="date" id="dash-inline-end" value="${f.endDate || ''}"></div>
+        <div><label>Client</label><select id="dash-inline-client"><option value="">Tous</option>${clients.map(c => `<option value="${c.id}" ${String(c.id) === String(f.clientId) ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
+        <div><label>Conducteur</label><select id="dash-inline-driver"><option value="">Tous</option>${drivers.map(d => `<option value="${d.id}" ${String(d.id) === String(f.driverId) ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div>
+        <div><label>Véhicule</label><select id="dash-inline-vehicle"><option value="">Tous</option>${vehicles.map(v => `<option value="${v.id}" ${String(v.id) === String(f.vehicleId) ? 'selected' : ''}>${v.plate || v.model}</option>`).join('')}</select></div>
+        <div><label>Pays</label><select id="dash-inline-country"><option value="">Tous</option><option value="France" ${f.country === 'France' ? 'selected' : ''}>France</option><option value="Belgique" ${f.country === 'Belgique' ? 'selected' : ''}>Belgique</option><option value="Espagne" ${f.country === 'Espagne' ? 'selected' : ''}>Espagne</option><option value="Allemagne" ${f.country === 'Allemagne' ? 'selected' : ''}>Allemagne</option></select></div>
+        <div><label>Type mission</label><select id="dash-inline-assignment"><option value="">Tous</option><option value="INTERNAL" ${f.assignmentType === 'INTERNAL' ? 'selected' : ''}>Flotte propre</option><option value="SUBCONTRACTED" ${f.assignmentType === 'SUBCONTRACTED' ? 'selected' : ''}>Affrètement</option></select></div>
+        <div><label>Statut</label><select id="dash-inline-status"><option value="">Tous</option><option value="Livré" ${f.status === 'Livré' ? 'selected' : ''}>Livré</option><option value="En cours" ${f.status === 'En cours' ? 'selected' : ''}>En cours</option><option value="Planifié" ${f.status === 'Planifié' ? 'selected' : ''}>Planifié</option><option value="Validé" ${f.status === 'Validé' ? 'selected' : ''}>Validé</option><option value="Annulé" ${f.status === 'Annulé' ? 'selected' : ''}>Annulé</option></select></div>
+        <div class="dash-v2-filter-actions">
+            <button type="button" class="dash-v2-btn-filter" onclick="applyDashboardInlineFilters()"><i class="fa-solid fa-filter mr-1"></i>Filtrer</button>
+            <button type="button" class="dash-v2-btn-reset" onclick="resetDashboardInlineFilters()">Réinitialiser</button>
+        </div>
+    </div>`;
+}
+
+window.applyDashboardInlineFilters = async function () {
+    window.dashboardFilters = normalizeDashboardFilters({
+        ...getDefaultDashboardFilters(),
+        startDate: document.getElementById('dash-inline-start')?.value || null,
+        endDate: document.getElementById('dash-inline-end')?.value || null,
+        clientId: document.getElementById('dash-inline-client')?.value || null,
+        driverId: document.getElementById('dash-inline-driver')?.value || null,
+        vehicleId: document.getElementById('dash-inline-vehicle')?.value || null,
+        country: document.getElementById('dash-inline-country')?.value || null,
+        assignmentType: document.getElementById('dash-inline-assignment')?.value || null,
+        status: document.getElementById('dash-inline-status')?.value || null,
+        metrics: []
+    });
+    window.dashboardCustomView = false;
+    window.activeDashboardTab = 'general';
+    await refreshDashboardView();
+};
+
+window.resetDashboardInlineFilters = async function () {
+    window.dashboardFilters = getDefaultDashboardFilters();
+    window.dashboardCustomView = false;
+    await refreshDashboardView();
+};
+
+function renderDashboardGeneralV2(stats = {}) {
+    const f = window.dashboardFilters || getDefaultDashboardFilters();
+    const revenue = stats.filteredTransportRevenue ?? stats.totalRevenue ?? 0;
+    const trends = stats.kpiTrends || {};
+    const perf = stats.missionPerformance || {};
+    const today = stats.todayStats || {};
+    const fleet = stats.fleetAvailability || { vehicles: {}, drivers: {} };
+    const mapMissions = stats.activeMissionsMap || [];
+
+    const mapDots = mapMissions.map((m, i) => {
+        const pos = dashMapPosition(m.dest || m.origin, i);
+        const cls = dashMapStatusClass(m.status);
+        return `<div class="dash-v2-map-dot ${cls}" style="left:${pos.left};top:${pos.top}" title="${m.ref || ''} ${m.origin || ''} → ${m.dest || ''}"><i class="fa-solid fa-truck"></i></div>`;
+    }).join('') || '<p class="absolute inset-0 flex items-center justify-center text-xs text-slate-400">Aucune mission active</p>';
+
+    const topDrivers = stats.topDrivers || [];
+    const topVehicles = stats.topVehicles || [];
+    const topClients = stats.topClients || [];
+    const alerts = stats.alerts || [];
+
+    return `
+    ${renderDashboardInlineFilters()}
+    <div class="dash-v2-kpi-grid">
+        ${dashV2Kpi('fa-euro-sign', '#2563eb', "Chiffre d'affaires", `${Number(revenue).toLocaleString('fr-FR')} €`, trends.revenue ? `${trends.revenue > 0 ? '+' : ''}${trends.revenue}% vs mois préc.` : '', trends.revenue > 0 ? 'up' : 'neutral')}
+        ${dashV2Kpi('fa-chart-line', '#059669', 'Marge brute', `${Number(stats.grossMargin || 0).toLocaleString('fr-FR')} €`, trends.margin ? `${trends.margin > 0 ? '+' : ''}${trends.margin}%` : '', 'up')}
+        ${dashV2Kpi('fa-clipboard-check', '#7c3aed', 'Missions réalisées', stats.completedMissions ?? 0, trends.missions || '', 'up')}
+        ${dashV2Kpi('fa-road', '#ea580c', 'Km parcourus', `${Number(stats.totalKm || 0).toLocaleString('fr-FR')} km`, trends.km || '', 'up')}
+        ${dashV2Kpi('fa-gauge-high', '#0891b2', 'CA / km', `${stats.revenuePerKm ?? 0} €/km`, trends.revenuePerKm || '', 'neutral')}
+        ${dashV2Kpi('fa-basket-shopping', '#db2777', 'Panier moyen', `${Number(stats.avgOrderValue || 0).toLocaleString('fr-FR')} €`, trends.avgOrder || '', 'up')}
+    </div>
+
+    <div class="dash-v2-mid-grid">
+        <div class="dash-v2-card">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="dash-v2-card-title mb-0">Évolution du chiffre d'affaires</h4>
+                <span class="text-xs text-gray-400">${new Date().getFullYear()}</span>
+            </div>
+            <div class="dash-v2-chart-h"><canvas id="dashRevChart"></canvas></div>
+        </div>
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Répartition des coûts</h4>
+            <div class="dash-v2-chart-h"><canvas id="dashCostChart"></canvas></div>
+        </div>
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Carte des missions en temps réel</h4>
+            <div class="dash-v2-map">
+                <div class="dash-v2-map-fr"></div>
+                ${mapDots}
+                <div class="dash-v2-map-legend">
+                    <span class="lg-progress">En cours</span>
+                    <span class="lg-done">Livrée</span>
+                    <span class="lg-wait">En attente</span>
+                    <span class="lg-late">Retard</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-v2-mini-row">
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Performance des missions</h4>
+            <div class="dash-v2-chart-sm"><canvas id="dashMissionPerfChart"></canvas></div>
+        </div>
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Taux de remplissage</h4>
+            <div class="dash-v2-gauge-wrap">
+                <canvas id="dashFillGauge"></canvas>
+                <span class="dash-v2-gauge-value">${stats.fillRate ?? 0}%</span>
+            </div>
+        </div>
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Coût moyen / mission</h4>
+            <div class="dash-v2-stat-big">${Number(stats.avgCostPerMission || 0).toLocaleString('fr-FR')} €</div>
+            <p class="text-center text-xs text-gray-400 mt-1">achat moyen par transport</p>
+        </div>
+    </div>
+
+    <div class="dash-v2-lower-grid">
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Top 5 Conducteurs</h4>
+            <table class="dash-v2-table">
+                <thead><tr><th>#</th><th>Nom</th><th>Miss.</th><th>CA</th><th>Marge</th><th>Ponct.</th></tr></thead>
+                <tbody>${topDrivers.length ? topDrivers.map(d => `<tr><td>${d.rank}</td><td>${d.name}</td><td>${d.missions}</td><td>${Number(d.revenue).toLocaleString('fr-FR')} €</td><td>${Number(d.margin).toLocaleString('fr-FR')} €</td><td>${d.punctuality}%</td></tr>`).join('') : '<tr><td colspan="6" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
+            </table>
+        </div>
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Top 5 Véhicules</h4>
+            <table class="dash-v2-table">
+                <thead><tr><th>Véhicule</th><th>Miss.</th><th>Km</th><th>Conso</th><th>Dispo</th></tr></thead>
+                <tbody>${topVehicles.length ? topVehicles.map(v => `<tr><td>${v.name}</td><td>${v.missions}</td><td>${Number(v.km).toLocaleString('fr-FR')}</td><td>${v.avgConsumption != null ? v.avgConsumption + ' L' : '—'}</td><td>${v.availability}%</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
+            </table>
+        </div>
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Top 5 Clients</h4>
+            ${topClients.length ? topClients.map(c => `<div class="dash-v2-client-bar"><div class="dash-v2-client-bar-head"><span>${c.name}</span><span>${c.share}% · ${Number(c.revenue).toLocaleString('fr-FR')} €</span></div><div class="dash-v2-client-bar-track"><div class="dash-v2-client-bar-fill" style="width:${c.share}%"></div></div></div>`).join('') : '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune donnée</p>'}
+        </div>
+        <div class="dash-v2-card">
+            <h4 class="dash-v2-card-title">Alertes</h4>
+            ${alerts.length ? alerts.map(a => `<div class="dash-v2-alert ${a.type}"><i class="fa-solid ${a.icon}"></i><span>${a.text}</span></div>`).join('') : '<p class="text-gray-400 italic text-sm py-2">Aucune alerte</p>'}
+        </div>
+    </div>
+
+    <div class="dash-v2-footer-bar">
+        <span><i class="fa-solid fa-truck text-blue-500 mr-1"></i> Véhicules disponibles : <strong>${fleet.vehicles?.available ?? 0} / ${fleet.vehicles?.total ?? 0}</strong></span>
+        <span><i class="fa-solid fa-user text-indigo-500 mr-1"></i> Conducteurs disponibles : <strong>${fleet.drivers?.available ?? 0} / ${fleet.drivers?.total ?? 0}</strong></span>
+        <span><i class="fa-solid fa-clipboard-list text-purple-500 mr-1"></i> Missions aujourd'hui : <strong>${today.missions ?? 0}</strong></span>
+        <span><i class="fa-solid fa-box text-teal-500 mr-1"></i> Livraisons aujourd'hui : <strong>${today.deliveries ?? 0}</strong></span>
+        <span><i class="fa-solid fa-road text-orange-500 mr-1"></i> Km aujourd'hui : <strong>${Number(today.km || 0).toLocaleString('fr-FR')} km</strong></span>
+        <span><i class="fa-solid fa-euro-sign text-green-600 mr-1"></i> CA aujourd'hui : <strong>${Number(today.revenue || 0).toLocaleString('fr-FR')} €</strong></span>
+    </div>`;
+}
+
 // --- RENDER: Dashboard & transports ---
 function renderDashboard(stats = {}) {
     let activeTab = window.activeDashboardTab || 'general';
@@ -1023,13 +1424,15 @@ function renderDashboard(stats = {}) {
         activeTab = 'general';
     }
 
+    const f = window.dashboardFilters || getDefaultDashboardFilters();
+    const periodLabel = `${f.startDate ? formatDisplayDate(f.startDate) : '…'} – ${f.endDate ? formatDisplayDate(f.endDate) : '…'}`;
+
     const palletsTabBtn = (typeof planHasFeature === 'function' && planHasFeature('pallets'))
         ? `<button onclick="window.switchDashboardTab('pallets')" class="px-6 py-2 ${activeTab === 'pallets' ? 'bg-gray-100 border-t-2 border-teal-500 font-bold text-teal-700' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</button>`
         : '';
 
-    // Tab Headers
     const tabsHtml = `
-        <div class="flex gap-1 border-b border-gray-200">
+        <div class="flex gap-1 border-b border-gray-200 mb-4">
             <button onclick="window.switchDashboardTab('general')" class="px-6 py-2 ${activeTab === 'general' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Général</button>
             <button onclick="window.switchDashboardTab('quotations')" class="px-6 py-2 ${activeTab === 'quotations' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Cotations</button>
             <button onclick="window.switchDashboardTab('invoicing')" class="px-6 py-2 ${activeTab === 'invoicing' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Facturation</button>
@@ -1040,106 +1443,7 @@ function renderDashboard(stats = {}) {
     let tabContent = '';
 
     if (activeTab === 'general') {
-        tabContent = `
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-blue-600">${stats.activeTransports ?? stats.activeMissions ?? 0}</h3>
-                <p class="text-gray-400 text-sm">Transports actifs</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-teal-600">${stats.delivered ?? 0}</h3>
-                <p class="text-gray-400 text-sm">Livrés</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-orange-600">${stats.uninvoicedTransports ?? 0}</h3>
-                <p class="text-gray-400 text-sm">À préfacturer</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-gray-700">${stats.totalTransports ?? stats.totalExpeditions ?? 0}</h3>
-                <p class="text-gray-400 text-sm">Total transports</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center relative">
-                <h3 class="text-3xl font-bold text-gray-700">${Number(stats.totalRevenue || 0).toLocaleString()} €</h3>
-                <p class="text-gray-400 text-sm">Chiffre d'Affaires</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-gray-700">${Number(stats.totalExpenses || 0).toLocaleString()} €</h3>
-                <p class="text-gray-400 text-sm">Dépenses</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-gray-700">${Number(stats.totalSavings || 0).toLocaleString()} €</h3>
-                <p class="text-gray-400 text-sm">Économies réalisées</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-2xl font-bold text-red-600">${stats.operationalRates?.cancellationRate ?? 0}%</h3>
-                <p class="text-gray-400 text-xs mt-1">Taux d'annulation</p>
-                <p class="text-[10px] text-gray-400">${stats.operationalRates?.cancelledCount ?? 0} / ${stats.operationalRates?.totalCount ?? 0}</p>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-2xl font-bold text-teal-600">${stats.operationalRates?.deliveryRate ?? 0}%</h3>
-                <p class="text-gray-400 text-xs mt-1">Taux de livraison</p>
-                <p class="text-[10px] text-gray-400">${stats.operationalRates?.deliveredCount ?? 0} livré(s)</p>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-2xl font-bold text-indigo-600">${stats.operationalRates?.validationRate ?? 0}%</h3>
-                <p class="text-gray-400 text-xs mt-1">Taux de validation</p>
-                <p class="text-[10px] text-gray-400">${stats.operationalRates?.validatedCount ?? 0} validé(s)</p>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-2xl font-bold text-amber-600">${stats.operationalRates?.inProgressRate ?? 0}%</h3>
-                <p class="text-gray-400 text-xs mt-1">En cours / planifiés</p>
-                <p class="text-[10px] text-gray-400">${stats.operationalRates?.inProgressCount ?? 0} transport(s)</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-center font-bold text-gray-700 mb-4">Chiffre d'affaires par client</h4>
-                <div class="h-72"><canvas id="clientRevenueChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-center font-bold text-gray-700 mb-4">Répartition des statuts transports</h4>
-                <div class="h-72"><canvas id="statusDistributionChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-center font-bold text-gray-700 mb-4">Indicateurs opérationnels (%)</h4>
-                <div class="h-72"><canvas id="operationalRatesChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-center font-bold text-gray-700 mb-4">Volume d'expéditions par client</h4>
-                <div class="h-72"><canvas id="donutExpeditions"></canvas></div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-center font-bold text-gray-700 mb-4">Analyse du Chiffre d'Affaires</h4>
-                <div class="h-64"><canvas id="revenueEvolutionChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-center font-bold text-gray-700 mb-4">Répartition des Coûts (Propre vs Affrètement)</h4>
-                <div class="h-64"><canvas id="costBreakdownChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-center font-bold text-gray-700 mb-4">Performance Géographique (Destinations)</h4>
-                <div class="h-64"><canvas id="geoPerformanceChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-center font-bold text-gray-700 mb-4">Taux de Remplissage Flotte</h4>
-                <div class="h-64 relative">
-                    <canvas id="donutCapacity"></canvas>
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span id="capacity-text" class="text-2xl font-bold text-blue-600 mt-2">0%</span>
-                    </div>
-                </div>
-            </div>
-        </div>`;
+        tabContent = renderDashboardGeneralV2(stats);
     } else if (activeTab === 'quotations') {
         tabContent = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -1264,33 +1568,15 @@ function renderDashboard(stats = {}) {
     }
 
     return `
-    <div class="fade-in">
-        <div class="mb-6 flex flex-col gap-4">
-            <div class="flex flex-wrap items-center gap-2 bg-white p-3 rounded-lg shadow-sm border border-gray-100">
-                <button class="bg-cyan-500 text-white px-4 py-2 rounded flex items-center gap-2 text-sm font-medium">
-                    <i class="fa-solid fa-filter"></i> Filtre avancé
-                </button>
-                <div class="h-8 w-px bg-gray-200 mx-2"></div>
-                <div class="flex-1"></div>
-                <input type="text" value="2022-12-01 - 2023-12-31" class="border rounded px-3 py-1 text-sm text-gray-600">
+    <div class="fade-in dash-v2">
+        <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
+            <div>
+                <p class="dash-v2-subtitle">Vue d'ensemble de votre activité</p>
             </div>
-            ${tabsHtml}
+            <div class="dash-v2-period"><i class="fa-regular fa-calendar mr-1"></i> Période ${periodLabel}</div>
         </div>
+        ${tabsHtml}
         ${tabContent}
-
-        <div class="mt-6 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h3 class="font-bold text-gray-800 mb-4">Accès Rapide</h3>
-            <div class="flex gap-4">
-                <button onclick="router('quotation')" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"><i class="fa-solid fa-calculator mr-2"></i>Calculateur Cotation</button>
-                ${canManageInvoices() ? `<button onclick="router('create_invoice')" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Facture</button>` : ''}
-                <button onclick="router('completed_transports')" class="bg-white border text-gray-700 px-4 py-2 rounded hover:bg-gray-50"><i class="fa-solid fa-truck mr-2"></i>Transports Réalisés</button>
-            </div>
-            <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
-                <span><i class="fa-solid fa-leaf mr-1 text-green-500"></i> Émissions CO2e : <strong>${Number(stats.totalCO2 || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</strong></span>
-                ${stats.carbon ? `<span>Scope 3 : <strong>${Number(stats.carbon.scope3Kg || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</strong></span>` : ''}
-                <button type="button" onclick="router('sustainability')" class="text-green-700 hover:underline font-medium">Module Durabilité →</button>
-            </div>
-        </div>
     </div>`;
 }
 
@@ -4152,33 +4438,7 @@ async function router(route) {
     switch (route) {
         case 'dashboard':
             title = 'Tableau de bord';
-            // Rendu immédiat avec le squelette et les données vides
-            content = renderDashboard();
-
-            // Prepare filter query parameters
-            const filterParams = new URLSearchParams();
-            if (window.dashboardFilters.startDate) {
-                filterParams.append('startDate', window.dashboardFilters.startDate);
-            }
-            if (window.dashboardFilters.endDate) {
-                filterParams.append('endDate', window.dashboardFilters.endDate);
-            }
-            const queryString = filterParams.toString();
-            // Chargement asynchrone des statistiques en arrière-plan
-            apiFetch(`dashboard/stats${queryString ? `?${queryString}` : ''}`)
-                .then(res => res.json())
-                .then(stats => {
-                    document.getElementById('app-content').innerHTML = renderDashboard(stats);
-                    if (window.activeDashboardTab === 'pallets') {
-                        loadDashboardPallets();
-                    } else {
-                        initDashboardCharts(stats);
-                    }
-                })
-                .catch(err => console.warn("Statistiques indisponibles, affichage par défaut", err));
-            if (window.activeDashboardTab === 'pallets') {
-                setTimeout(() => loadDashboardPallets(), 0);
-            }
+            await refreshDashboardView();
             break;
         case 'transports':
             title = transportFilters.view === 'trash' ? 'Corbeille transports' : 'Transports';
@@ -4346,31 +4606,7 @@ async function router(route) {
             break;
         default:
             title = 'Tableau de bord';
-            content = renderDashboard();
-
-            // Prepare filter query parameters for default route
-            const defaultFilterParams = new URLSearchParams();
-            if (window.dashboardFilters.startDate) {
-                defaultFilterParams.append('startDate', window.dashboardFilters.startDate);
-            }
-            if (window.dashboardFilters.endDate) {
-                defaultFilterParams.append('endDate', window.dashboardFilters.endDate);
-            }
-            const defaultQueryString = defaultFilterParams.toString();
-            apiFetch(`dashboard/stats${defaultQueryString ? `?${defaultQueryString}` : ''}`)
-                .then(res => res.json())
-                .then(stats => {
-                    document.getElementById('app-content').innerHTML = renderDashboard(stats);
-                    if (window.activeDashboardTab === 'pallets') {
-                        loadDashboardPallets();
-                    } else {
-                        initDashboardCharts(stats);
-                    }
-                })
-                .catch(err => console.warn("Statistiques indisponibles (default)", err));
-            if (window.activeDashboardTab === 'pallets') {
-                setTimeout(() => loadDashboardPallets(), 0);
-            }
+            await refreshDashboardView();
             break;
     }
 
@@ -4462,10 +4698,75 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
     destroyAllChartInstances();
 
     if (activeTab === 'general') {
-        // Evolution CA (Mensuel)
-        const revCtx = document.getElementById('revenueEvolutionChart');
+        const chartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
+        const revCtx = document.getElementById('dashRevChart');
         if (revCtx) {
-            chartInstances.revenueEvolutionChart = new Chart(revCtx, {
+            chartInstances.dashRevChart = new Chart(revCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
+                    datasets: [{
+                        label: 'CA (€)',
+                        data: stats.revenueChart || new Array(12).fill(0),
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 3
+                    }]
+                },
+                options: chartOpts
+            });
+        }
+
+        const costCtx = document.getElementById('dashCostChart');
+        if (costCtx) {
+            const cats = stats.costCategories || [];
+            const labels = cats.length ? cats.map(c => c.label) : ['Aucune donnée'];
+            const data = cats.length ? cats.map(c => c.value) : [1];
+            chartInstances.dashCostChart = new Chart(costCtx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{ data, backgroundColor: ['#2563eb', '#059669', '#f59e0b', '#8b5cf6', '#ec4899', '#94a3b8'] }]
+                },
+                options: { ...chartOpts, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            });
+        }
+
+        const perfCtx = document.getElementById('dashMissionPerfChart');
+        if (perfCtx) {
+            const mp = stats.missionPerformance || {};
+            chartInstances.dashMissionPerfChart = new Chart(perfCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Livrées', 'En cours', 'En attente', 'Retards', 'Annulées'],
+                    datasets: [{
+                        data: [mp.delivered || 0, mp.inProgress || 0, mp.pending || 0, mp.late || 0, mp.cancelled || 0],
+                        backgroundColor: ['#059669', '#2563eb', '#f59e0b', '#dc2626', '#94a3b8']
+                    }]
+                },
+                options: { ...chartOpts, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            });
+        }
+
+        const fillCtx = document.getElementById('dashFillGauge');
+        if (fillCtx) {
+            const fillRate = stats.fillRate || 0;
+            chartInstances.dashFillGauge = new Chart(fillCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Rempli', 'Libre'],
+                    datasets: [{ data: [fillRate, Math.max(0, 100 - fillRate)], backgroundColor: ['#2563eb', '#e2e8f0'], borderWidth: 0, circumference: 180, rotation: 270 }]
+                },
+                options: { ...chartOpts, cutout: '75%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+            });
+        }
+
+        // Legacy charts (autres vues / compat)
+        const revLegacy = document.getElementById('revenueEvolutionChart');
+        if (revLegacy) {
+            chartInstances.revenueEvolutionChart = new Chart(revLegacy, {
                 type: 'bar',
                 data: {
                     labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
@@ -4476,14 +4777,14 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
         }
 
         // Propre vs Affrètement
-        const costCtx = document.getElementById('costBreakdownChart');
-        if (costCtx) {
+        const costLegacyCtx = document.getElementById('costBreakdownChart');
+        if (costLegacyCtx) {
             const own = stats.costBreakdown ? stats.costBreakdown[0] : 0;
             const chartered = stats.costBreakdown ? stats.costBreakdown[1] : 0;
-            const data = (own === 0 && chartered === 0) ? [1, 1] : [own, chartered]; // Default to show something if no data
+            const data = (own === 0 && chartered === 0) ? [1, 1] : [own, chartered];
             const labels = (own === 0 && chartered === 0) ? ['Aucune donnée'] : ['Transport Propre', 'Affrètement'];
 
-            chartInstances.costBreakdownChart = new Chart(costCtx, {
+            chartInstances.costBreakdownChart = new Chart(costLegacyCtx, {
                 type: 'pie',
                 data: {
                     labels: labels,

@@ -15,6 +15,7 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dashboard-v2.css">
 </head>
 
 <body class="h-screen overflow-hidden text-gray-800">
@@ -1416,6 +1417,79 @@
             <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
                 <button onclick="closeAddUserModal()" class="px-4 py-2 border rounded text-gray-600 mr-2">Annuler</button>
                 <button onclick="submitAddUser()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Créer l'utilisateur</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Filtre avancé tableau de bord -->
+    <div id="dashboard-advanced-filter-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="dash-filter-title">
+        <div class="dash-filter-panel bg-white rounded-xl shadow-2xl fade-in">
+            <div class="dash-filter-header flex justify-between items-start gap-3 p-4 border-b bg-gradient-to-r from-cyan-50 to-blue-50 rounded-t-xl">
+                <div class="min-w-0 pr-2">
+                    <h3 id="dash-filter-title" class="font-bold text-lg text-gray-800"><i class="fa-solid fa-filter mr-2 text-cyan-600"></i>Filtre avancé — Tableau de bord</h3>
+                    <p class="text-xs text-gray-500 mt-1">Choisissez vos filtres et les indicateurs à afficher.</p>
+                </div>
+                <button type="button" onclick="closeDashboardAdvancedFilter()" class="shrink-0 text-gray-400 hover:text-gray-600 p-1" aria-label="Fermer"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="dash-filter-body space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Libellé de la vue (optionnel)</label>
+                    <input type="text" id="dash-filter-report-name" placeholder="Ex. Suivi CA client Q1 2026" class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div class="dash-filter-grid-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date début</label>
+                        <input type="date" id="dash-filter-start" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date fin</label>
+                        <input type="date" id="dash-filter-end" class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="dash-filter-grid-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                        <select id="dash-filter-client" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">Tous</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>
+                        <select id="dash-filter-driver" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">Tous</option></select>
+                    </div>
+                </div>
+                <div class="dash-filter-grid-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                        <select id="dash-filter-status" class="w-full border rounded-lg px-3 py-2 text-sm">
+                            <option value="">Tous</option>
+                            <option value="Brouillon">Brouillon</option>
+                            <option value="À planifier">À planifier</option>
+                            <option value="Planifié">Planifié</option>
+                            <option value="Pris en charge">Pris en charge</option>
+                            <option value="En cours">En cours</option>
+                            <option value="Affrété">Affrété</option>
+                            <option value="Livré">Livré</option>
+                            <option value="Validé">Validé</option>
+                            <option value="Clôturé">Clôturé</option>
+                            <option value="Annulé">Annulé</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type d'affectation</label>
+                        <select id="dash-filter-assignment" class="w-full border rounded-lg px-3 py-2 text-sm">
+                            <option value="">Tous</option>
+                            <option value="INTERNAL">Flotte propre</option>
+                            <option value="SUBCONTRACTED">Affrètement</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Indicateurs à afficher sur le tableau de bord</label>
+                    <div id="dash-filter-metrics" class="text-sm"></div>
+                </div>
+            </div>
+            <div class="dash-filter-footer">
+                <button type="button" onclick="resetDashboardFilters()" class="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-white bg-white">Réinitialiser</button>
+                <button type="button" onclick="applyDashboardAdvancedFilter()" class="dash-filter-btn-validate px-5 py-2 rounded-lg text-sm">Valider</button>
             </div>
         </div>
     </div>
