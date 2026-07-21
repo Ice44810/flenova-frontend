@@ -962,6 +962,7 @@ function getDefaultDashboardFilters() {
         clientId: null,
         driverId: null,
         vehicleId: null,
+        trailerId: null,
         country: null,
         originCountry: null,
         destCountry: null,
@@ -981,6 +982,8 @@ function getDefaultDashboardFilters() {
 
 window.dashboardFilters = getDefaultDashboardFilters();
 window.dashboardCustomView = false;
+window.dashboardSavedViews = [];
+window.dashboardFiltersExpanded = false;
 window._dashFilterDebounce = null;
 window._dashFilterListenersBound = false;
 
@@ -1000,12 +1003,43 @@ const DASHBOARD_COCKPIT_MODES = {
     flotte: { label: 'Responsable flotte', icon: 'fa-gears' }
 };
 
+const COCKPIT_SECTIONS = {
+    dirigeant: { financial: true, exploitation: false, drivers: false, vehicles: false, clients: true, alerts: true, footer: true, kpiSecondary: true },
+    exploitant: { financial: false, exploitation: true, drivers: true, vehicles: true, clients: false, alerts: true, footer: true, kpiSecondary: true },
+    comptabilite: { financial: true, exploitation: false, drivers: false, vehicles: false, clients: true, alerts: true, footer: false, kpiSecondary: false },
+    flotte: { financial: false, exploitation: true, drivers: false, vehicles: true, clients: false, alerts: true, footer: true, kpiSecondary: true }
+};
+
 function getDefaultCockpitMode() {
     const role = typeof getUserRole === 'function' ? getUserRole() : 'lecture';
     if (role === 'comptabilite') return 'comptabilite';
     if (role === 'exploitant') return 'exploitant';
+    if (role === 'chauffeur') return 'exploitant';
     if (role === 'admin') return 'dirigeant';
     return 'dirigeant';
+}
+
+function isCockpitSectionVisible(section) {
+    const profile = getDefaultCockpitMode();
+    const layout = COCKPIT_SECTIONS[profile] || COCKPIT_SECTIONS.dirigeant;
+    return layout[section] !== false;
+}
+
+function getVehiclesByType(type) {
+    return (db.vehicles || []).filter(v => (v.vehicle_type || 'TRUCK') === type);
+}
+
+async function loadDashboardSavedViewsFromServer() {
+    try {
+        const res = await apiFetch('dashboard/saved-views');
+        if (res.ok) {
+            window.dashboardSavedViews = await res.json();
+        } else {
+            window.dashboardSavedViews = [];
+        }
+    } catch {
+        window.dashboardSavedViews = [];
+    }
 }
 
 function resolvePeriodDates(preset) {
@@ -1027,26 +1061,6 @@ function resolvePeriodDates(preset) {
     return null;
 }
 
-function getDashboardSavedViews() {
-    try { return JSON.parse(localStorage.getItem('flenova_dashboard_views') || '[]'); } catch { return []; }
-}
-
-function saveDashboardSavedViews(views) {
-    localStorage.setItem('flenova_dashboard_views', JSON.stringify(views.slice(-20)));
-}
-
-function ensureDefaultDashboardViews() {
-    if (getDashboardSavedViews().length) return;
-    const base = getDefaultDashboardFilters();
-    saveDashboardSavedViews([
-        { id: 'view_fr', name: 'Mes KPI France', filters: { ...base, periodPreset: 'month', originCountry: 'France' } },
-        { id: 'view_es', name: 'KPI Espagne', filters: { ...base, periodPreset: 'month', destCountry: 'Espagne' } },
-        { id: 'view_aff', name: 'KPI Affrètement', filters: { ...base, periodPreset: 'month', assignmentType: 'SUBCONTRACTED' } },
-        { id: 'view_fleet', name: 'KPI Flotte propre', filters: { ...base, periodPreset: 'month', assignmentType: 'INTERNAL' } },
-        { id: 'view_inv', name: 'KPI Facturation', filters: { ...base, periodPreset: 'month', invoicedOnly: true } }
-    ]);
-}
-
 function isDashboardMetricEnabled(key) {
     if (!window.dashboardCustomView) return true;
     const metrics = window.dashboardFilters?.metrics;
@@ -1066,6 +1080,7 @@ function normalizeDashboardFilters(raw = {}) {
         clientId: norm(raw.clientId),
         driverId: norm(raw.driverId),
         vehicleId: norm(raw.vehicleId),
+        trailerId: norm(raw.trailerId),
         country: norm(raw.country),
         originCountry: norm(raw.originCountry),
         destCountry: norm(raw.destCountry),
@@ -1092,6 +1107,7 @@ async function refreshDashboardView(options = {}) {
     const appContent = document.getElementById('app-content');
     if (!appContent) return;
 
+    await loadDashboardSavedViewsFromServer();
     appContent.innerHTML = renderDashboard();
     window._dashFilterListenersBound = false;
     const loadingEl = document.getElementById('dash-kpi-loading');
@@ -1127,6 +1143,7 @@ function buildDashboardQueryString() {
     if (f.clientId) p.append('clientId', f.clientId);
     if (f.driverId) p.append('driverId', f.driverId);
     if (f.vehicleId) p.append('vehicleId', f.vehicleId);
+    if (f.trailerId) p.append('trailerId', f.trailerId);
     if (f.country) p.append('country', f.country);
     if (f.originCountry) p.append('originCountry', f.originCountry);
     if (f.destCountry) p.append('destCountry', f.destCountry);
@@ -1360,25 +1377,22 @@ function dashV2Kpi(icon, bg, label, value, trend, trendClass) {
     </div>`;
 }
 
-function renderDashboardInlineFilters() {
+function renderDashboardFiltersBody() {
     const f = window.dashboardFilters || getDefaultDashboardFilters();
     const clients = db.clients || [];
     const drivers = db.drivers || [];
-    const vehicles = db.vehicles || [];
-    const savedViews = getDashboardSavedViews();
+    const trucks = getVehiclesByType('TRUCK');
+    const trailers = getVehiclesByType('TRAILER');
     const preset = f.periodPreset || 'year';
     const presetOpts = Object.entries(DASHBOARD_PERIOD_PRESETS).map(([k, lbl]) =>
         `<option value="${k}" ${preset === k ? 'selected' : ''}>${lbl}</option>`
-    ).join('');
-    const cockpitOpts = Object.entries(DASHBOARD_COCKPIT_MODES).map(([k, m]) =>
-        `<option value="${k}" ${f.cockpitMode === k ? 'selected' : ''}>${m.label}</option>`
     ).join('');
     const countries = ['France', 'Belgique', 'Espagne', 'Allemagne', 'Italie', 'Pays-Bas', 'Portugal'];
     const countryOptions = (selected) => countries.map(c =>
         `<option value="${c}" ${selected === c ? 'selected' : ''}>${c}</option>`
     ).join('');
 
-    return `<div class="dash-v2-filters-panel">
+    return `
         <div class="dash-v2-filters-toolbar">
             <div class="dash-v2-filters-toolbar-left">
                 <div class="dash-v2-filter-field dash-v2-filter-field--period">
@@ -1390,28 +1404,13 @@ function renderDashboardInlineFilters() {
                     <span>→</span>
                     <input type="date" id="dash-inline-end" value="${f.endDate || ''}">
                 </div>
-                <div class="dash-v2-filter-field">
-                    <label>Mode Cockpit</label>
-                    <select id="dash-inline-cockpit">${cockpitOpts}</select>
-                </div>
-                <div class="dash-v2-filter-field">
-                    <label>Vues enregistrées</label>
-                    <select id="dash-inline-saved-view">
-                        <option value="">— Choisir une vue —</option>
-                        ${savedViews.map(v => `<option value="${v.id}">⭐ ${v.name}</option>`).join('')}
-                    </select>
-                </div>
-            </div>
-            <div class="dash-v2-filters-toolbar-right">
-                <button type="button" class="dash-v2-btn-save-view" onclick="promptSaveDashboardView()" title="Enregistrer les filtres actuels"><i class="fa-solid fa-star"></i></button>
-                <button type="button" class="dash-v2-btn-refresh" onclick="refreshDashboardStatsOnly()" title="Actualiser"><i class="fa-solid fa-arrows-rotate"></i> Actualiser</button>
             </div>
         </div>
         <div class="dash-v2-filters-grid">
             <div><label>Client</label><select id="dash-inline-client"><option value="">Tous</option>${clients.map(c => `<option value="${c.id}" ${String(c.id) === String(f.clientId) ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
             <div><label>Conducteur</label><select id="dash-inline-driver"><option value="">Tous</option>${drivers.map(d => `<option value="${d.id}" ${String(d.id) === String(f.driverId) ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div>
-            <div><label>Véhicule</label><select id="dash-inline-vehicle"><option value="">Tous</option>${vehicles.map(v => `<option value="${v.id}" ${String(v.id) === String(f.vehicleId) ? 'selected' : ''}>${v.plate || v.model || v.name}</option>`).join('')}</select></div>
-            <div><label>Remorque</label><select id="dash-inline-trailer" disabled><option value="">Toutes</option></select></div>
+            <div><label>Véhicule</label><select id="dash-inline-vehicle"><option value="">Tous</option>${trucks.map(v => `<option value="${v.id}" ${String(v.id) === String(f.vehicleId) ? 'selected' : ''}>${v.plate || v.model}</option>`).join('')}</select></div>
+            <div><label>Remorque</label><select id="dash-inline-trailer"><option value="">Toutes</option>${trailers.map(v => `<option value="${v.id}" ${String(v.id) === String(f.trailerId) ? 'selected' : ''}>${v.plate || v.model}</option>`).join('')}</select></div>
             <div><label>Activité</label><select id="dash-inline-activity"><option value="">Toutes</option><option value="national" ${f.activity === 'national' ? 'selected' : ''}>National</option><option value="international" ${f.activity === 'international' ? 'selected' : ''}>International</option></select></div>
             <div><label>Agence</label><select id="dash-inline-agency" disabled><option value="">Toutes</option></select></div>
             <div><label>Type mission</label><select id="dash-inline-assignment"><option value="">Tous</option><option value="INTERNAL" ${f.assignmentType === 'INTERNAL' ? 'selected' : ''}>Flotte propre</option><option value="SUBCONTRACTED" ${f.assignmentType === 'SUBCONTRACTED' ? 'selected' : ''}>Affrètement</option></select></div>
@@ -1426,9 +1425,44 @@ function renderDashboardInlineFilters() {
             <label class="dash-v2-checkbox"><input type="checkbox" id="dash-inline-invoiced" ${f.invoicedOnly ? 'checked' : ''}> Afficher uniquement les missions facturées</label>
             <label class="dash-v2-checkbox"><input type="checkbox" id="dash-inline-paid" ${f.paidOnly ? 'checked' : ''}> Uniquement factures payées</label>
             <button type="button" class="dash-v2-btn-reset" onclick="resetDashboardInlineFilters()">Réinitialiser</button>
+        </div>`;
+}
+
+function renderDashboardFiltersBar() {
+    const cockpit = getDefaultCockpitMode();
+    const cockpitMeta = DASHBOARD_COCKPIT_MODES[cockpit] || DASHBOARD_COCKPIT_MODES.dirigeant;
+    const savedViews = window.dashboardSavedViews || [];
+    const expanded = !!window.dashboardFiltersExpanded;
+
+    return `<div class="dash-v2-filters-bar">
+        <button type="button" class="dash-v2-filters-toggle" onclick="toggleDashboardFilters()" aria-expanded="${expanded}">
+            <i class="fa-solid fa-filter"></i> Filtres KPI
+            <i class="fa-solid fa-chevron-${expanded ? 'up' : 'down'} dash-v2-filters-chevron"></i>
+        </button>
+        <span class="dash-v2-cockpit-badge" title="Vue adaptée à votre profil"><i class="fa-solid ${cockpitMeta.icon}"></i> Cockpit ${cockpitMeta.label}</span>
+        <div class="dash-v2-filters-bar-actions">
+            <select id="dash-inline-saved-view" class="dash-v2-saved-view-select" title="Vos vues enregistrées">
+                <option value="">${savedViews.length ? '— Mes vues —' : 'Aucune vue enregistrée'}</option>
+                ${savedViews.map(v => `<option value="${v.id}">⭐ ${v.name}</option>`).join('')}
+            </select>
+            <button type="button" class="dash-v2-btn-save-view" onclick="promptSaveDashboardView()" title="Enregistrer cette vue"><i class="fa-solid fa-star"></i></button>
+            <button type="button" class="dash-v2-btn-delete-view" onclick="deleteDashboardSavedView()" title="Supprimer la vue sélectionnée"><i class="fa-solid fa-trash"></i></button>
+            <button type="button" class="dash-v2-btn-refresh" onclick="refreshDashboardStatsOnly()" title="Actualiser"><i class="fa-solid fa-arrows-rotate"></i></button>
         </div>
     </div>`;
 }
+
+window.toggleDashboardFilters = function () {
+    window.dashboardFiltersExpanded = !window.dashboardFiltersExpanded;
+    const panel = document.getElementById('dash-filters-panel');
+    if (panel) panel.classList.toggle('dash-v2-filters-panel--hidden', !window.dashboardFiltersExpanded);
+    const btn = document.querySelector('.dash-v2-filters-toggle');
+    if (btn) {
+        btn.setAttribute('aria-expanded', window.dashboardFiltersExpanded ? 'true' : 'false');
+        const chevron = btn.querySelector('.dash-v2-filters-chevron');
+        if (chevron) chevron.className = `fa-solid fa-chevron-${window.dashboardFiltersExpanded ? 'up' : 'down'} dash-v2-filters-chevron`;
+    }
+};
 
 function readDashboardInlineFilters() {
     const preset = document.getElementById('dash-inline-preset')?.value || 'custom';
@@ -1446,6 +1480,7 @@ function readDashboardInlineFilters() {
         clientId: document.getElementById('dash-inline-client')?.value || null,
         driverId: document.getElementById('dash-inline-driver')?.value || null,
         vehicleId: document.getElementById('dash-inline-vehicle')?.value || null,
+        trailerId: document.getElementById('dash-inline-trailer')?.value || null,
         originCountry: document.getElementById('dash-inline-origin')?.value || null,
         destCountry: document.getElementById('dash-inline-dest')?.value || null,
         activity: document.getElementById('dash-inline-activity')?.value || null,
@@ -1456,7 +1491,7 @@ function readDashboardInlineFilters() {
         missionRef: document.getElementById('dash-inline-mission-ref')?.value?.trim() || null,
         invoicedOnly: !!document.getElementById('dash-inline-invoiced')?.checked,
         paidOnly: !!document.getElementById('dash-inline-paid')?.checked,
-        cockpitMode: document.getElementById('dash-inline-cockpit')?.value || getDefaultCockpitMode(),
+        cockpitMode: getDefaultCockpitMode(),
         metrics: []
     });
 }
@@ -1467,9 +1502,8 @@ function scheduleDashboardFilterRefresh() {
 }
 
 function initDashboardFilterAutoApply() {
-    ensureDefaultDashboardViews();
     if (window._dashFilterListenersBound) return;
-    const root = document.getElementById('dash-filters-root');
+    const root = document.getElementById('dash-filters-wrap');
     if (!root) return;
     window._dashFilterListenersBound = true;
 
@@ -1488,50 +1522,66 @@ function initDashboardFilterAutoApply() {
                 }
             }
         }
-        if (t.id === 'dash-inline-cockpit') {
-            applyCockpitMode(t.value, true);
-            return;
-        }
         if (t.id === 'dash-inline-saved-view' && t.value) loadDashboardSavedView(t.value);
-        scheduleDashboardFilterRefresh();
+        if (t.id !== 'dash-inline-saved-view') scheduleDashboardFilterRefresh();
     });
     root.addEventListener('input', (e) => {
         if (['dash-inline-region', 'dash-inline-mission-ref'].includes(e.target.id)) scheduleDashboardFilterRefresh();
     });
 }
 
-window.applyCockpitMode = function (mode, refresh = true) {
-    const presets = {
-        dirigeant: { periodPreset: 'year', status: null, assignmentType: null, invoicedOnly: false },
-        exploitant: { periodPreset: 'week', status: null, assignmentType: null, invoicedOnly: false },
-        comptabilite: { periodPreset: 'month', status: null, invoicedOnly: false, paidOnly: false },
-        flotte: { periodPreset: 'month', assignmentType: 'INTERNAL', status: null, invoicedOnly: false }
-    };
-    const p = presets[mode] || presets.dirigeant;
-    window.dashboardFilters = normalizeDashboardFilters({ ...getDefaultDashboardFilters(), ...p, cockpitMode: mode });
-    window._dashFilterListenersBound = false;
-    if (refresh) refreshDashboardView();
-};
-
-window.promptSaveDashboardView = function () {
-    const name = prompt('Nom de la vue enregistrée (ex. KPI France, KPI Client Amazon) :');
+window.promptSaveDashboardView = async function () {
+    const name = prompt('Nom de la vue enregistrée (ex. Mes KPI France, KPI Client Amazon) :');
     if (!name || !name.trim()) return;
     window.dashboardFilters = readDashboardInlineFilters();
-    const views = getDashboardSavedViews();
-    const id = 'view_' + Date.now();
-    views.push({ id, name: name.trim(), filters: { ...window.dashboardFilters } });
-    saveDashboardSavedViews(views);
-    showToast(`Vue « ${name.trim()} » enregistrée`, 'success');
-    window._dashFilterListenersBound = false;
-    refreshDashboardView();
+    try {
+        const res = await apiFetch('dashboard/saved-views', {
+            method: 'POST',
+            body: { name: name.trim(), filters: window.dashboardFilters }
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Erreur ${res.status}`);
+        }
+        await loadDashboardSavedViewsFromServer();
+        showToast(`Vue « ${name.trim()} » enregistrée`, 'success');
+        window._dashFilterListenersBound = false;
+        await refreshDashboardView();
+    } catch (err) {
+        showToast(err.message || 'Impossible d\'enregistrer la vue', 'error');
+    }
 };
 
-window.loadDashboardSavedView = function (viewId) {
-    const view = getDashboardSavedViews().find(v => v.id === viewId);
+window.loadDashboardSavedView = async function (viewId) {
+    const view = (window.dashboardSavedViews || []).find(v => String(v.id) === String(viewId));
     if (!view) return;
     window.dashboardFilters = normalizeDashboardFilters(view.filters);
+    window.dashboardCustomView = true;
     window._dashFilterListenersBound = false;
-    refreshDashboardView();
+    await refreshDashboardView();
+};
+
+window.deleteDashboardSavedView = async function () {
+    const id = document.getElementById('dash-inline-saved-view')?.value;
+    if (!id) {
+        showToast('Sélectionnez une vue à supprimer', 'info');
+        return;
+    }
+    const view = (window.dashboardSavedViews || []).find(v => String(v.id) === String(id));
+    if (!confirm(`Supprimer la vue « ${view?.name || ''} » ?`)) return;
+    try {
+        const res = await apiFetch(`dashboard/saved-views/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Erreur ${res.status}`);
+        }
+        await loadDashboardSavedViewsFromServer();
+        showToast('Vue supprimée', 'success');
+        window._dashFilterListenersBound = false;
+        await refreshDashboardView();
+    } catch (err) {
+        showToast(err.message || 'Impossible de supprimer la vue', 'error');
+    }
 };
 
 async function refreshDashboardStatsOnly() {
@@ -1591,6 +1641,7 @@ function renderDashboardMissionCounts(counts = {}) {
 }
 
 function renderDashboardKpiBody(stats = {}) {
+    const cockpit = getDefaultCockpitMode();
     const revenue = stats.filteredTransportRevenue ?? stats.totalRevenue ?? 0;
     const trends = stats.kpiTrends || {};
     const perf = stats.missionPerformance || {};
@@ -1599,6 +1650,8 @@ function renderDashboardKpiBody(stats = {}) {
     const fleet = stats.fleetAvailability || { vehicles: {}, drivers: {} };
     const mapMissions = stats.activeMissionsMap || [];
     const costCats = stats.costCategories || [];
+    const fillRate = stats.fillRate ?? stats.avgLoadFactor ?? 0;
+    const alertCount = (stats.alerts || []).length;
 
     const mapDots = mapMissions.map((m, i) => {
         const pos = dashMapPosition(m.dest || m.origin, i);
@@ -1610,26 +1663,47 @@ function renderDashboardKpiBody(stats = {}) {
     const topVehicles = stats.topVehicles || [];
     const topClients = stats.topClients || [];
     const alerts = stats.alerts || [];
-    const fillRate = stats.fillRate ?? stats.avgLoadFactor ?? 0;
 
-    return `
-    <div id="dash-kpi-loading" class="dash-v2-loading hidden"><i class="fa-solid fa-spinner fa-spin"></i> Mise à jour…</div>
+    let primaryRow = '';
+    if (cockpit === 'comptabilite') {
+        primaryRow = `
+            ${dashV2Kpi('fa-file-invoice-dollar', '#2563eb', 'CA facturé', `${Number(stats.totalRevenue || revenue).toLocaleString('fr-FR')} €`, '', 'neutral')}
+            ${dashV2Kpi('fa-hand-holding-dollar', '#dc2626', 'Encours clients', `${Number(stats.outstandingAmount || 0).toLocaleString('fr-FR')} €`, '', 'down')}
+            ${dashV2Kpi('fa-clock', '#d97706', 'Factures en attente', stats.pendingInvoiceValidation ?? 0, '', 'neutral')}
+            ${dashV2Kpi('fa-chart-line', '#059669', 'Marge brute', `${Number(stats.grossMargin || 0).toLocaleString('fr-FR')} €`, trends.margin ? `${trends.margin > 0 ? '+' : ''}${trends.margin}%` : '', 'up')}
+            ${dashV2Kpi('fa-basket-shopping', '#7c3aed', 'Panier moyen', `${Number(stats.avgOrderValue || 0).toLocaleString('fr-FR')} €`, '', 'neutral')}`;
+    } else if (cockpit === 'exploitant') {
+        primaryRow = `
+            ${dashV2Kpi('fa-truck-fast', '#2563eb', 'Missions en cours', counts.inProgress ?? 0, '', 'neutral')}
+            ${dashV2Kpi('fa-triangle-exclamation', '#dc2626', 'Retards', counts.late ?? 0, '', counts.late > 0 ? 'down' : 'neutral')}
+            ${dashV2Kpi('fa-truck', '#059669', 'Véhicules dispo', `${fleet.vehicles?.available ?? 0} / ${fleet.vehicles?.total ?? 0}`, '', 'up')}
+            ${dashV2Kpi('fa-clipboard-check', '#7c3aed', 'Livrées', counts.delivered ?? 0, trends.missions || '', 'up')}
+            ${dashV2Kpi('fa-bell', '#d97706', 'Incidents / alertes', alertCount, '', alertCount > 0 ? 'down' : 'neutral')}`;
+    } else if (cockpit === 'flotte') {
+        primaryRow = `
+            ${dashV2Kpi('fa-road', '#ea580c', 'Km parcourus', `${Number(stats.totalKm || 0).toLocaleString('fr-FR')} km`, trends.km || '', 'up')}
+            ${dashV2Kpi('fa-gas-pump', '#2563eb', 'Taux remplissage', `${fillRate} %`, '', 'up')}
+            ${dashV2Kpi('fa-truck', '#059669', 'Disponibilité flotte', `${fleet.vehicles?.available ?? 0} / ${fleet.vehicles?.total ?? 0}`, '', 'up')}
+            ${dashV2Kpi('fa-route', '#64748b', 'Km à vide', `${Number(stats.emptyKm || 0).toLocaleString('fr-FR')} km`, '', 'neutral')}
+            ${dashV2Kpi('fa-wrench', '#d97706', 'Alertes maintenance', alertCount, '', alertCount > 0 ? 'down' : 'neutral')}`;
+    } else {
+        primaryRow = `
+            ${dashV2Kpi('fa-euro-sign', '#2563eb', "Chiffre d'affaires", `${Number(revenue).toLocaleString('fr-FR')} €`, trends.revenue ? `${trends.revenue > 0 ? '+' : ''}${trends.revenue}%` : '', trends.revenue > 0 ? 'up' : 'neutral')}
+            ${dashV2Kpi('fa-chart-line', '#059669', 'Marge brute', `${Number(stats.grossMargin || 0).toLocaleString('fr-FR')} €`, trends.margin ? `${trends.margin > 0 ? '+' : ''}${trends.margin}%` : '', 'up')}
+            ${dashV2Kpi('fa-clipboard-check', '#7c3aed', 'Nb missions', stats.completedMissions ?? counts.delivered ?? 0, trends.missions || '', 'up')}
+            ${dashV2Kpi('fa-road', '#ea580c', 'Km parcourus', `${Number(stats.totalKm || 0).toLocaleString('fr-FR')} km`, trends.km || '', 'up')}
+            ${dashV2Kpi('fa-gauge-high', '#0891b2', 'CA / km', `${stats.revenuePerKm ?? 0} €/km`, trends.revenuePerKm || '', 'neutral')}`;
+    }
 
-    <div class="dash-v2-kpi-grid dash-v2-kpi-grid--primary">
-        ${dashV2Kpi('fa-euro-sign', '#2563eb', "Chiffre d'affaires", `${Number(revenue).toLocaleString('fr-FR')} €`, trends.revenue ? `${trends.revenue > 0 ? '+' : ''}${trends.revenue}%` : '', trends.revenue > 0 ? 'up' : 'neutral')}
-        ${dashV2Kpi('fa-chart-line', '#059669', 'Marge brute', `${Number(stats.grossMargin || 0).toLocaleString('fr-FR')} €`, trends.margin ? `${trends.margin > 0 ? '+' : ''}${trends.margin}%` : '', 'up')}
-        ${dashV2Kpi('fa-clipboard-check', '#7c3aed', 'Nb missions', stats.completedMissions ?? counts.delivered ?? 0, trends.missions || '', 'up')}
-        ${dashV2Kpi('fa-road', '#ea580c', 'Km parcourus', `${Number(stats.totalKm || 0).toLocaleString('fr-FR')} km`, trends.km || '', 'up')}
-        ${dashV2Kpi('fa-gauge-high', '#0891b2', 'CA / km', `${stats.revenuePerKm ?? 0} €/km`, trends.revenuePerKm || '', 'neutral')}
-    </div>
-
+    const secondaryRow = isCockpitSectionVisible('kpiSecondary') ? `
     <div class="dash-v2-kpi-grid dash-v2-kpi-grid--secondary">
         ${dashV2Kpi('fa-route', '#64748b', 'Km à vide', `${Number(stats.emptyKm || 0).toLocaleString('fr-FR')} km`, '', 'neutral')}
         ${dashV2Kpi('fa-boxes-stacked', '#8b5cf6', 'Taux de remplissage', `${fillRate} %`, '', 'up')}
         ${dashV2Kpi('fa-coins', '#d97706', 'Coût moyen / mission', `${Number(stats.avgCostPerMission || 0).toLocaleString('fr-FR')} €`, '', 'neutral')}
         ${dashV2Kpi('fa-basket-shopping', '#db2777', 'Panier moyen mission', `${Number(stats.avgOrderValue || 0).toLocaleString('fr-FR')} €`, trends.avgOrder || '', 'up')}
-    </div>
+    </div>` : '';
 
+    const financialSection = isCockpitSectionVisible('financial') ? `
     <h3 class="dash-v2-section-title">Performance financière</h3>
     <div class="dash-v2-mid-grid">
         <div class="dash-v2-card">
@@ -1644,8 +1718,9 @@ function renderDashboardKpiBody(stats = {}) {
             ${renderDashboardCostBars(costCats)}
             <div class="dash-v2-chart-h dash-v2-chart-h--sm mt-2"><canvas id="dashCostChart"></canvas></div>
         </div>
-    </div>
+    </div>` : '';
 
+    const exploitationSection = isCockpitSectionVisible('exploitation') ? `
     <h3 class="dash-v2-section-title">Performance exploitation</h3>
     <div class="dash-v2-exploit-grid">
         <div class="dash-v2-card">
@@ -1672,33 +1747,43 @@ function renderDashboardKpiBody(stats = {}) {
                 <span class="dash-v2-gauge-value">${fillRate}%</span>
             </div>
         </div>
-    </div>
+    </div>` : '';
 
-    <div class="dash-v2-lower-grid">
-        <div class="dash-v2-card">
+    const lowerCards = [];
+    if (isCockpitSectionVisible('drivers')) {
+        lowerCards.push(`<div class="dash-v2-card">
             <h4 class="dash-v2-card-title">Conducteurs</h4>
             <table class="dash-v2-table">
                 <thead><tr><th>Conducteur</th><th>Miss.</th><th>CA</th><th>Marge</th><th>Retards</th></tr></thead>
                 <tbody>${topDrivers.length ? topDrivers.map(d => `<tr><td>${d.name}</td><td>${d.missions}</td><td>${Number(d.revenue).toLocaleString('fr-FR')} €</td><td>${Number(d.margin).toLocaleString('fr-FR')} €</td><td>${d.delays ?? 0}</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
             </table>
-        </div>
-        <div class="dash-v2-card">
+        </div>`);
+    }
+    if (isCockpitSectionVisible('vehicles')) {
+        lowerCards.push(`<div class="dash-v2-card">
             <h4 class="dash-v2-card-title">Véhicules</h4>
             <table class="dash-v2-table">
                 <thead><tr><th>Camion</th><th>Km</th><th>Miss.</th><th>Conso</th><th>Dispo</th></tr></thead>
                 <tbody>${topVehicles.length ? topVehicles.map(v => `<tr><td>${v.name}</td><td>${Number(v.km).toLocaleString('fr-FR')}</td><td>${v.missions}</td><td>${v.avgConsumption != null ? v.avgConsumption + ' L' : '—'}</td><td>${v.availability}%</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
             </table>
-        </div>
-        <div class="dash-v2-card">
+        </div>`);
+    }
+    if (isCockpitSectionVisible('clients')) {
+        lowerCards.push(`<div class="dash-v2-card">
             <h4 class="dash-v2-card-title">Top clients</h4>
             ${topClients.length ? topClients.map(c => `<div class="dash-v2-client-bar"><div class="dash-v2-client-bar-head"><span>${c.name}</span><span>${c.share}%</span></div><div class="dash-v2-client-bar-track"><div class="dash-v2-client-bar-fill" style="width:${c.share}%"></div></div></div>`).join('') : '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune donnée</p>'}
-        </div>
-        <div class="dash-v2-card">
+        </div>`);
+    }
+    if (isCockpitSectionVisible('alerts')) {
+        lowerCards.push(`<div class="dash-v2-card">
             <h4 class="dash-v2-card-title">Alertes</h4>
             ${alerts.length ? alerts.map(a => `<div class="dash-v2-alert ${a.type}"><i class="fa-solid ${a.icon}"></i><span>${a.text}</span></div>`).join('') : '<p class="text-gray-400 italic text-sm py-2">Aucune alerte</p>'}
-        </div>
-    </div>
+        </div>`);
+    }
 
+    const lowerSection = lowerCards.length ? `<div class="dash-v2-lower-grid dash-v2-lower-grid--${lowerCards.length}">${lowerCards.join('')}</div>` : '';
+
+    const footerSection = isCockpitSectionVisible('footer') ? `
     <div class="dash-v2-footer-bar">
         <span><i class="fa-solid fa-truck text-blue-500 mr-1"></i> Véhicules disponibles : <strong>${fleet.vehicles?.available ?? 0} / ${fleet.vehicles?.total ?? 0}</strong></span>
         <span><i class="fa-solid fa-user text-indigo-500 mr-1"></i> Conducteurs disponibles : <strong>${fleet.drivers?.available ?? 0} / ${fleet.drivers?.total ?? 0}</strong></span>
@@ -1706,12 +1791,27 @@ function renderDashboardKpiBody(stats = {}) {
         <span><i class="fa-solid fa-box text-teal-500 mr-1"></i> Livraisons aujourd'hui : <strong>${today.deliveries ?? 0}</strong></span>
         <span><i class="fa-solid fa-road text-orange-500 mr-1"></i> Km aujourd'hui : <strong>${Number(today.km || 0).toLocaleString('fr-FR')} km</strong></span>
         <span><i class="fa-solid fa-euro-sign text-green-600 mr-1"></i> CA aujourd'hui : <strong>${Number(today.revenue || 0).toLocaleString('fr-FR')} €</strong></span>
-    </div>`;
+    </div>` : '';
+
+    return `
+    <div id="dash-kpi-loading" class="dash-v2-loading hidden"><i class="fa-solid fa-spinner fa-spin"></i> Mise à jour…</div>
+    <div class="dash-v2-kpi-grid dash-v2-kpi-grid--primary">${primaryRow}</div>
+    ${secondaryRow}
+    ${financialSection}
+    ${exploitationSection}
+    ${lowerSection}
+    ${footerSection}`;
 }
 
 function renderDashboardGeneralV2(stats = {}) {
+    const expanded = !!window.dashboardFiltersExpanded;
     return `
-    <div id="dash-filters-root">${renderDashboardInlineFilters()}</div>
+    <div id="dash-filters-wrap" class="dash-v2-filters-wrap">
+        ${renderDashboardFiltersBar()}
+        <div id="dash-filters-panel" class="dash-v2-filters-panel ${expanded ? '' : 'dash-v2-filters-panel--hidden'}">
+            ${renderDashboardFiltersBody()}
+        </div>
+    </div>
     <div id="dash-kpi-root">${renderDashboardKpiBody(stats)}</div>`;
 }
 
@@ -2584,35 +2684,43 @@ function renderDrivers() {
 }
 
 function renderFleet() {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
-    const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    const tab = window.fleetActiveTab || 'TRUCK';
+    const trucks = getVehiclesByType('TRUCK');
+    const trailers = getVehiclesByType('TRAILER');
+    const list = tab === 'TRAILER' ? trailers : trucks;
+    const tabLabel = tab === 'TRAILER' ? 'Remorques' : 'Camions';
+    const addLabel = tab === 'TRAILER' ? 'Ajouter Remorque' : 'Ajouter Camion';
 
     return `<div class="h-full flex flex-col fade-in">
-        <div class="flex justify-between items-center mb-4">
-            <div class="flex items-center gap-4">
-                <h3 class="font-bold text-lg mb-4 text-gray-800">Gestion des Véhicules</h3>
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <div class="flex items-center gap-3">
+                <h3 class="font-bold text-lg text-gray-800">Gestion de la Flotte</h3>
+                <div class="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                    <button onclick="window.fleetActiveTab='TRUCK'; router('fleet')" class="px-4 py-2 ${tab === 'TRUCK' ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}"><i class="fa-solid fa-truck mr-1"></i> Camions (${trucks.length})</button>
+                    <button onclick="window.fleetActiveTab='TRAILER'; router('fleet')" class="px-4 py-2 ${tab === 'TRAILER' ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}"><i class="fa-solid fa-trailer mr-1"></i> Remorques (${trailers.length})</button>
+                </div>
             </div>
-            <button onclick="openAddVehicleModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Ajouter Camion</button>
+            <button onclick="openAddVehicleModal('${tab}')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>${addLabel}</button>
         </div>
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-                ${(Array.isArray(db.vehicles) ? db.vehicles : []).map(v => {
+            ${list.length ? `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                ${list.map(v => {
         const statusColor = v.status === 'Disponible' ? 'border-green-500' : (v.status === 'Garage' ? 'border-red-500' : 'border-blue-500');
+        const typeBadge = (v.vehicle_type || 'TRUCK') === 'TRAILER' ? 'Remorque' : 'Camion';
         return `<div onclick="openEditVehicleModal(${v.id})" class="border rounded-xl p-5 hover:shadow-md transition relative overflow-hidden cursor-pointer">
                         <div class="absolute top-0 left-0 w-full h-1 ${statusColor}"></div>
                         <div class="flex justify-between items-start mb-4">
-                            <div><h4 class="font-bold text-gray-800">${v.plate}</h4><p class="text-xs text-gray-500">${v.model}</p></div>
+                            <div><h4 class="font-bold text-gray-800">${v.plate}</h4><p class="text-xs text-gray-500">${v.model || typeBadge}</p></div>
                             <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold uppercase">${v.status}</span>
                         </div>
                         <div class="space-y-3 text-sm">
-                            <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Chauffeur</span><span class="font-medium">${v.driver_name || '<span class="text-gray-400">Aucun</span>'}</span></div>
+                            ${tab === 'TRUCK' ? `<div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Chauffeur</span><span class="font-medium">${v.driver_name || '<span class="text-gray-400">Aucun</span>'}</span></div>` : ''}
+                            <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Type</span><span class="font-medium">${typeBadge}</span></div>
                             <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Maintenance</span><span class="font-medium">${formatDisplayDate(v.next_maintenance) || v.next_maintenance || '—'}</span></div>
                         </div>
                     </div>`;
     }).join('')}
-            </div>
+            </div>` : `<p class="text-center text-gray-400 italic py-16">Aucun ${tabLabel.toLowerCase()} enregistré</p>`}
         </div>
     </div>`;
 }
@@ -5313,7 +5421,7 @@ function openEditMissionModal(missionId) {
 
     // Populate vehicles
     const vehicleSelect = document.getElementById('edit-mission-vehicle');
-    vehicleSelect.innerHTML = db.vehicles.map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+    vehicleSelect.innerHTML = getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
     vehicleSelect.value = mission.vehicle_id || '';
 
     document.getElementById('edit-mission-date').value = mission.date;
@@ -5359,7 +5467,7 @@ async function submitEditMission() {
 
         // Populate vehicles
         const vehicleSelect = document.getElementById('add-mission-vehicle');
-        vehicleSelect.innerHTML = db.vehicles.map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+        vehicleSelect.innerHTML = getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
 
         // Set default date
         document.getElementById('add-mission-date').value = new Date().toISOString().split('T')[0];
@@ -6034,8 +6142,17 @@ async function submitDispatch() {
 }
 
 // --- VEHICLE MODALS ---
-function openAddVehicleModal() {
+window.fleetActiveTab = window.fleetActiveTab || 'TRUCK';
+window._addVehicleType = 'TRUCK';
+
+function openAddVehicleModal(vehicleType = 'TRUCK') {
     hideAllModals();
+    window._addVehicleType = vehicleType === 'TRAILER' ? 'TRAILER' : 'TRUCK';
+    const isTrailer = window._addVehicleType === 'TRAILER';
+    document.getElementById('add-vehicle-modal-title').textContent = isTrailer ? 'Ajouter une Remorque' : 'Ajouter un Camion';
+    document.getElementById('add-vehicle-type').value = window._addVehicleType;
+    const fuelWrap = document.getElementById('add-vehicle-fuel-wrap');
+    if (fuelWrap) fuelWrap.classList.toggle('hidden', isTrailer);
 
     document.getElementById('add-vehicle-plate').value = '';
     document.getElementById('add-vehicle-model').value = '';
@@ -6051,6 +6168,7 @@ function closeAddVehicleModal() {
 }
 
 async function submitAddVehicle() {
+    const vehicleType = document.getElementById('add-vehicle-type')?.value || window._addVehicleType || 'TRUCK';
     const newVehicle = {
         plate: document.getElementById('add-vehicle-plate').value,
         model: document.getElementById('add-vehicle-model').value,
@@ -6059,7 +6177,8 @@ async function submitAddVehicle() {
         next_maintenance: document.getElementById('add-vehicle-maintenance').value,
         status: 'Disponible',
         driver_id: null,
-        insurance_expiry: '2025-12-31'
+        insurance_expiry: '2025-12-31',
+        vehicle_type: vehicleType
     };
 
     if (newVehicle.plate && newVehicle.model) {
@@ -6068,8 +6187,9 @@ async function submitAddVehicle() {
 
             if (response.ok) {
                 await fetchAllData();
-                showToast('Camion ajouté avec succès', 'success');
+                showToast(vehicleType === 'TRAILER' ? 'Remorque ajoutée avec succès' : 'Camion ajouté avec succès', 'success');
                 closeAddVehicleModal();
+                window.fleetActiveTab = vehicleType;
                 router('fleet');
             } else {
                 const errorData = await response.json();
@@ -6092,6 +6212,7 @@ function openEditVehicleModal(vehicleId) {
     document.getElementById('edit-vehicle-id').value = vehicleId;
     document.getElementById('edit-vehicle-plate').value = vehicle.plate;
     document.getElementById('edit-vehicle-model').value = vehicle.model;
+    document.getElementById('edit-vehicle-type').value = vehicle.vehicle_type || 'TRUCK';
     document.getElementById('edit-vehicle-fuel').value = vehicle.fuel || 'Diesel';
     document.getElementById('edit-vehicle-mileage').value = vehicle.mileage || 0;
     document.getElementById('edit-vehicle-maintenance').value = vehicle.next_maintenance || '';
@@ -6121,6 +6242,7 @@ async function submitEditVehicle() {
             ...vehicle,
             plate: document.getElementById('edit-vehicle-plate').value,
             model: document.getElementById('edit-vehicle-model').value,
+            vehicle_type: document.getElementById('edit-vehicle-type')?.value || vehicle.vehicle_type || 'TRUCK',
             fuel: document.getElementById('edit-vehicle-fuel').value,
             mileage: parseInt(document.getElementById('edit-vehicle-mileage').value) || 0,
             next_maintenance: document.getElementById('edit-vehicle-maintenance').value,
@@ -7154,7 +7276,7 @@ function openAddOrderModal() {
     const vehicleSelect = document.getElementById('add-order-vehicle');
     if (vehicleSelect) {
         vehicleSelect.innerHTML = '<option value="">-- Sélectionner un véhicule --</option>' +
-            (db.vehicles || []).map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+            getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
     }
 
     const driverSelect = document.getElementById('add-order-driver');
@@ -7308,7 +7430,7 @@ function openEditOrderModal(orderId) {
 
     const vehicleSelect = document.getElementById('edit-order-vehicle');
     vehicleSelect.innerHTML = '<option value="">-- Sélectionner un véhicule --</option>' +
-        (db.vehicles || []).map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+        getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
     vehicleSelect.value = order.vehicle_id || '';
 
     const driverSelect = document.getElementById('edit-order-driver');
