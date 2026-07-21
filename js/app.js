@@ -1075,6 +1075,48 @@ function renderDashboard(stats = {}) {
             </div>
         </div>
 
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
+                <h3 class="text-2xl font-bold text-red-600">${stats.operationalRates?.cancellationRate ?? 0}%</h3>
+                <p class="text-gray-400 text-xs mt-1">Taux d'annulation</p>
+                <p class="text-[10px] text-gray-400">${stats.operationalRates?.cancelledCount ?? 0} / ${stats.operationalRates?.totalCount ?? 0}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
+                <h3 class="text-2xl font-bold text-teal-600">${stats.operationalRates?.deliveryRate ?? 0}%</h3>
+                <p class="text-gray-400 text-xs mt-1">Taux de livraison</p>
+                <p class="text-[10px] text-gray-400">${stats.operationalRates?.deliveredCount ?? 0} livré(s)</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
+                <h3 class="text-2xl font-bold text-indigo-600">${stats.operationalRates?.validationRate ?? 0}%</h3>
+                <p class="text-gray-400 text-xs mt-1">Taux de validation</p>
+                <p class="text-[10px] text-gray-400">${stats.operationalRates?.validatedCount ?? 0} validé(s)</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
+                <h3 class="text-2xl font-bold text-amber-600">${stats.operationalRates?.inProgressRate ?? 0}%</h3>
+                <p class="text-gray-400 text-xs mt-1">En cours / planifiés</p>
+                <p class="text-[10px] text-gray-400">${stats.operationalRates?.inProgressCount ?? 0} transport(s)</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h4 class="text-center font-bold text-gray-700 mb-4">Chiffre d'affaires par client</h4>
+                <div class="h-72"><canvas id="clientRevenueChart"></canvas></div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h4 class="text-center font-bold text-gray-700 mb-4">Répartition des statuts transports</h4>
+                <div class="h-72"><canvas id="statusDistributionChart"></canvas></div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h4 class="text-center font-bold text-gray-700 mb-4">Indicateurs opérationnels (%)</h4>
+                <div class="h-72"><canvas id="operationalRatesChart"></canvas></div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h4 class="text-center font-bold text-gray-700 mb-4">Volume d'expéditions par client</h4>
+                <div class="h-72"><canvas id="donutExpeditions"></canvas></div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h4 class="text-center font-bold text-gray-700 mb-4">Analyse du Chiffre d'Affaires</h4>
@@ -4479,32 +4521,125 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
             });
         }
 
-        // Expéditions par Client (new)
-        const donutExp = document.getElementById('donutExpeditions');
-        if (donutExp) {
-            const clientLabels = stats.clientTransportCounts ? stats.clientTransportCounts.map(item => item.client_name) : ['Aucune donnée'];
-            const clientData = stats.clientTransportCounts ? stats.clientTransportCounts.map(item => item.count) : [1];
-            chartInstances.donutExpeditions = new Chart(donutExp, {
+        // CA par client
+        const clientRevCtx = document.getElementById('clientRevenueChart');
+        if (clientRevCtx) {
+            const revLabels = stats.clientRevenue?.length
+                ? stats.clientRevenue.map(item => item.client_name)
+                : ['Aucune donnée'];
+            const revData = stats.clientRevenue?.length
+                ? stats.clientRevenue.map(item => item.revenue)
+                : [0];
+            chartInstances.clientRevenueChart = new Chart(clientRevCtx, {
+                type: 'bar',
+                data: {
+                    labels: revLabels,
+                    datasets: [{
+                        label: 'CA (€)',
+                        data: revData,
+                        backgroundColor: '#059669',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${Number(ctx.raw).toLocaleString()} €`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback: (v) => `${Number(v).toLocaleString()} €`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Répartition statuts
+        const statusCtx = document.getElementById('statusDistributionChart');
+        if (statusCtx) {
+            const statusPalette = {
+                'Annulé': '#ef4444',
+                'Brouillon': '#94a3b8',
+                'À planifier': '#cbd5e1',
+                'Planifié': '#60a5fa',
+                'Pris en charge': '#3b82f6',
+                'En cours': '#2563eb',
+                'Affrété': '#8b5cf6',
+                'Livré': '#14b8a6',
+                'Validé': '#10b981',
+                'Clôturé': '#047857',
+                'Terminé': '#059669'
+            };
+            const dist = stats.statusDistribution || [];
+            const labels = dist.length ? dist.map(item => item.status) : ['Aucune donnée'];
+            const data = dist.length ? dist.map(item => item.count) : [1];
+            const colors = dist.length
+                ? dist.map(item => statusPalette[item.status] || chartColors[0])
+                : ['#e2e8f0'];
+            chartInstances.statusDistributionChart = new Chart(statusCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: clientLabels,
-                    datasets: [{
-                        data: clientData,
-                        backgroundColor: chartColors,
-                        borderWidth: 0,
-                        cutout: '70%'
-                    }]
+                    labels,
+                    datasets: [{ data, backgroundColor: colors, borderWidth: 0, cutout: '55%' }]
                 },
                 options: { ...commonOptions, plugins: { legend: { display: true, position: 'right' } } }
             });
         }
 
-        // Dépenses par Client (new)
-        const donutDep = document.getElementById('donutDepenses');
-        if (donutDep) {
-            const clientLabels = stats.clientTransportCosts ? stats.clientTransportCosts.map(item => item.client_name) : ['Aucune donnée'];
-            const clientData = stats.clientTransportCosts ? stats.clientTransportCosts.map(item => item.total_cost) : [1];
-            chartInstances.donutDepenses = new Chart(donutDep, {
+        // Taux opérationnels
+        const opCtx = document.getElementById('operationalRatesChart');
+        if (opCtx) {
+            const rates = stats.operationalRates || {};
+            chartInstances.operationalRatesChart = new Chart(opCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Annulation', 'Livraison', 'Validation', 'En cours'],
+                    datasets: [{
+                        label: 'Taux (%)',
+                        data: [
+                            rates.cancellationRate || 0,
+                            rates.deliveryRate || 0,
+                            rates.validationRate || 0,
+                            rates.inProgressRate || 0
+                        ],
+                        backgroundColor: ['#ef4444', '#14b8a6', '#6366f1', '#f59e0b'],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: { label: (ctx) => `${ctx.raw}%` }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: (v) => `${v}%` }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Expéditions par client
+        const donutExp = document.getElementById('donutExpeditions');
+        if (donutExp) {
+            const clientLabels = stats.clientTransportCounts ? stats.clientTransportCounts.map(item => item.client_name) : ['Aucune donnée'];
+            const clientData = stats.clientTransportCounts ? stats.clientTransportCounts.map(item => item.count) : [1];
+            chartInstances.donutExpeditions = new Chart(donutExp, {
                 type: 'doughnut',
                 data: {
                     labels: clientLabels,
