@@ -320,6 +320,7 @@ function renderTransportList() {
                         <th class="px-4 py-3">Dates</th>
                         <th class="px-4 py-3">Chauffeur / Sous-traitant</th>
                         <th class="px-4 py-3">Statut</th>
+                        <th class="px-4 py-3">CO2e</th>
                         <th class="px-4 py-3">Montant</th>
                         <th class="px-4 py-3">Actions</th>
                         ${inTrash ? '' : '<th class="px-4 py-3">Facturation</th>'}
@@ -349,6 +350,9 @@ function renderTransportList() {
                                 <span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(o.status)}">${o.status}</span>
                                 ${o.invoice_draft_id ? `<div class="text-[10px] text-gray-400 mt-1">Préfacture ${o.invoice_draft_id}</div>` : ''}
                             </td>
+                            <td class="px-4 py-3 text-xs whitespace-nowrap">
+                                ${o.co2_kg != null ? `<span class="text-green-700 font-semibold">${Number(o.co2_kg).toFixed(1)} kg</span><div class="text-[10px] text-gray-400">${o.co2_scope || ''}</div>` : '<span class="text-gray-300">—</span>'}
+                            </td>
                             <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString()} €</td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 ${inTrash ? `
@@ -361,7 +365,7 @@ function renderTransportList() {
                             </td>
                             ${inTrash ? `<td class="px-4 py-3 text-xs text-gray-500">${deletedLabel}</td>` : `<td class="px-4 py-3">${renderTransportBillingSelect(o)}</td>`}
                         </tr>`;
-    }).join('') : `<tr><td colspan="${inTrash ? 10 : 10}" class="px-4 py-10 text-center text-gray-400 italic">${inTrash ? 'Aucun transport dans la corbeille' : 'Aucun transport'}</td></tr>`}
+    }).join('') : `<tr><td colspan="${inTrash ? 11 : 11}" class="px-4 py-10 text-center text-gray-400 italic">${inTrash ? 'Aucun transport dans la corbeille' : 'Aucun transport'}</td></tr>`}
                 </tbody>
             </table>
         </div>

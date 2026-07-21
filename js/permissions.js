@@ -102,6 +102,8 @@ function canAccessRoute(routeName) {
         accounting_export: ['billing', 'export'],
         admin: ['settings', 'view'],
         margin_dashboard: ['reports', 'view'],
+        sustainability: ['reports', 'view'],
+        rse_compliance: ['reports', 'view'],
         privacy: ['transports', 'view'],
         legal_page: ['transports', 'view'],
         affretement_confirmation: ['transports', 'view'],

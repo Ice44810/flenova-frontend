@@ -1243,7 +1243,11 @@ function renderDashboard(stats = {}) {
                 ${canManageInvoices() ? `<button onclick="router('create_invoice')" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Facture</button>` : ''}
                 <button onclick="router('completed_transports')" class="bg-white border text-gray-700 px-4 py-2 rounded hover:bg-gray-50"><i class="fa-solid fa-truck mr-2"></i>Transports Réalisés</button>
             </div>
-            <div class="mt-4 text-xs text-gray-400"><i class="fa-solid fa-leaf mr-1 text-green-500"></i> Émissions CO2 estimées : <strong>${stats.totalCO2 || 0} kg</strong></div>
+            <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                <span><i class="fa-solid fa-leaf mr-1 text-green-500"></i> Émissions CO2e : <strong>${Number(stats.totalCO2 || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</strong></span>
+                ${stats.carbon ? `<span>Scope 3 : <strong>${Number(stats.carbon.scope3Kg || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</strong></span>` : ''}
+                <button type="button" onclick="router('sustainability')" class="text-green-700 hover:underline font-medium">Module Durabilité →</button>
+            </div>
         </div>
     </div>`;
 }
@@ -3444,6 +3448,285 @@ window.toggleEmailNotifications = async function () {
     }
 };
 
+// --- RENDER: Durabilité & RSE ---
+let sustainabilityStatsCache = null;
+let csrdReportsCache = [];
+
+function formatCo2Kg(val) {
+    const n = Number(val) || 0;
+    return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+function renderSustainability(stats = null) {
+    const s = stats?.summary || sustainabilityStatsCache?.summary || {};
+    const recent = stats?.recent || sustainabilityStatsCache?.recent || [];
+    const topClients = stats?.topClients || sustainabilityStatsCache?.topClients || [];
+    const canGreen = typeof planHasFeature === 'function' && planHasFeature('green_optimization');
+
+    return `<div class="space-y-6 fade-in">
+        <div class="flex flex-wrap justify-between items-start gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800"><i class="fa-solid fa-leaf text-green-600 mr-2"></i>Durabilité</h2>
+                <p class="text-sm text-gray-500 mt-1">Calcul carbone GLEC Framework 2.0 — Scope 3 par expédition, avec consommation réelle et taux de remplissage.</p>
+            </div>
+            <button type="button" onclick="recalculateAllCarbon()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
+                <i class="fa-solid fa-rotate mr-1"></i>Recalculer tous les transports
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl border border-green-100 shadow-sm">
+                <p class="text-xs uppercase text-gray-400 font-semibold">CO2e total</p>
+                <p class="text-3xl font-bold text-green-700 mt-1">${formatCo2Kg(s.totalCo2Kg)} <span class="text-sm font-normal">kg</span></p>
+            </div>
+            <div class="bg-white p-5 rounded-xl border shadow-sm">
+                <p class="text-xs uppercase text-gray-400 font-semibold">Scope 1 (flotte)</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1">${formatCo2Kg(s.scope1Kg)} kg</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl border shadow-sm">
+                <p class="text-xs uppercase text-gray-400 font-semibold">Scope 3 (affrètement)</p>
+                <p class="text-2xl font-bold text-purple-700 mt-1">${formatCo2Kg(s.scope3Kg)} kg</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl border shadow-sm">
+                <p class="text-xs uppercase text-gray-400 font-semibold">Taux remplissage moy.</p>
+                <p class="text-2xl font-bold text-blue-700 mt-1">${s.avgLoadFactor ? Math.round(Number(s.avgLoadFactor) * 100) : 0}%</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-xl border shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-4">Émissions par client (Scope 3)</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-xs uppercase text-gray-500 border-b"><tr><th class="py-2 text-left">Client</th><th class="py-2 text-right">Expéd.</th><th class="py-2 text-right">CO2e kg</th></tr></thead>
+                        <tbody>
+                            ${topClients.length ? topClients.map(c => `<tr class="border-b"><td class="py-2">${c.client_name || '—'}</td><td class="py-2 text-right">${c.shipments}</td><td class="py-2 text-right font-semibold text-green-700">${formatCo2Kg(c.co2_kg)}</td></tr>`).join('') : '<tr><td colspan="3" class="py-6 text-center text-gray-400 italic">Aucune donnée — recalculez les transports</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl border shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-2">Optimisation « Green »</h3>
+                <p class="text-xs text-gray-500 mb-4">Arbitrage coût / délai / impact carbone — 3 scénarios comparés (GLEC).</p>
+                ${canGreen ? `
+                <div class="space-y-3">
+                    <input type="text" id="green-origin" placeholder="Origine" class="w-full border rounded px-3 py-2 text-sm">
+                    <input type="text" id="green-dest" placeholder="Destination" class="w-full border rounded px-3 py-2 text-sm">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" id="green-weight" placeholder="Poids kg" value="5000" class="border rounded px-3 py-2 text-sm">
+                        <input type="number" id="green-price" placeholder="Prix €" value="850" class="border rounded px-3 py-2 text-sm">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <label>Poids coût <input type="range" id="green-w-cost" min="0" max="100" value="40" class="w-full" oninput="document.getElementById('green-w-cost-val').textContent=this.value+'%'"><span id="green-w-cost-val">40%</span></label>
+                        <label>Poids délai <input type="range" id="green-w-time" min="0" max="100" value="30" class="w-full" oninput="document.getElementById('green-w-time-val').textContent=this.value+'%'"><span id="green-w-time-val">30%</span></label>
+                        <label>Poids carbone <input type="range" id="green-w-carbon" min="0" max="100" value="30" class="w-full" oninput="document.getElementById('green-w-carbon-val').textContent=this.value+'%'"><span id="green-w-carbon-val">30%</span></label>
+                    </div>
+                    <button type="button" onclick="runGreenOptimization()" class="w-full bg-emerald-600 text-white py-2 rounded-lg text-sm hover:bg-emerald-700">Comparer les scénarios</button>
+                </div>
+                <div id="green-scenarios-result" class="mt-4 space-y-2"></div>
+                ` : `<p class="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">Disponible à partir du forfait PME — arbitrage coût / délai / carbone.</p>`}
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl border shadow-sm">
+            <h3 class="font-bold text-gray-800 mb-4">Dernières expéditions — empreinte carbone</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs uppercase text-gray-500 border-b bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2">Réf.</th><th class="px-3 py-2">Client</th><th class="px-3 py-2">Trajet</th>
+                            <th class="px-3 py-2 text-right">Dist. km</th><th class="px-3 py-2 text-right">Rempliss.</th>
+                            <th class="px-3 py-2 text-right">CO2e kg</th><th class="px-3 py-2">Scope</th><th class="px-3 py-2">Méthode</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${recent.length ? recent.map(r => `
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="px-3 py-2 font-medium">${r.ref || r.id}</td>
+                                <td class="px-3 py-2">${r.client_name || '—'}</td>
+                                <td class="px-3 py-2 text-xs">${r.origin || '—'} → ${r.dest || '—'}</td>
+                                <td class="px-3 py-2 text-right">${r.distance_km != null ? Number(r.distance_km).toFixed(0) : '—'}</td>
+                                <td class="px-3 py-2 text-right">${r.load_factor != null ? Math.round(Number(r.load_factor) * 100) + '%' : '—'}</td>
+                                <td class="px-3 py-2 text-right font-semibold text-green-700">${r.co2_kg != null ? formatCo2Kg(r.co2_kg) : '—'}</td>
+                                <td class="px-3 py-2 text-xs">${r.co2_scope || '—'}</td>
+                                <td class="px-3 py-2 text-xs text-gray-500">${r.co2_method || '—'}</td>
+                            </tr>`).join('') : '<tr><td colspan="8" class="px-3 py-8 text-center text-gray-400 italic">Aucun calcul carbone — créez des transports ou lancez un recalcul</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>`;
+}
+
+function renderRseCompliance(reports = csrdReportsCache) {
+    const canCsrd = typeof planHasFeature === 'function' && planHasFeature('csrd_reporting');
+    const year = new Date().getFullYear();
+
+    return `<div class="space-y-6 fade-in">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800"><i class="fa-solid fa-scale-balanced text-indigo-600 mr-2"></i>Conformité RSE</h2>
+            <p class="text-sm text-gray-500 mt-1">Reporting automatisé CSRD / ESRS E1 pour chargeurs et transporteurs — généré depuis vos expéditions Flenova.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl border shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3">Générer un rapport CSRD</h3>
+                <p class="text-sm text-gray-600 mb-4">Export CSV structuré : synthèse Scope 1 &amp; 3, détail par client et par expédition, note méthodologique GLEC 2.0.</p>
+                ${canCsrd ? `
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div><label class="block text-xs text-gray-500 mb-1">Début</label><input type="date" id="csrd-start" value="${year}-01-01" class="border rounded px-3 py-2 text-sm"></div>
+                    <div><label class="block text-xs text-gray-500 mb-1">Fin</label><input type="date" id="csrd-end" value="${year}-12-31" class="border rounded px-3 py-2 text-sm"></div>
+                    <button type="button" onclick="generateCsrdReport()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700"><i class="fa-solid fa-file-export mr-1"></i>Générer le rapport</button>
+                </div>
+                ` : `<p class="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">Rapports CSRD disponibles à partir du forfait PME.</p>`}
+            </div>
+            <div class="bg-indigo-50 border border-indigo-100 p-6 rounded-xl">
+                <h4 class="font-bold text-indigo-900 text-sm mb-2">Contenu ESRS E1</h4>
+                <ul class="text-xs text-indigo-800 space-y-2 list-disc pl-4">
+                    <li>Émissions totales CO2e (kg)</li>
+                    <li>Scope 3 — transport amont (Cat. 4)</li>
+                    <li>Taux de remplissage &amp; tonnes-km</li>
+                    <li>Détail auditable par expédition</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl border shadow-sm">
+            <h3 class="font-bold text-gray-800 mb-4">Historique des rapports</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-xs uppercase text-gray-500 border-b bg-gray-50">
+                        <tr><th class="px-3 py-2 text-left">Période</th><th class="px-3 py-2 text-right">CO2e kg</th><th class="px-3 py-2 text-right">Scope 3</th><th class="px-3 py-2 text-right">Expéd.</th><th class="px-3 py-2">Généré le</th><th class="px-3 py-2"></th></tr>
+                    </thead>
+                    <tbody>
+                        ${reports.length ? reports.map(r => `
+                            <tr class="border-b">
+                                <td class="px-3 py-2">${r.period_start} → ${r.period_end}</td>
+                                <td class="px-3 py-2 text-right font-semibold">${formatCo2Kg(r.total_co2_kg)}</td>
+                                <td class="px-3 py-2 text-right">${formatCo2Kg(r.scope3_kg)}</td>
+                                <td class="px-3 py-2 text-right">${r.shipment_count || 0}</td>
+                                <td class="px-3 py-2 text-xs text-gray-500">${r.created_at ? String(r.created_at).slice(0, 16).replace('T', ' ') : '—'}</td>
+                                <td class="px-3 py-2 text-right"><button type="button" onclick="downloadCsrdReport(${r.id})" class="text-indigo-600 hover:underline text-xs"><i class="fa-solid fa-download mr-1"></i>CSV</button></td>
+                            </tr>`).join('') : '<tr><td colspan="6" class="px-3 py-8 text-center text-gray-400 italic">Aucun rapport généré</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function loadSustainabilityStats() {
+    const res = await apiFetch('sustainability/stats');
+    if (!res.ok) throw new Error('Stats durabilité indisponibles');
+    const json = await res.json();
+    sustainabilityStatsCache = json.data;
+    return sustainabilityStatsCache;
+}
+
+async function recalculateAllCarbon() {
+    try {
+        const res = await apiFetch('sustainability/carbon/recalculate-all', { method: 'POST' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || 'Recalcul impossible');
+        showToast(`${json.data?.updated || 0} transport(s) recalculé(s)`, 'success');
+        await refreshData();
+        const stats = await loadSustainabilityStats();
+        document.getElementById('app-content').innerHTML = renderSustainability(stats);
+    } catch (e) {
+        showToast(e.message || 'Erreur recalcul carbone', 'error');
+    }
+}
+
+async function runGreenOptimization() {
+    const payload = {
+        origin: document.getElementById('green-origin')?.value,
+        dest: document.getElementById('green-dest')?.value,
+        weight: Number(document.getElementById('green-weight')?.value) || 5000,
+        basePrice: Number(document.getElementById('green-price')?.value) || 0,
+        weights: {
+            cost: (Number(document.getElementById('green-w-cost')?.value) || 40) / 100,
+            time: (Number(document.getElementById('green-w-time')?.value) || 30) / 100,
+            carbon: (Number(document.getElementById('green-w-carbon')?.value) || 30) / 100
+        }
+    };
+    if (!payload.origin || !payload.dest) {
+        showToast('Renseignez origine et destination', 'error');
+        return;
+    }
+    try {
+        const res = await apiFetch('sustainability/optimize/green', { method: 'POST', body: payload });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Optimisation impossible');
+        const box = document.getElementById('green-scenarios-result');
+        if (!box) return;
+        const scenarios = json.data?.scenarios || [];
+        box.innerHTML = scenarios.map(sc => `
+            <div class="border rounded-lg p-3 ${sc.recommended ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200'}">
+                <div class="flex justify-between items-start gap-2">
+                    <div>
+                        <p class="font-semibold text-sm">${sc.label}${sc.recommended ? ' <span class="text-emerald-700 text-xs">(recommandé)</span>' : ''}</p>
+                        <p class="text-xs text-gray-500 mt-1">${sc.description}</p>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-700">Score ${sc.greenScore}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
+                    <span><strong>${formatCo2Kg(sc.co2Kg)}</strong> kg CO2e</span>
+                    <span><strong>${Number(sc.costEur).toLocaleString()} €</strong></span>
+                    <span><strong>${sc.durationHours} h</strong></span>
+                </div>
+            </div>`).join('');
+    } catch (e) {
+        showToast(e.message || 'Erreur optimisation green', 'error');
+    }
+}
+
+async function loadCsrdReports() {
+    const res = await apiFetch('sustainability/csrd/reports');
+    if (!res.ok) return [];
+    const json = await res.json();
+    csrdReportsCache = json.data || [];
+    return csrdReportsCache;
+}
+
+async function generateCsrdReport() {
+    const startDate = document.getElementById('csrd-start')?.value;
+    const endDate = document.getElementById('csrd-end')?.value;
+    try {
+        const res = await apiFetch('sustainability/csrd/reports/generate', {
+            method: 'POST',
+            body: { startDate, endDate }
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Génération impossible');
+        showToast('Rapport CSRD généré', 'success');
+        await loadCsrdReports();
+        document.getElementById('app-content').innerHTML = renderRseCompliance(csrdReportsCache);
+    } catch (e) {
+        showToast(e.message || 'Erreur génération CSRD', 'error');
+    }
+}
+
+async function downloadCsrdReport(id) {
+    try {
+        const res = await apiFetch(`sustainability/csrd/reports/${id}/download`);
+        if (!res.ok) throw new Error('Téléchargement impossible');
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `CSRD_ESRS_E1_${id}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch (e) {
+        showToast(e.message || 'Erreur téléchargement', 'error');
+    }
+}
+
+window.recalculateAllCarbon = recalculateAllCarbon;
+window.runGreenOptimization = runGreenOptimization;
+window.generateCsrdReport = generateCsrdReport;
+window.downloadCsrdReport = downloadCsrdReport;
+
 // --- RENDER: Pages info ---
 function renderSolutions() {
     return `<div class="max-w-6xl mx-auto fade-in py-10">
@@ -3909,6 +4192,24 @@ async function router(route) {
                     updateMarginDashboard(payload.data || payload);
                 })
                 .catch(err => console.warn('Erreur chargement marges'));
+            break;
+        case 'sustainability':
+            title = 'Durabilité';
+            content = renderSustainability();
+            loadSustainabilityStats()
+                .then(stats => {
+                    document.getElementById('app-content').innerHTML = renderSustainability(stats);
+                })
+                .catch(err => console.warn('Durabilité:', err));
+            break;
+        case 'rse_compliance':
+            title = 'Conformité RSE';
+            content = renderRseCompliance();
+            loadCsrdReports()
+                .then(reports => {
+                    document.getElementById('app-content').innerHTML = renderRseCompliance(reports);
+                })
+                .catch(err => console.warn('CSRD:', err));
             break;
         case 'affretement_confirmation':
             title = 'Confirmation d\'affrètement';
