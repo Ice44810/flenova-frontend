@@ -1037,6 +1037,52 @@ function getVehiclesByType(type) {
     return (db.vehicles || []).filter(v => (v.vehicle_type || 'TRUCK') === type);
 }
 
+function populateDriverFleetSelects(selectedVehicleId, selectedTrailerId) {
+    const vehicleSelect = document.getElementById('driver-default-vehicle');
+    const trailerSelect = document.getElementById('driver-default-trailer');
+    if (vehicleSelect) {
+        vehicleSelect.innerHTML = '<option value="">— Aucun —</option>' +
+            getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate}${v.model ? ` — ${v.model}` : ''}</option>`).join('');
+        if (selectedVehicleId) vehicleSelect.value = String(selectedVehicleId);
+    }
+    if (trailerSelect) {
+        trailerSelect.innerHTML = '<option value="">— Aucune —</option>' +
+            getVehiclesByType('TRAILER').map(v => `<option value="${v.id}">${v.plate}${v.model ? ` — ${v.model}` : ''}</option>`).join('');
+        if (selectedTrailerId) trailerSelect.value = String(selectedTrailerId);
+    }
+}
+
+function populateOrderFleetSelects(prefix, { vehicleId, trailerId } = {}) {
+    const vehicleSelect = document.getElementById(`${prefix}-vehicle`);
+    const trailerSelect = document.getElementById(`${prefix}-trailer`);
+    if (vehicleSelect) {
+        vehicleSelect.innerHTML = '<option value="">-- Auto / manuel --</option>' +
+            getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model || 'Camion'}</option>`).join('');
+        if (vehicleId) vehicleSelect.value = String(vehicleId);
+    }
+    if (trailerSelect) {
+        trailerSelect.innerHTML = '<option value="">-- Auto / manuel --</option>' +
+            getVehiclesByType('TRAILER').map(v => `<option value="${v.id}">${v.plate} - ${v.model || 'Remorque'}</option>`).join('');
+        if (trailerId) trailerSelect.value = String(trailerId);
+    }
+}
+
+function applyDriverFleetToOrder(prefix) {
+    const driverId = document.getElementById(`${prefix}-driver`)?.value;
+    if (!driverId) return;
+    const driver = (db.drivers || []).find(d => String(d.id) === String(driverId));
+    if (!driver) return;
+    const vehicleSelect = document.getElementById(`${prefix}-vehicle`);
+    const trailerSelect = document.getElementById(`${prefix}-trailer`);
+    if (vehicleSelect && driver.default_vehicle_id) {
+        vehicleSelect.value = String(driver.default_vehicle_id);
+    }
+    if (trailerSelect && driver.default_trailer_id) {
+        trailerSelect.value = String(driver.default_trailer_id);
+    }
+}
+window.applyDriverFleetToOrder = applyDriverFleetToOrder;
+
 async function loadDashboardSavedViewsFromServer() {
     try {
         const res = await apiFetch('dashboard/saved-views');
@@ -2671,7 +2717,7 @@ function renderDrivers() {
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">Chauffeur</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Permis</th><th class="px-4 py-3">Mobile</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Actions</th></tr>
+                    <tr><th class="px-4 py-3">Chauffeur</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Flotte</th><th class="px-4 py-3">Permis</th><th class="px-4 py-3">Mobile</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Actions</th></tr>
                 </thead>
                 <tbody>
                     ${(Array.isArray(db.drivers) ? db.drivers : []).map(d => {
@@ -2682,6 +2728,8 @@ function renderDrivers() {
             : (d.invite_code
                 ? `<span class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-1 rounded border border-teal-200" title="Code à transmettre au chauffeur">${d.invite_code}</span>`
                 : '<span class="text-gray-400 text-xs">—</span>');
+        const fleetLabel = [d.default_vehicle_plate, d.default_trailer_plate].filter(Boolean).join(' + ')
+            || '<span class="text-gray-400 text-xs">—</span>';
         return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900 flex items-center gap-2">
                                 <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
@@ -2690,6 +2738,7 @@ function renderDrivers() {
                                 ${d.name || 'N/A'}
                             </td>
                             <td class="px-4 py-3">${d.phone}</td>
+                            <td class="px-4 py-3 text-xs font-mono text-gray-700">${fleetLabel}</td>
                             <td class="px-4 py-3"><span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold">${d.license}</span></td>
                             <td class="px-4 py-3">${mobileBadge}</td>
                             <td class="px-4 py-3"><span class="${statusBg} ${statusColor} px-2 py-1 rounded-full text-xs font-semibold">${d.status}</span></td>
@@ -2705,29 +2754,27 @@ function renderDrivers() {
 }
 
 function renderFleet() {
-    const tab = window.fleetActiveTab || 'TRUCK';
-    const trucks = getVehiclesByType('TRUCK');
-    const trailers = getVehiclesByType('TRAILER');
-    const list = tab === 'TRAILER' ? trailers : trucks;
-    const tabLabel = tab === 'TRAILER' ? 'Remorques' : 'Camions';
-    const addLabel = tab === 'TRAILER' ? 'Ajouter Remorque' : 'Ajouter Camion';
+    const list = [...(db.vehicles || [])].sort((a, b) => {
+        const typeOrder = (v) => ((v.vehicle_type || 'TRUCK') === 'TRAILER' ? 1 : 0);
+        const byType = typeOrder(a) - typeOrder(b);
+        if (byType !== 0) return byType;
+        return String(a.plate || '').localeCompare(String(b.plate || ''), 'fr');
+    });
 
     return `<div class="h-full flex flex-col fade-in">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div class="flex items-center gap-3">
                 <h3 class="font-bold text-lg text-gray-800">Gestion de la Flotte</h3>
-                <div class="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-                    <button onclick="window.fleetActiveTab='TRUCK'; router('fleet')" class="px-4 py-2 ${tab === 'TRUCK' ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}"><i class="fa-solid fa-truck mr-1"></i> Camions (${trucks.length})</button>
-                    <button onclick="window.fleetActiveTab='TRAILER'; router('fleet')" class="px-4 py-2 ${tab === 'TRAILER' ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}"><i class="fa-solid fa-trailer mr-1"></i> Remorques (${trailers.length})</button>
-                </div>
+                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">${list.length} véhicule${list.length > 1 ? 's' : ''}</span>
             </div>
-            <button onclick="openAddVehicleModal('${tab}')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>${addLabel}</button>
+            <button onclick="openAddVehicleModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Ajouter un véhicule</button>
         </div>
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             ${list.length ? `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                 ${list.map(v => {
         const statusColor = v.status === 'Disponible' ? 'border-green-500' : (v.status === 'Garage' ? 'border-red-500' : 'border-blue-500');
-        const typeBadge = (v.vehicle_type || 'TRUCK') === 'TRAILER' ? 'Remorque' : 'Camion';
+        const isTrailer = (v.vehicle_type || 'TRUCK') === 'TRAILER';
+        const typeBadge = isTrailer ? 'Remorque' : 'Camion';
         return `<div onclick="openEditVehicleModal(${v.id})" class="border rounded-xl p-5 hover:shadow-md transition relative overflow-hidden cursor-pointer">
                         <div class="absolute top-0 left-0 w-full h-1 ${statusColor}"></div>
                         <div class="flex justify-between items-start mb-4">
@@ -2735,13 +2782,13 @@ function renderFleet() {
                             <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold uppercase">${v.status}</span>
                         </div>
                         <div class="space-y-3 text-sm">
-                            ${tab === 'TRUCK' ? `<div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Chauffeur</span><span class="font-medium">${v.driver_name || '<span class="text-gray-400">Aucun</span>'}</span></div>` : ''}
+                            <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Chauffeur</span><span class="font-medium">${v.driver_name || '<span class="text-gray-400">Aucun</span>'}</span></div>
                             <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Type</span><span class="font-medium">${typeBadge}</span></div>
                             <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Maintenance</span><span class="font-medium">${formatDisplayDate(v.next_maintenance) || v.next_maintenance || '—'}</span></div>
                         </div>
                     </div>`;
     }).join('')}
-            </div>` : `<p class="text-center text-gray-400 italic py-16">Aucun ${tabLabel.toLowerCase()} enregistré</p>`}
+            </div>` : `<p class="text-center text-gray-400 italic py-16">Aucun véhicule enregistré</p>`}
         </div>
     </div>`;
 }
@@ -5895,6 +5942,8 @@ function openDriverCardModal(driverId) {
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Téléphone</span><span class="font-medium">${driver.phone}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Permis</span><span class="font-medium">${driver.license}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Expiration permis</span><span class="font-medium">${formatDisplayDate(driver.license_expiry) || '—'}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Camion</span><span class="font-medium font-mono">${driver.default_vehicle_plate || '—'}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Remorque</span><span class="font-medium font-mono">${driver.default_trailer_plate || '—'}</span></div>
             ${driver.invite_code ? `<div class="flex justify-between border-b pb-2"><span class="text-gray-500">Code mobile</span><span class="font-mono font-bold text-teal-700">${driver.invite_code}</span></div>` : ''}
             ${driver.user_account_id ? '<div class="text-green-700 text-sm mt-2"><i class="fa-solid fa-circle-check mr-1"></i>Compte TMS Mobile activé</div>' : (driver.invite_code ? '<div class="text-teal-700 text-sm mt-2">Code à transmettre au chauffeur pour l\'inscription mobile</div>' : '')}
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Adresse</span><span class="font-medium">${driver.address}</span></div>
@@ -6060,6 +6109,7 @@ function openAddDriverModal() {
     document.getElementById('driver-status').value = 'Disponible';
     document.getElementById('driver-address').value = '';
     document.getElementById('driver-notes').value = '';
+    populateDriverFleetSelects(null, null);
     syncDriverMobileSection({ mode: 'create' });
 
     const deleteBtn = document.getElementById('btn-delete-driver');
@@ -6082,6 +6132,7 @@ function openEditDriverModal(driverId) {
     document.getElementById('driver-status').value = driver.status || 'Disponible';
     document.getElementById('driver-address').value = driver.address || '';
     document.getElementById('driver-notes').value = driver.notes || '';
+    populateDriverFleetSelects(driver.default_vehicle_id, driver.default_trailer_id);
     syncDriverMobileSection({ mode: 'edit', driver });
 
     const deleteBtn = document.getElementById('btn-delete-driver');
@@ -6104,7 +6155,9 @@ async function submitDriver(e) {
         license_expiry: document.getElementById('driver-license-expiry').value,
         status: document.getElementById('driver-status').value,
         address: document.getElementById('driver-address').value,
-        notes: document.getElementById('driver-notes').value
+        notes: document.getElementById('driver-notes').value,
+        default_vehicle_id: document.getElementById('driver-default-vehicle')?.value || null,
+        default_trailer_id: document.getElementById('driver-default-trailer')?.value || null
     };
     if (!id) {
         driverData.generate_mobile_code = document.getElementById('driver-generate-mobile-code')?.checked !== false;
@@ -6477,23 +6530,60 @@ async function submitDispatch() {
 }
 
 // --- VEHICLE MODALS ---
-window.fleetActiveTab = window.fleetActiveTab || 'TRUCK';
-window._addVehicleType = 'TRUCK';
-
-function openAddVehicleModal(vehicleType = 'TRUCK') {
-    hideAllModals();
-    window._addVehicleType = vehicleType === 'TRAILER' ? 'TRAILER' : 'TRUCK';
-    const isTrailer = window._addVehicleType === 'TRAILER';
-    document.getElementById('add-vehicle-modal-title').textContent = isTrailer ? 'Ajouter une Remorque' : 'Ajouter un Camion';
-    document.getElementById('add-vehicle-type').value = window._addVehicleType;
-    const fuelWrap = document.getElementById('add-vehicle-fuel-wrap');
+function syncVehicleTypeFields(prefix) {
+    const typeEl = document.getElementById(`${prefix}-vehicle-type`);
+    const isTrailer = typeEl?.value === 'TRAILER';
+    const fuelWrap = document.getElementById(`${prefix}-vehicle-fuel-wrap`);
+    const driverWrap = document.getElementById(`${prefix}-vehicle-driver-wrap`);
+    const driverLabel = driverWrap?.querySelector('label');
+    const modelInput = document.getElementById(`${prefix}-vehicle-model`);
     if (fuelWrap) fuelWrap.classList.toggle('hidden', isTrailer);
+    if (driverWrap) driverWrap.classList.remove('hidden');
+    if (driverLabel) {
+        driverLabel.textContent = isTrailer ? 'Chauffeur assigné (remorque)' : 'Chauffeur assigné';
+    }
+    if (modelInput) {
+        modelInput.placeholder = isTrailer ? 'Schmit Cargobull' : 'Volvo FH';
+    }
+}
 
+function buildVehiclePayload(prefix, existingVehicle = null) {
+    const vehicleType = document.getElementById(`${prefix}-vehicle-type`)?.value
+        || existingVehicle?.vehicle_type
+        || 'TRUCK';
+    const isTrailer = vehicleType === 'TRAILER';
+    const driverSelect = document.getElementById(`${prefix}-vehicle-driver`);
+    const maintenanceRaw = document.getElementById(`${prefix}-vehicle-maintenance`)?.value;
+
+    return {
+        plate: document.getElementById(`${prefix}-vehicle-plate`)?.value?.trim(),
+        model: document.getElementById(`${prefix}-vehicle-model`)?.value?.trim(),
+        vehicle_type: vehicleType,
+        fuel: isTrailer ? null : (document.getElementById(`${prefix}-vehicle-fuel`)?.value || 'Diesel'),
+        mileage: parseInt(document.getElementById(`${prefix}-vehicle-mileage`)?.value, 10) || 0,
+        next_maintenance: maintenanceRaw || null,
+        status: document.getElementById(`${prefix}-vehicle-status`)?.value
+            || existingVehicle?.status
+            || 'Disponible',
+        driver_id: driverSelect?.value ? parseInt(driverSelect.value, 10) : null,
+        insurance_expiry: existingVehicle?.insurance_expiry
+            ? formatDateForInput(existingVehicle.insurance_expiry)
+            : null
+    };
+}
+
+window.syncVehicleTypeFields = syncVehicleTypeFields;
+
+function openAddVehicleModal() {
+    hideAllModals();
+    document.getElementById('add-vehicle-modal-title').textContent = 'Ajouter un véhicule';
+    document.getElementById('add-vehicle-type').value = 'TRUCK';
     document.getElementById('add-vehicle-plate').value = '';
     document.getElementById('add-vehicle-model').value = '';
     document.getElementById('add-vehicle-fuel').value = 'Diesel';
     document.getElementById('add-vehicle-mileage').value = '';
     document.getElementById('add-vehicle-maintenance').value = '';
+    syncVehicleTypeFields('add');
     document.getElementById('add-vehicle-modal').classList.remove('hidden');
 }
 
@@ -6503,12 +6593,13 @@ function closeAddVehicleModal() {
 }
 
 async function submitAddVehicle() {
-    const vehicleType = document.getElementById('add-vehicle-type')?.value || window._addVehicleType || 'TRUCK';
+    const vehicleType = document.getElementById('add-vehicle-type')?.value || 'TRUCK';
+    const isTrailer = vehicleType === 'TRAILER';
     const newVehicle = {
         plate: document.getElementById('add-vehicle-plate').value,
         model: document.getElementById('add-vehicle-model').value,
-        fuel: document.getElementById('add-vehicle-fuel').value,
-        mileage: parseInt(document.getElementById('add-vehicle-mileage').value) || 0,
+        fuel: isTrailer ? null : document.getElementById('add-vehicle-fuel').value,
+        mileage: parseInt(document.getElementById('add-vehicle-mileage').value, 10) || 0,
         next_maintenance: document.getElementById('add-vehicle-maintenance').value,
         status: 'Disponible',
         driver_id: null,
@@ -6522,9 +6613,8 @@ async function submitAddVehicle() {
 
             if (response.ok) {
                 await fetchAllData();
-                showToast(vehicleType === 'TRAILER' ? 'Remorque ajoutée avec succès' : 'Camion ajouté avec succès', 'success');
+                showToast('Véhicule ajouté avec succès', 'success');
                 closeAddVehicleModal();
-                window.fleetActiveTab = vehicleType;
                 router('fleet');
             } else {
                 const errorData = await response.json();
@@ -6550,7 +6640,7 @@ function openEditVehicleModal(vehicleId) {
     document.getElementById('edit-vehicle-type').value = vehicle.vehicle_type || 'TRUCK';
     document.getElementById('edit-vehicle-fuel').value = vehicle.fuel || 'Diesel';
     document.getElementById('edit-vehicle-mileage').value = vehicle.mileage || 0;
-    document.getElementById('edit-vehicle-maintenance').value = vehicle.next_maintenance || '';
+    document.getElementById('edit-vehicle-maintenance').value = formatDateForInput(vehicle.next_maintenance) || '';
     document.getElementById('edit-vehicle-status').value = vehicle.status || 'Disponible';
 
     // Populate driver select if it exists in the modal
@@ -6561,6 +6651,7 @@ function openEditVehicleModal(vehicleId) {
         driverSelect.value = vehicle.driver_id || '';
     }
 
+    syncVehicleTypeFields('edit');
     document.getElementById('edit-vehicle-modal').classList.remove('hidden');
 }
 
@@ -6569,33 +6660,33 @@ function closeEditVehicleModal() {
 }
 
 async function submitEditVehicle() {
-    const vehicleId = parseInt(document.getElementById('edit-vehicle-id').value);
+    const vehicleId = parseInt(document.getElementById('edit-vehicle-id').value, 10);
     const vehicle = db.vehicles.find(v => v.id === vehicleId);
 
-    if (vehicle) {
-        const updatedVehicle = {
-            ...vehicle,
-            plate: document.getElementById('edit-vehicle-plate').value,
-            model: document.getElementById('edit-vehicle-model').value,
-            vehicle_type: document.getElementById('edit-vehicle-type')?.value || vehicle.vehicle_type || 'TRUCK',
-            fuel: document.getElementById('edit-vehicle-fuel').value,
-            mileage: parseInt(document.getElementById('edit-vehicle-mileage').value) || 0,
-            next_maintenance: document.getElementById('edit-vehicle-maintenance').value,
-            status: document.getElementById('edit-vehicle-status').value
-        };
-
-        const driverSelect = document.getElementById('edit-vehicle-driver');
-        if (driverSelect) {
-            updatedVehicle.driver_id = driverSelect.value ? parseInt(driverSelect.value) : null;
-        }
-
-        await apiFetch(`vehicles/${vehicleId}`, { method: 'PUT', body: updatedVehicle });
-        await fetchAllData();
-        showToast('Véhicule mis à jour avec succès', 'success');
-        closeEditVehicleModal();
-        router('fleet');
-    } else {
+    if (!vehicle) {
         showToast('Véhicule non trouvé', 'error');
+        return;
+    }
+
+    const payload = buildVehiclePayload('edit', vehicle);
+    if (!payload.plate || !payload.model) {
+        showToast('Veuillez remplir l\'immatriculation et le modèle', 'error');
+        return;
+    }
+
+    try {
+        const response = await apiFetch(`vehicles/${vehicleId}`, { method: 'PUT', body: payload });
+        if (response.ok) {
+            await fetchAllData();
+            showToast('Véhicule mis à jour avec succès', 'success');
+            closeEditVehicleModal();
+            router('fleet');
+        } else {
+            const errorData = await response.json().catch(() => ({}));
+            showToast(errorData.error || `Erreur ${response.status}`, 'error');
+        }
+    } catch (error) {
+        showToast('Erreur réseau - Vérifiez le serveur Backend', 'error');
     }
 }
 
@@ -7417,18 +7508,21 @@ function getOrderAssignmentPayload(prefix) {
             purchase_price: purchasePrice,
             margin: price - purchasePrice,
             driver_id: null,
-            vehicle_id: null
+            vehicle_id: null,
+            trailer_id: null
         };
     }
     const driverVal = document.getElementById(`${prefix}-driver`)?.value;
     const vehicleVal = document.getElementById(`${prefix}-vehicle`)?.value;
+    const trailerVal = document.getElementById(`${prefix}-trailer`)?.value;
     return {
         assignment_type: 'INTERNAL',
         subcontractor_id: null,
         purchase_price: 0,
         margin: 0,
         driver_id: driverVal ? parseInt(driverVal, 10) : null,
-        vehicle_id: vehicleVal ? parseInt(vehicleVal, 10) : null
+        vehicle_id: vehicleVal ? parseInt(vehicleVal, 10) : null,
+        trailer_id: trailerVal ? parseInt(trailerVal, 10) : null
     };
 }
 
@@ -7619,10 +7713,7 @@ function openAddOrderModal() {
     }
 
     const vehicleSelect = document.getElementById('add-order-vehicle');
-    if (vehicleSelect) {
-        vehicleSelect.innerHTML = '<option value="">-- Sélectionner un véhicule --</option>' +
-            getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
-    }
+    populateOrderFleetSelects('add-order');
 
     const driverSelect = document.getElementById('add-order-driver');
     if (driverSelect) {
@@ -7817,9 +7908,7 @@ function openEditOrderModal(orderId) {
     clientSelect.value = order.client_id || '';
 
     const vehicleSelect = document.getElementById('edit-order-vehicle');
-    vehicleSelect.innerHTML = '<option value="">-- Sélectionner un véhicule --</option>' +
-        getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
-    vehicleSelect.value = order.vehicle_id || '';
+    populateOrderFleetSelects('edit-order', { vehicleId: order.vehicle_id, trailerId: order.trailer_id });
 
     const driverSelect = document.getElementById('edit-order-driver');
     driverSelect.innerHTML = '<option value="">-- Sélectionner un chauffeur --</option>' +

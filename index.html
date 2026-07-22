@@ -388,17 +388,24 @@
                             <span class="text-sm text-gray-700">Sous-traitant</span>
                         </label>
                     </div>
-                    <div id="add-order-internal-fields" class="grid grid-cols-2 gap-4">
+                    <div id="add-order-internal-fields" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule assigné</label>
-                            <select id="add-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">-- Sélectionner un véhicule --</option>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                            <select id="add-order-driver" onchange="applyDriverFleetToOrder('add-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Sélectionner un chauffeur --</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
-                            <select id="add-order-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">-- Sélectionner un chauffeur --</option>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
+                            <select id="add-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Auto / manuel --</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Rempli depuis la fiche chauffeur si vide.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
+                            <select id="add-order-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Auto / manuel --</option>
                             </select>
                         </div>
                     </div>
@@ -623,17 +630,23 @@
                             <span class="text-sm text-gray-700">Sous-traitant</span>
                         </label>
                     </div>
-                    <div id="edit-order-internal-fields" class="grid grid-cols-2 gap-4">
+                    <div id="edit-order-internal-fields" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule assigné</label>
-                            <select id="edit-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">-- Sélectionner un véhicule --</option>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                            <select id="edit-order-driver" onchange="applyDriverFleetToOrder('edit-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Sélectionner un chauffeur --</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
-                            <select id="edit-order-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">-- Sélectionner un chauffeur --</option>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
+                            <select id="edit-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Auto / manuel --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
+                            <select id="edit-order-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">-- Auto / manuel --</option>
                             </select>
                         </div>
                     </div>
@@ -895,6 +908,24 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
                         <input type="text" id="driver-address" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
+                    <div class="border border-blue-100 rounded-lg p-4 bg-blue-50/50">
+                        <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Flotte habituelle</h4>
+                        <p class="text-xs text-gray-500 mb-3">Ces véhicules seront proposés automatiquement sur les missions assignées à ce chauffeur.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
+                                <select id="driver-default-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">— Aucun —</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
+                                <select id="driver-default-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">— Aucune —</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                         <textarea id="driver-notes" rows="3" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
@@ -944,13 +975,13 @@
     <div id="add-vehicle-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
-                <h3 id="add-vehicle-modal-title" class="font-bold text-lg text-gray-800">Ajouter un Camion</h3>
+                <h3 id="add-vehicle-modal-title" class="font-bold text-lg text-gray-800">Ajouter un véhicule</h3>
                 <button onclick="closeAddVehicleModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             <div class="p-6 space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                    <select id="add-vehicle-type" class="w-full border border-gray-300 rounded-md p-2">
+                    <select id="add-vehicle-type" onchange="syncVehicleTypeFields('add')" class="w-full border border-gray-300 rounded-md p-2">
                         <option value="TRUCK">Camion</option>
                         <option value="TRAILER">Remorque</option>
                     </select>
@@ -1001,7 +1032,7 @@
                 <input type="hidden" id="edit-vehicle-id">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                    <select id="edit-vehicle-type" class="w-full border border-gray-300 rounded-md p-2">
+                    <select id="edit-vehicle-type" onchange="syncVehicleTypeFields('edit')" class="w-full border border-gray-300 rounded-md p-2">
                         <option value="TRUCK">Camion</option>
                         <option value="TRAILER">Remorque</option>
                     </select>
@@ -1015,7 +1046,7 @@
                     <input type="text" id="edit-vehicle-model" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
+                    <div id="edit-vehicle-fuel-wrap">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Carburant</label>
                         <select id="edit-vehicle-fuel" class="w-full border border-gray-300 rounded-md p-2">
                             <option value="Diesel">Diesel</option>
@@ -1043,7 +1074,7 @@
                         </select>
                     </div>
                 </div>
-                <div>
+                <div id="edit-vehicle-driver-wrap">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
                     <select id="edit-vehicle-driver" class="w-full border border-gray-300 rounded-md p-2">
                         <option value="">-- Aucun --</option>

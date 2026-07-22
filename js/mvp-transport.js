@@ -622,15 +622,29 @@ window.validateTransportFromDetail = async function (orderId, options = {}) {
 };
 
 window.assignTransportFromDetail = async function (orderId) {
-    const driverId = prompt('ID chauffeur à affecter (laisser vide si déjà renseigné) :');
-    const vehicleId = prompt('ID véhicule (optionnel) :');
+    const drivers = db.drivers || [];
+    if (!drivers.length) {
+        showToast('Aucun chauffeur disponible', 'error');
+        return;
+    }
+    const list = drivers.map(d => {
+        const fleet = [d.default_vehicle_plate, d.default_trailer_plate].filter(Boolean).join(' + ');
+        return `${d.id} — ${d.name}${fleet ? ` (${fleet})` : ''}`;
+    }).join('\n');
+    const input = prompt(`ID du chauffeur à affecter :\n\n${list}`);
+    if (input == null || input.trim() === '') return;
+    const driverId = parseInt(String(input).trim().split(/[^0-9]/)[0], 10);
+    if (!driverId) {
+        showToast('Chauffeur invalide', 'error');
+        return;
+    }
     try {
-        const body = {};
-        if (driverId) body.driver_id = parseInt(driverId, 10);
-        if (vehicleId) body.vehicle_id = parseInt(vehicleId, 10);
-        const res = await apiFetch(`transport-orders/${orderId}/assign`, { method: 'POST', body });
+        const res = await apiFetch(`transport-orders/${orderId}/assign`, {
+            method: 'POST',
+            body: { driver_id: driverId }
+        });
         if (res.ok) {
-            showToast('Transport affecté', 'success');
+            showToast('Transport affecté (camion + remorque du chauffeur)', 'success');
             await refreshAfterMvpStep({ orderId, step: 'assign', status: 'Pris en charge' });
         } else {
             const err = await res.json().catch(() => ({}));
