@@ -2478,7 +2478,10 @@ async function loadAffretementConfirmationPage() {
         const { data } = await res.json();
 
         if (subtitle) {
-            subtitle.textContent = `Commande ${data.orderRef} — ${data.subcontractor?.name || 'Sous-traitant'}`;
+            const agencyPart = data.agency?.code
+                ? ` — Agence ${data.agency.code}${data.agency.name ? ` (${data.agency.name})` : ''}`
+                : '';
+            subtitle.textContent = `Commande ${data.orderRef} — ${data.subcontractor?.name || 'Sous-traitant'}${agencyPart}`;
         }
         if (preview) preview.innerHTML = data.html || '<p class="p-8 text-center text-gray-400">Aucun contenu</p>';
         if (emailInput) emailInput.value = data.subcontractor?.email || '';
@@ -2782,18 +2785,25 @@ function renderPurchaseInvoices() {
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">N° Pièce</th><th class="px-4 py-3">Fournisseur</th><th class="px-4 py-3">Sous-traitant / Commande</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Montant TTC</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Doc</th></tr>
+                    <tr><th class="px-4 py-3">N° Pièce</th><th class="px-4 py-3">Fournisseur</th><th class="px-4 py-3">Sous-traitant / Commande</th><th class="px-4 py-3">Agence</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Montant TTC</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Doc</th></tr>
                 </thead>
                 <tbody>
-                    ${invoices.length ? invoices.map(inv => `<tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-4 py-3 font-medium text-gray-900">${inv.id}</td>
+                    ${invoices.length ? invoices.map(inv => {
+        const isAutoAff = inv.type === 'Sous-traitance' && inv.order_id && String(inv.id).startsWith('ACH-AFF-');
+        const agencyLabel = inv.agency_code
+            ? `${inv.agency_code} — ${inv.agency_name || ''}`
+            : (inv.agency_name || '—');
+        return `<tr class="bg-white border-b hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-900">${inv.id}${isAutoAff ? '<br><span class="text-[10px] text-indigo-600 font-semibold">Auto affrètement</span>' : ''}</td>
                         <td class="px-4 py-3">${inv.supplier}</td>
                         <td class="px-4 py-3 text-xs">${inv.subcontractor_name || '-'}${inv.order_ref ? `<br><span class="text-gray-400">Cmd. ${inv.order_ref}</span>` : ''}</td>
+                        <td class="px-4 py-3 text-xs text-gray-600">${agencyLabel}</td>
                         <td class="px-4 py-3">${inv.type}</td>
                         <td class="px-4 py-3 font-bold text-gray-700">-${Number(inv.amount || 0).toLocaleString()} €</td>
                         <td class="px-4 py-3"><span class="${inv.status === 'Payée' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'} px-2 py-1 rounded text-xs font-semibold">${inv.status}</span></td>
                         <td class="px-4 py-3">${inv.file ? `<a href="${normalizeUploadUrl(inv.file)}" target="_blank" class="text-blue-600 hover:underline text-xs"><i class="fa-solid fa-file-pdf"></i></a>` : '-'}</td>
-                    </tr>`).join('') : '<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400 italic">Aucune facture d\'achat</td></tr>'}
+                    </tr>`;
+    }).join('') : '<tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 italic">Aucune facture d\'achat</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -4005,20 +4015,21 @@ function renderAdmin(bankSettings = null) {
                 <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Agences / Dépôts</h3>
                 <p class="text-xs text-gray-500 mb-4">Multi-agences : chaque exploitant ne voit que les transports de son agence. L'administrateur voit tout.</p>
                 <table class="w-full text-sm text-left mb-4">
-                    <thead class="border-b"><tr><th class="pb-2">Code</th><th class="pb-2">Nom</th><th class="pb-2">Ville</th></tr></thead>
+                    <thead class="border-b"><tr><th class="pb-2">Code</th><th class="pb-2">Nom</th><th class="pb-2">Adresse</th></tr></thead>
                     <tbody>
                         ${(db.agencies || []).map(a => `<tr class="border-b last:border-0">
                             <td class="py-2 font-mono text-xs">${a.code}</td>
                             <td class="py-2">${a.name}</td>
-                            <td class="py-2 text-gray-500">${a.city || '—'}</td>
+                            <td class="py-2 text-gray-500">${[a.address, a.city].filter(Boolean).join(', ') || '—'}</td>
                         </tr>`).join('') || '<tr><td colspan="3" class="py-4 text-gray-400 italic">Aucune agence</td></tr>'}
                     </tbody>
                 </table>
-                ${isAdminUser ? `<form onsubmit="event.preventDefault(); createAgencyFromAdmin(); return false;" class="grid grid-cols-3 gap-2">
+                ${isAdminUser ? `<form onsubmit="event.preventDefault(); createAgencyFromAdmin(); return false;" class="grid grid-cols-2 gap-2">
                     <input type="text" id="admin-agency-code" class="border rounded p-2 text-sm uppercase" placeholder="Code" required>
                     <input type="text" id="admin-agency-name" class="border rounded p-2 text-sm" placeholder="Nom agence" required>
                     <input type="text" id="admin-agency-city" class="border rounded p-2 text-sm" placeholder="Ville">
-                    <button type="submit" class="col-span-3 py-2 bg-teal-600 text-white rounded text-sm font-bold hover:bg-teal-700">+ Créer une agence</button>
+                    <input type="text" id="admin-agency-address" class="border rounded p-2 text-sm" placeholder="Adresse">
+                    <button type="submit" class="col-span-2 py-2 bg-teal-600 text-white rounded text-sm font-bold hover:bg-teal-700">+ Créer une agence</button>
                 </form>` : '<p class="text-xs text-gray-400">Seul un administrateur peut gérer les agences.</p>'}
             </div>
 
@@ -4202,12 +4213,13 @@ window.createAgencyFromAdmin = async function () {
     const code = document.getElementById('admin-agency-code')?.value?.trim();
     const name = document.getElementById('admin-agency-name')?.value?.trim();
     const city = document.getElementById('admin-agency-city')?.value?.trim();
+    const address = document.getElementById('admin-agency-address')?.value?.trim();
     if (!code || !name) {
         showToast('Code et nom requis', 'error');
         return;
     }
     try {
-        const res = await apiFetch('agencies', { method: 'POST', body: { code, name, city } });
+        const res = await apiFetch('agencies', { method: 'POST', body: { code, name, city, address } });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.error || 'Création impossible');
@@ -6292,16 +6304,54 @@ async function deleteSubcontractorById(id, name) {
 window.deleteSubcontractorById = deleteSubcontractorById;
 
 // --- DISPATCH MODALS ---
+let isSubmittingDispatch = false;
+
+function setDispatchSubmitting(busy) {
+    isSubmittingDispatch = busy;
+    const btn = document.getElementById('dispatch-submit-btn');
+    if (btn) {
+        btn.disabled = busy;
+        btn.innerHTML = busy
+            ? '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Affrètement en cours…'
+            : '<i class="fa-solid fa-handshake mr-2"></i>Confirmer l\'affrètement';
+        btn.classList.toggle('opacity-60', busy);
+        btn.classList.toggle('cursor-not-allowed', busy);
+    }
+}
+
 function openDispatchModal(orderId) {
     hideAllModals();
 
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return;
 
+    if (isOrderSubcontracted(order)) {
+        const openExisting = confirm(
+            `La commande ${order.ref || orderId} est déjà affrétée.\n\n`
+            + 'OK : ouvrir la confirmation existante\n'
+            + 'Annuler : modifier l\'affrètement (mise à jour facture achat, sans doublon)'
+        );
+        if (openExisting) {
+            openAffretementConfirmation(orderId);
+            return;
+        }
+    }
+
     document.getElementById('dispatch-order-id').value = orderId;
     document.getElementById('dispatch-order-ref').textContent = order.ref || '#' + orderId;
     document.getElementById('dispatch-order-price').textContent = (order.price || 0) + '€';
-    document.getElementById('dispatch-purchase-price').value = '';
+    document.getElementById('dispatch-purchase-price').value = order.purchase_price || '';
+
+    const warningBanner = document.getElementById('dispatch-already-affrete-banner');
+    if (warningBanner) {
+        if (isOrderSubcontracted(order)) {
+            warningBanner.classList.remove('hidden');
+            warningBanner.textContent = 'Cette commande est déjà affrétée : une nouvelle confirmation mettra à jour la facture d\'achat existante (pas de doublon).';
+        } else {
+            warningBanner.classList.add('hidden');
+            warningBanner.textContent = '';
+        }
+    }
 
     // Populate valid subcontractors only
     const select = document.getElementById('dispatch-subcontractor');
@@ -6310,7 +6360,7 @@ function openDispatchModal(orderId) {
         (!s.rc_pro_expiry || new Date(s.rc_pro_expiry) >= new Date())
     );
     select.innerHTML = '<option value="">-- Sélectionner --</option>' +
-        validSubcontractors.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        validSubcontractors.map(s => `<option value="${s.id}" ${String(order.subcontractor_id) === String(s.id) ? 'selected' : ''}>${s.name}</option>`).join('');
 
     // Also add expired ones with warning
     const expired = db.subcontractors.filter(s =>
@@ -6321,7 +6371,9 @@ function openDispatchModal(orderId) {
             expired.map(s => `<option value="${s.id}" class="text-red-500">${s.name} ⚠️</option>`).join('');
     }
 
+    setDispatchSubmitting(false);
     calculateDispatchMargin();
+    checkSubcontractorValidity();
     document.getElementById('dispatch-modal').classList.remove('hidden');
 }
 
@@ -6361,15 +6413,34 @@ function calculateDispatchMargin() {
 }
 
 async function submitDispatch() {
-    const orderId = parseInt(document.getElementById('dispatch-order-id').value);
-    const subcontractorId = parseInt(document.getElementById('dispatch-subcontractor').value);
+    if (isSubmittingDispatch) return;
+
+    const orderId = parseInt(document.getElementById('dispatch-order-id').value, 10);
+    const subcontractorId = parseInt(document.getElementById('dispatch-subcontractor').value, 10);
     const purchasePrice = parseFloat(document.getElementById('dispatch-purchase-price').value);
 
-    if (!subcontractorId || !purchasePrice) {
-        showToast('Veuillez sélectionner un sous-traitant et saisir le prix d\'achat', 'error');
+    if (!orderId || !subcontractorId || !purchasePrice || purchasePrice <= 0) {
+        showToast('Veuillez sélectionner un sous-traitant et saisir un prix d\'achat valide', 'error');
         return;
     }
 
+    const order = (db.orders || []).find(o => o.id === orderId);
+    if (order && isOrderSubcontracted(order)
+        && Number(order.subcontractor_id) === subcontractorId
+        && Number(order.purchase_price) === purchasePrice) {
+        const reuse = confirm(
+            'Cette commande est déjà affrétée avec les mêmes paramètres.\n\n'
+            + 'Confirmer quand même pour régénérer la confirmation ?\n'
+            + '(La facture d\'achat sera mise à jour, sans doublon.)'
+        );
+        if (!reuse) {
+            openAffretementConfirmation(orderId);
+            closeDispatchModal();
+            return;
+        }
+    }
+
+    setDispatchSubmitting(true);
     try {
         const response = await apiFetch(`dispatch`, {
             method: 'POST',
@@ -6382,9 +6453,11 @@ async function submitDispatch() {
 
         if (response.ok) {
             const result = await response.json().catch(() => ({}));
-            showToast(result.data?.purchaseInvoiceId
-                ? 'Affrètement confirmé — ouverture de la confirmation'
-                : 'Commande affectée au sous-traitant', 'success');
+            const msg = result.data?.message
+                || (result.data?.purchaseInvoiceCreated === false
+                    ? 'Affrètement mis à jour — facture d\'achat actualisée'
+                    : 'Affrètement confirmé — ouverture de la confirmation');
+            showToast(msg, 'success');
             closeDispatchModal();
             if (typeof refreshAfterMvpStep === 'function') {
                 await refreshAfterMvpStep({ orderId, step: 'assign', status: 'Affrété', route: window.currentAppRoute || 'planning' });
@@ -6393,11 +6466,13 @@ async function submitDispatch() {
             }
             openAffretementConfirmation(orderId);
         } else {
-            const errorData = await response.json();
-            showToast(errorData.error || 'Erreur', 'error');
+            const errorData = await response.json().catch(() => ({}));
+            showToast(errorData.error || 'Erreur lors de l\'affrètement', 'error');
         }
     } catch (error) {
         showToast('Erreur réseau', 'error');
+    } finally {
+        setDispatchSubmitting(false);
     }
 }
 
@@ -6648,6 +6723,16 @@ async function submitPurchaseInvoice() {
     const date = document.getElementById('add-purchase-date').value;
     const subcontractorId = parseInt(document.getElementById('add-purchase-subcontractor')?.value, 10);
     const orderId = parseInt(document.getElementById('add-purchase-order-id')?.value, 10);
+
+    if (type === 'Sous-traitance' && orderId) {
+        const dup = (db.purchase_invoices || []).find(inv =>
+            inv.type === 'Sous-traitance' && Number(inv.order_id) === orderId
+        );
+        if (dup) {
+            showToast(`Facture affrètement déjà existante pour cette commande (${dup.id}).`, 'error');
+            return;
+        }
+    }
 
     if (supplier && amount && date) {
         const newInvoice = {
