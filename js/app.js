@@ -362,7 +362,7 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'Comment fonctionne l\'essai gratuit ?',
-        a: 'À l\'inscription, vous bénéficiez de 30 jours d\'essai Premium avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait (à partir de 99 €/mois HT) et payez par virement bancaire.'
+        a: 'À l\'inscription, vous bénéficiez de 30 jours d\'essai Premium avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait (à partir de 129 €/mois HT) et payez par virement bancaire.'
     },
     {
         q: 'Flenova remplace-t-il GedMouv pour les documents sous-traitants ?',
@@ -382,7 +382,7 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'Flenova convient-il aux petites structures ?',
-        a: 'Absolument. Le forfait Indépendant démarre à 99 €/mois HT pour 1 utilisateur et 3 chauffeurs mobiles. Pas de mise en place complexe ni de déploiement sur site.'
+        a: 'Absolument. Le forfait Indépendant démarre à 129 €/mois HT pour 1 utilisateur et 3 chauffeurs mobiles. Suppléments disponibles si vous dépassez ces quotas.'
     }
 ];
 
@@ -522,7 +522,7 @@ function renderPublicDifferentiators() {
 
 function renderPublicWhyFlenova() {
     const items = [
-        { icon: 'fa-euro-sign', title: 'Abordable', desc: 'Dès 99 €/mois HT. Pas de devis opaque ni de licence enterprise.' },
+        { icon: 'fa-euro-sign', title: 'Abordable', desc: 'Dès 129 €/mois HT. Pas de devis opaque ni de licence enterprise.' },
         { icon: 'fa-wand-magic-sparkles', title: 'Simple', desc: 'Interface pensée pour les PME. Prise en main rapide, sans intégrateur.' },
         { icon: 'fa-layer-group', title: 'Complet', desc: 'Web + mobile + facturation + export compta dans un seul abonnement.' }
     ];
@@ -609,7 +609,7 @@ function renderPublicHome() {
                         <a href="register.html" class="public-btn-primary">Essai gratuit 30 jours</a>
                         <button type="button" class="public-btn-secondary" onclick="publicRouter('contact')">Demander une démo</button>
                     </div>
-                    <p class="public-hero-note">À partir de <strong>99 €/mois HT</strong> · Sans engagement · Premium offert à l'inscription</p>
+                    <p class="public-hero-note">À partir de <strong>129 €/mois HT</strong> · Sans engagement · Premium offert à l'inscription</p>
                 </div>
                 <div class="public-hero-image-wrap">
                     <img src="assets/public-hero-illustration.png" alt="Tableau de bord TMS Flenova — cartes, statistiques et flotte" class="public-hero-image" width="1024" height="622">

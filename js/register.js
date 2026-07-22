@@ -4,9 +4,9 @@
 
 const VALID_PLANS = ['independant', 'pme', 'premium'];
 const PLAN_LABELS = {
-    independant: 'Indépendant — 99 €/mois HT (après essai)',
-    pme: 'PME — 189 €/mois HT (après essai)',
-    premium: 'Premium — 349 €/mois HT (après essai)'
+    independant: 'Indépendant — 129 €/mois HT (après essai)',
+    pme: 'PME — 269 €/mois HT (après essai)',
+    premium: 'Premium — 449 €/mois HT (après essai)'
 };
 
 function showToast(message, type = 'info') {
