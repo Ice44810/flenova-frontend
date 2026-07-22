@@ -181,7 +181,7 @@ function makeElementDraggable(el) {
 }
 
 // --- SITE PUBLIC ---
-const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact', 'privacy', 'legal', 'terms', 'cookies'];
+const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact', 'privacy', 'legal', 'terms', 'cookies', 'tracking'];
 let isAuthenticated = false;
 let publicReviewsTimer = null;
 
@@ -788,6 +788,10 @@ function publicRouter(route) {
                 ? renderLegalPage(route === 'legal' ? 'legal' : route)
                 : '<p class="p-8 text-center text-gray-500">Page indisponible</p>';
             break;
+        case 'tracking':
+            container.innerHTML = '<div class="py-16 text-center text-gray-500"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>';
+            renderPublicTrackingPage().then(html => { container.innerHTML = html; });
+            break;
         default:
             container.innerHTML = renderPublicHome();
             loadPublicReviews();
@@ -848,7 +852,11 @@ function initPublicSite() {
     }
 
     const hash = (window.location.hash || '').replace('#', '').trim();
-    publicRouter(PUBLIC_ROUTES.includes(hash) ? hash : 'home');
+    const trackingCode = new URLSearchParams(window.location.search).get('code');
+    const initialRoute = (hash && PUBLIC_ROUTES.includes(hash))
+        ? hash
+        : (trackingCode ? 'tracking' : 'home');
+    publicRouter(initialRoute);
 
     window.addEventListener('hashchange', () => {
         if (isAuthenticated) return;
@@ -1090,6 +1098,7 @@ function normalizeDashboardFilters(raw = {}) {
         assignmentType: norm(raw.assignmentType),
         cargoType: norm(raw.cargoType),
         missionRef: norm(raw.missionRef),
+        agencyId: norm(raw.agencyId),
         invoicedOnly: !!raw.invoicedOnly,
         paidOnly: !!raw.paidOnly,
         cockpitMode: raw.cockpitMode || getDefaultCockpitMode(),
@@ -1155,6 +1164,7 @@ function buildDashboardQueryString() {
     if (f.paidOnly) p.append('paidOnly', 'true');
     if (f.status) p.append('status', f.status);
     if (f.assignmentType) p.append('assignmentType', f.assignmentType);
+    if (f.agencyId) p.append('agencyId', f.agencyId);
     if (f.reportName) p.append('reportName', f.reportName);
     if (f.metrics?.length) p.append('metrics', f.metrics.join(','));
     const qs = p.toString();
@@ -1297,7 +1307,7 @@ async function fetchAllData() {
         };
         const mayView = (module) => (typeof can !== 'function') || can(module, 'view');
 
-        const [orders, clients, missions, drivers, vehicles, users, sales, purchase, subcontractors] = await Promise.all([
+        const [orders, clients, missions, drivers, vehicles, users, sales, purchase, subcontractors, agencies] = await Promise.all([
             mayView('transports') ? fetchJson('transport-orders') : Promise.resolve([]),
             mayView('clients') ? fetchJson('clients') : Promise.resolve([]),
             mayView('transports') ? fetchJson('missions') : Promise.resolve([]),
@@ -1306,9 +1316,10 @@ async function fetchAllData() {
             (typeof canManageUsers === 'function' && canManageUsers()) ? fetchJson('users') : Promise.resolve([]),
             mayView('billing') ? fetchJson('sales-invoices') : Promise.resolve([]),
             mayView('billing') ? fetchJson('purchase-invoices') : Promise.resolve([]),
-            mayView('carriers') ? fetchJson('subcontractors') : Promise.resolve([])
+            mayView('carriers') ? fetchJson('subcontractors') : Promise.resolve([]),
+            (typeof canManageUsers === 'function' && canManageUsers()) ? fetchJson('agencies') : Promise.resolve([])
         ]);
-        db = { orders, clients, missions, drivers, vehicles, users, sales_invoices: sales, purchase_invoices: purchase, subcontractors };
+        db = { orders, clients, missions, drivers, vehicles, users, sales_invoices: sales, purchase_invoices: purchase, subcontractors, agencies: agencies || [] };
         return true;
     } catch (error) {
         showToast("Erreur de connexion au serveur", "error");
@@ -1383,6 +1394,8 @@ function renderDashboardFiltersBody() {
     const drivers = db.drivers || [];
     const trucks = getVehiclesByType('TRUCK');
     const trailers = getVehiclesByType('TRAILER');
+    const agencies = db.agencies || [];
+    const isAdminUser = typeof canManageUsers === 'function' && canManageUsers();
     const preset = f.periodPreset || 'year';
     const presetOpts = Object.entries(DASHBOARD_PERIOD_PRESETS).map(([k, lbl]) =>
         `<option value="${k}" ${preset === k ? 'selected' : ''}>${lbl}</option>`
@@ -1412,7 +1425,7 @@ function renderDashboardFiltersBody() {
             <div><label>Véhicule</label><select id="dash-inline-vehicle"><option value="">Tous</option>${trucks.map(v => `<option value="${v.id}" ${String(v.id) === String(f.vehicleId) ? 'selected' : ''}>${v.plate || v.model}</option>`).join('')}</select></div>
             <div><label>Remorque</label><select id="dash-inline-trailer"><option value="">Toutes</option>${trailers.map(v => `<option value="${v.id}" ${String(v.id) === String(f.trailerId) ? 'selected' : ''}>${v.plate || v.model}</option>`).join('')}</select></div>
             <div><label>Activité</label><select id="dash-inline-activity"><option value="">Toutes</option><option value="national" ${f.activity === 'national' ? 'selected' : ''}>National</option><option value="international" ${f.activity === 'international' ? 'selected' : ''}>International</option></select></div>
-            <div><label>Agence</label><select id="dash-inline-agency" disabled><option value="">Toutes</option></select></div>
+            <div><label>Agence</label><select id="dash-inline-agency" ${isAdminUser ? '' : 'disabled'}><option value="">Toutes</option>${agencies.map(a => `<option value="${a.id}" ${String(a.id) === String(f.agencyId) ? 'selected' : ''}>${a.code} — ${a.name}</option>`).join('')}</select></div>
             <div><label>Type mission</label><select id="dash-inline-assignment"><option value="">Tous</option><option value="INTERNAL" ${f.assignmentType === 'INTERNAL' ? 'selected' : ''}>Flotte propre</option><option value="SUBCONTRACTED" ${f.assignmentType === 'SUBCONTRACTED' ? 'selected' : ''}>Affrètement</option></select></div>
             <div><label>Statut</label><select id="dash-inline-status"><option value="">Tous</option><option value="Livré" ${f.status === 'Livré' ? 'selected' : ''}>Livré</option><option value="En cours" ${f.status === 'En cours' ? 'selected' : ''}>En cours</option><option value="Planifié" ${f.status === 'Planifié' ? 'selected' : ''}>Planifié</option><option value="Validé" ${f.status === 'Validé' ? 'selected' : ''}>Validé</option><option value="Annulé" ${f.status === 'Annulé' ? 'selected' : ''}>Annulé</option></select></div>
             <div><label>Départ</label><select id="dash-inline-origin"><option value="">Tous</option>${countryOptions(f.originCountry)}</select></div>
@@ -1493,6 +1506,7 @@ function readDashboardInlineFilters() {
         status: document.getElementById('dash-inline-status')?.value || null,
         cargoType: document.getElementById('dash-inline-cargo')?.value || null,
         missionRef: document.getElementById('dash-inline-mission-ref')?.value?.trim() || null,
+        agencyId: document.getElementById('dash-inline-agency')?.value || null,
         invoicedOnly: !!document.getElementById('dash-inline-invoiced')?.checked,
         paidOnly: !!document.getElementById('dash-inline-paid')?.checked,
         cockpitMode: getDefaultCockpitMode(),
@@ -3987,6 +4001,27 @@ function renderAdmin(bankSettings = null) {
                 ${isAdminUser ? `<button onclick="openAddUserModal()" class="mt-4 w-full py-2 border border-dashed rounded text-gray-500 hover:bg-gray-50 text-sm">+ Ajouter utilisateur</button>` : ''}
             </div>
 
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Agences / Dépôts</h3>
+                <p class="text-xs text-gray-500 mb-4">Multi-agences : chaque exploitant ne voit que les transports de son agence. L'administrateur voit tout.</p>
+                <table class="w-full text-sm text-left mb-4">
+                    <thead class="border-b"><tr><th class="pb-2">Code</th><th class="pb-2">Nom</th><th class="pb-2">Ville</th></tr></thead>
+                    <tbody>
+                        ${(db.agencies || []).map(a => `<tr class="border-b last:border-0">
+                            <td class="py-2 font-mono text-xs">${a.code}</td>
+                            <td class="py-2">${a.name}</td>
+                            <td class="py-2 text-gray-500">${a.city || '—'}</td>
+                        </tr>`).join('') || '<tr><td colspan="3" class="py-4 text-gray-400 italic">Aucune agence</td></tr>'}
+                    </tbody>
+                </table>
+                ${isAdminUser ? `<form onsubmit="event.preventDefault(); createAgencyFromAdmin(); return false;" class="grid grid-cols-3 gap-2">
+                    <input type="text" id="admin-agency-code" class="border rounded p-2 text-sm uppercase" placeholder="Code" required>
+                    <input type="text" id="admin-agency-name" class="border rounded p-2 text-sm" placeholder="Nom agence" required>
+                    <input type="text" id="admin-agency-city" class="border rounded p-2 text-sm" placeholder="Ville">
+                    <button type="submit" class="col-span-3 py-2 bg-teal-600 text-white rounded text-sm font-bold hover:bg-teal-700">+ Créer une agence</button>
+                </form>` : '<p class="text-xs text-gray-400">Seul un administrateur peut gérer les agences.</p>'}
+            </div>
+
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
                 <div>
                     <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Identité Légale de la Compagnie</h3>
@@ -4160,6 +4195,28 @@ window.saveAdminBankSettings = async function () {
         }
     } catch (err) {
         showToast('Erreur de communication avec le serveur', 'error');
+    }
+};
+
+window.createAgencyFromAdmin = async function () {
+    const code = document.getElementById('admin-agency-code')?.value?.trim();
+    const name = document.getElementById('admin-agency-name')?.value?.trim();
+    const city = document.getElementById('admin-agency-city')?.value?.trim();
+    if (!code || !name) {
+        showToast('Code et nom requis', 'error');
+        return;
+    }
+    try {
+        const res = await apiFetch('agencies', { method: 'POST', body: { code, name, city } });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Création impossible');
+        }
+        await fetchAllData();
+        router('admin');
+        showToast('Agence créée', 'success');
+    } catch (e) {
+        showToast(e.message || 'Erreur', 'error');
     }
 };
 
@@ -4609,6 +4666,158 @@ async function submitContact(e) {
     }
 }
 
+function computeTaxableWeightFrontend(input = {}) {
+    const gross = Number(input.grossWeightKg) || 0;
+    const volume = Number(input.volumeM3) || 0;
+    const heightCm = Number(input.heightCm) || 0;
+    const lengthM = Number(input.lengthM) || 0;
+    const widthM = Number(input.widthM) || 0;
+    const stackable = input.stackable != null ? !!input.stackable : (heightCm <= 0 || heightCm <= 120);
+
+    let volumetric = gross;
+    let method = 'volume_333';
+    if (stackable && volume > 0) {
+        volumetric = Math.round(volume * 333);
+        method = 'volume_333';
+    } else if (!stackable && lengthM > 0 && widthM > 0) {
+        volumetric = Math.round(((lengthM * widthM) / 2.4) * 1750);
+        method = 'ldm_1750';
+    } else if (volume > 0) {
+        volumetric = Math.round(volume * 333);
+    }
+
+    const taxable = Math.max(gross, volumetric);
+    return {
+        grossWeightKg: Math.round(gross),
+        volumetricWeightKg: volumetric,
+        taxableWeightKg: Math.round(taxable),
+        isStackable: stackable,
+        method
+    };
+}
+
+window.updateAddOrderTaxablePreview = function () {
+    const preview = document.getElementById('add-order-taxable-preview');
+    if (!preview) return;
+    const result = computeTaxableWeightFrontend({
+        grossWeightKg: parseFloat(document.getElementById('add-order-weight')?.value) || 0,
+        volumeM3: parseFloat(document.getElementById('add-order-volume')?.value) || 0,
+        heightCm: parseFloat(document.getElementById('add-order-height-cm')?.value) || 0,
+        lengthM: parseFloat(document.getElementById('add-order-length-m')?.value) || 0,
+        widthM: parseFloat(document.getElementById('add-order-width-m')?.value) || 0,
+        stackable: document.getElementById('add-order-stackable')?.checked
+    });
+    const formula = result.method === 'ldm_1750'
+        ? 'Non gerbable : (L × l / 2,4) × 1750 kg/LDM'
+        : 'Gerbable : Volume × 333 kg/m³';
+    preview.innerHTML = `<strong>${formula}</strong><br>
+        Poids réel : ${result.grossWeightKg.toLocaleString()} kg ·
+        Poids volumétrique : ${result.volumetricWeightKg.toLocaleString()} kg ·
+        <span class="font-bold text-indigo-800">Poids taxé : ${result.taxableWeightKg.toLocaleString()} kg</span>`;
+};
+
+window.computeAddOrderHgvRoute = async function () {
+    const origin = document.getElementById('add-order-origin')?.value?.trim();
+    const dest = document.getElementById('add-order-dest')?.value?.trim();
+    const label = document.getElementById('add-order-route-km');
+    if (!origin || !dest) {
+        showToast('Renseignez origine et destination', 'error');
+        return;
+    }
+    if (label) label.textContent = 'Calcul en cours…';
+    try {
+        const res = await apiFetch(`routing/hgv?origin=${encodeURIComponent(origin)}&dest=${encodeURIComponent(dest)}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Calcul impossible');
+        }
+        const data = await res.json();
+        if (label) {
+            label.textContent = `PL : ${data.hgvKm ?? '—'} km · Voiture : ${data.carKm ?? '—'} km`;
+        }
+        const kmInput = document.getElementById('q-km');
+        if (kmInput && data.hgvKm) kmInput.value = data.hgvKm;
+        if (typeof updateQuotation === 'function') updateQuotation();
+    } catch (e) {
+        if (label) label.textContent = '';
+        showToast(e.message || 'Erreur itinéraire PL', 'error');
+    }
+};
+
+async function renderPublicTrackingPage() {
+    const params = new URLSearchParams(window.location.search);
+    const hashQuery = (window.location.hash || '').includes('?')
+        ? window.location.hash.split('?')[1] : '';
+    const hashParams = new URLSearchParams(hashQuery);
+    const code = (params.get('code') || hashParams.get('code') || '').trim().toUpperCase();
+
+    if (!code) {
+        return `<div class="max-w-xl mx-auto py-20 px-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-4">Suivi transport en temps réel</h1>
+            <p class="text-gray-600 mb-6">Saisissez le code reçu lors de la création de votre commande (ex. TRK-XXXXXXXX).</p>
+            <div class="flex gap-2">
+                <input type="text" id="public-tracking-input" class="flex-1 border rounded-lg px-4 py-3 font-mono uppercase" placeholder="TRK-XXXXXXXX">
+                <button type="button" onclick="publicTrackByCode()" class="bg-blue-600 text-white px-5 py-3 rounded-lg font-bold">Suivre</button>
+            </div>
+        </div>`;
+    }
+
+    try {
+        const res = await fetch(`/api/public/tracking/${encodeURIComponent(code)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Transport introuvable');
+
+        const timeline = (data.timeline || []).map(h => `
+            <div class="flex gap-3 text-sm border-b pb-2 mb-2">
+                <span class="text-gray-400 font-mono text-xs">${h.changed_at ? new Date(h.changed_at).toLocaleString('fr-FR') : '—'}</span>
+                <span class="font-semibold">${h.status}</span>
+                ${h.comment ? `<span class="text-gray-500">${h.comment}</span>` : ''}
+            </div>`).join('') || '<p class="text-gray-400 italic">Aucun événement</p>';
+
+        const pos = data.lastPosition;
+        const mapLink = pos
+            ? `https://www.google.com/maps?q=${pos.latitude},${pos.longitude}`
+            : null;
+
+        return `<div class="max-w-2xl mx-auto py-12 px-6 fade-in">
+            <div class="bg-white rounded-2xl shadow-lg border p-8">
+                <p class="text-xs uppercase text-gray-400 font-bold">Suivi donneur d'ordre</p>
+                <h1 class="text-2xl font-black text-gray-900 mt-1">${data.ref || 'Transport'}</h1>
+                <p class="font-mono text-teal-700 mt-2">${data.trackingCode}</p>
+                <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
+                    <div><span class="text-gray-400 text-xs uppercase">Statut</span><p class="font-bold">${data.status}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Mode</span><p>${data.transportMode || '—'}</p></div>
+                    <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Trajet</span><p>${data.origin || '—'} → ${data.destination || '—'}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Poids taxé</span><p>${data.taxableWeightKg ? `${data.taxableWeightKg} kg` : '—'}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Km PL</span><p>${data.routeKmHgv ? `${data.routeKmHgv} km` : '—'}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Chauffeur</span><p>${data.driverName || '—'}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Véhicule</span><p>${data.vehiclePlate || '—'}</p></div>
+                </div>
+                ${mapLink ? `<a href="${mapLink}" target="_blank" rel="noopener" class="mt-6 inline-flex items-center gap-2 text-blue-600 font-semibold text-sm"><i class="fa-solid fa-location-dot"></i> Dernière position véhicule</a>` : ''}
+                <div class="mt-8">
+                    <h2 class="text-xs uppercase text-gray-500 font-bold mb-3">Historique</h2>
+                    ${timeline}
+                </div>
+                <button type="button" onclick="publicRouter('tracking')" class="mt-6 text-sm text-gray-500 hover:text-gray-800">← Nouveau code</button>
+            </div>
+        </div>`;
+    } catch (e) {
+        return `<div class="max-w-xl mx-auto py-20 px-6 text-center">
+            <p class="text-red-600 font-semibold mb-4">${e.message}</p>
+            <button type="button" onclick="publicRouter('tracking')" class="text-blue-600">Réessayer</button>
+        </div>`;
+    }
+}
+
+window.publicTrackByCode = function () {
+    const code = document.getElementById('public-tracking-input')?.value?.trim();
+    if (!code) return;
+    window.location.hash = 'tracking';
+    const base = `${window.location.pathname}${window.location.search.split('?')[0]}`;
+    history.replaceState(null, '', `${base}?code=${encodeURIComponent(code.toUpperCase())}#tracking`);
+    publicRouter('tracking');
+};
+
 function renderQuotationCalculator() {
     return `
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-8 fade-in">
@@ -4616,6 +4825,25 @@ function renderQuotationCalculator() {
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="space-y-6">
+                <div class="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <h4 class="font-bold text-indigo-900 mb-3 text-sm uppercase tracking-wider">0. Poids taxé (terrestre)</h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="block text-xs text-gray-500 mb-1">Poids réel (kg)</label>
+                            <input type="number" id="q-gross-kg" value="0" class="w-full border rounded p-2 text-sm" oninput="updateQuotation()"></div>
+                        <div><label class="block text-xs text-gray-500 mb-1">Volume (m³)</label>
+                            <input type="number" id="q-volume-m3" step="0.01" value="0" class="w-full border rounded p-2 text-sm" oninput="updateQuotation()"></div>
+                        <div><label class="block text-xs text-gray-500 mb-1">Hauteur (cm)</label>
+                            <input type="number" id="q-height-cm" value="120" class="w-full border rounded p-2 text-sm" oninput="updateQuotation()"></div>
+                        <div><label class="block text-xs text-gray-500 mb-1">Long. × larg. (m)</label>
+                            <div class="flex gap-1"><input type="number" id="q-length-m" step="0.01" value="0" class="w-1/2 border rounded p-2 text-sm" oninput="updateQuotation()"><input type="number" id="q-width-m" step="0.01" value="0" class="w-1/2 border rounded p-2 text-sm" oninput="updateQuotation()"></div></div>
+                    </div>
+                    <label class="flex items-center gap-2 mt-3 text-xs text-gray-700 cursor-pointer">
+                        <input type="checkbox" id="q-stackable" checked onchange="updateQuotation()" class="rounded text-indigo-600"> Gerbable (h ≤ 120 cm)
+                    </label>
+                    <p id="q-taxable-preview" class="mt-3 text-xs text-indigo-900 bg-white border border-indigo-100 rounded p-2">Poids taxé : 0 kg</p>
+                    <p class="mt-2 text-[10px] text-gray-400">Facturation = max(poids réel, poids volumétrique). Non gerbable : (L×l/2,4)×1750 kg/LDM.</p>
+                </div>
+
                 <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <h4 class="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wider">1. Coût Kilométrique (CK)</h4>
                     <div class="grid grid-cols-2 gap-4">
@@ -4667,6 +4895,10 @@ function renderQuotationCalculator() {
                     <h3 class="text-indigo-200 font-bold text-sm uppercase mb-6">Récapitulatif de la cotation</h3>
                     <div class="space-y-4">
                         <div class="flex justify-between border-b border-indigo-800 pb-2">
+                            <span>Poids taxé</span>
+                            <span id="res-taxable" class="font-bold">0 kg</span>
+                        </div>
+                        <div class="flex justify-between border-b border-indigo-800 pb-2">
                             <span>Coût KM (CK)</span>
                             <span id="res-ck" class="font-bold">0.00 €</span>
                         </div>
@@ -4695,6 +4927,22 @@ function renderQuotationCalculator() {
 }
 
 function updateQuotation() {
+    const taxableEl = document.getElementById('q-taxable-preview');
+    const resTaxable = document.getElementById('res-taxable');
+    if (document.getElementById('q-gross-kg')) {
+        const tw = computeTaxableWeightFrontend({
+            grossWeightKg: parseFloat(document.getElementById('q-gross-kg').value) || 0,
+            volumeM3: parseFloat(document.getElementById('q-volume-m3').value) || 0,
+            heightCm: parseFloat(document.getElementById('q-height-cm').value) || 0,
+            lengthM: parseFloat(document.getElementById('q-length-m').value) || 0,
+            widthM: parseFloat(document.getElementById('q-width-m').value) || 0,
+            stackable: document.getElementById('q-stackable')?.checked
+        });
+        const txt = `Vol. ${tw.volumetricWeightKg.toLocaleString()} kg → Taxé ${tw.taxableWeightKg.toLocaleString()} kg`;
+        if (taxableEl) taxableEl.textContent = txt;
+        if (resTaxable) resTaxable.textContent = `${tw.taxableWeightKg.toLocaleString()} kg`;
+    }
+
     const ck = (parseFloat(document.getElementById('q-km').value) || 0) * (parseFloat(document.getElementById('q-cost-km').value) || 0);
     const cc = (parseFloat(document.getElementById('q-hours').value) || 0) * (parseFloat(document.getElementById('q-cost-hour').value) || 0);
     const cj = (parseFloat(document.getElementById('q-days').value) || 0) * (parseFloat(document.getElementById('q-cost-day').value) || 0);
@@ -4982,6 +5230,14 @@ async function router(route) {
                 window.cachedBankSettings = null;
             }
             content = renderAdmin(window.cachedBankSettings);
+            break;
+        case 'tracking':
+            title = 'Suivi transport';
+            content = '<div class="fade-in p-8 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+            renderPublicTrackingPage().then(html => {
+                const el = document.getElementById('app-content');
+                if (el && window.currentAppRoute === 'tracking') el.innerHTML = html;
+            });
             break;
         case 'pricing':
             title = 'Tarifs';
@@ -7291,6 +7547,32 @@ function openAddOrderModal() {
 
     populateSubcontractorSelect(document.getElementById('add-order-subcontractor'));
 
+    const agencySelect = document.getElementById('add-order-agency');
+    if (agencySelect) {
+        const agencies = db.agencies || [];
+        agencySelect.innerHTML = '<option value="">— Par défaut —</option>' +
+            agencies.map(a => `<option value="${a.id}">${a.code} — ${a.name}</option>`).join('');
+        if (currentUser?.agency_id) agencySelect.value = String(currentUser.agency_id);
+    }
+    const agencyWrap = document.getElementById('add-order-agency-wrap');
+    if (agencyWrap && typeof canManageUsers === 'function' && !canManageUsers()) {
+        agencyWrap.classList.add('hidden');
+    } else if (agencyWrap) {
+        agencyWrap.classList.remove('hidden');
+    }
+
+    const transportMode = document.getElementById('add-order-transport-mode');
+    if (transportMode) transportMode.value = 'FTL';
+    ['add-order-volume', 'add-order-height-cm', 'add-order-length-m', 'add-order-width-m'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const stackable = document.getElementById('add-order-stackable');
+    if (stackable) stackable.checked = true;
+    const routeKm = document.getElementById('add-order-route-km');
+    if (routeKm) routeKm.textContent = '';
+    if (typeof updateAddOrderTaxablePreview === 'function') updateAddOrderTaxablePreview();
+
     const internalRadio = document.querySelector('input[name="add-order-assignment"][value="INTERNAL"]');
     if (internalRadio) internalRadio.checked = true;
     toggleAddOrderAssignment();
@@ -7339,6 +7621,11 @@ async function submitAddOrder() {
     const assignment = getOrderAssignmentPayload('add-order');
     const pallet = getOrderPalletPayload('add-order');
     const cmr = getOrderCmrPayload('add-order');
+    const volumeVal = parseFloat(document.getElementById('add-order-volume')?.value);
+    const heightVal = parseFloat(document.getElementById('add-order-height-cm')?.value);
+    const lengthVal = parseFloat(document.getElementById('add-order-length-m')?.value);
+    const widthVal = parseFloat(document.getElementById('add-order-width-m')?.value);
+    const agencyVal = document.getElementById('add-order-agency')?.value;
     const newOrder = {
         ref: document.getElementById('add-order-ref').value,
         client_id: parseInt(document.getElementById('add-order-client').value, 10),
@@ -7348,6 +7635,13 @@ async function submitAddOrder() {
         load_date: document.getElementById('add-order-load-date').value,
         delivery_date: document.getElementById('add-order-delivery-date').value,
         weight: parseFloat(document.getElementById('add-order-weight').value) || 0,
+        transport_mode: document.getElementById('add-order-transport-mode')?.value || 'FTL',
+        agency_id: agencyVal ? parseInt(agencyVal, 10) : null,
+        volume: Number.isFinite(volumeVal) ? volumeVal : null,
+        height_cm: Number.isFinite(heightVal) ? heightVal : null,
+        length_m: Number.isFinite(lengthVal) ? lengthVal : null,
+        width_m: Number.isFinite(widthVal) ? widthVal : null,
+        stackable: document.getElementById('add-order-stackable')?.checked !== false,
         price: parseFloat(document.getElementById('add-order-price').value) || 0,
         status: 'Brouillon',
         ...assignment,
@@ -7371,11 +7665,16 @@ async function submitAddOrder() {
         }
         const created = await res.json().catch(() => ({}));
         const orderId = created?.id || created?.data?.id;
+        const trackingCode = created?.tracking_code || created?.data?.tracking_code;
         if (created?.ref) {
             const refInput = document.getElementById('add-order-ref');
             if (refInput) refInput.value = created.ref;
         }
-        showToast('Commande créée avec succès !', 'success');
+        if (trackingCode) {
+            showToast(`Commande créée — Code suivi : ${trackingCode}`, 'success');
+        } else {
+            showToast('Commande créée avec succès !', 'success');
+        }
         closeAddOrderModal();
         if (typeof refreshAfterMvpStep === 'function') {
             await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });

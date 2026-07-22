@@ -425,6 +425,7 @@ window.openTransportDetail = async function(orderId) {
 };
 
 function renderTransportDetailModal(t) {
+    const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
     document.getElementById('td-ref').textContent = t.ref || '#' + t.id;
     document.getElementById('td-status').innerHTML = `<span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(t.status)}">${t.status}</span>`;
     const cycleEl = document.getElementById('td-mvp-cycle');
@@ -432,6 +433,30 @@ function renderTransportDetailModal(t) {
     document.getElementById('td-client').textContent = t.client_name || '-';
     document.getElementById('td-route').textContent = `${t.origin || '-'} → ${t.dest || '-'}`;
     document.getElementById('td-dates').textContent = `Chargement : ${formatDisplayDate(t.load_date) || '-'} | Livraison : ${formatDisplayDate(t.delivery_date) || '-'}`;
+
+    const modeLabels = { FTL: 'Lot complet', LTL: 'Demi-lot', GROUPAGE: 'Groupage' };
+    const modeEl = document.getElementById('td-transport-mode');
+    if (modeEl) modeEl.textContent = modeLabels[t.transport_mode] || t.transport_mode || '—';
+    const taxableEl = document.getElementById('td-taxable-weight');
+    if (taxableEl) {
+        taxableEl.textContent = t.taxable_weight_kg
+            ? `${Number(t.taxable_weight_kg).toLocaleString()} kg${t.volumetric_weight_kg ? ` (vol. ${Number(t.volumetric_weight_kg).toLocaleString()} kg)` : ''}`
+            : '—';
+    }
+    const routeEl = document.getElementById('td-route-km');
+    if (routeEl) {
+        routeEl.textContent = t.route_km_hgv
+            ? `${Number(t.route_km_hgv).toLocaleString()} km PL${t.route_km_car ? ` · ${Number(t.route_km_car).toLocaleString()} km voiture` : ''}`
+            : '—';
+    }
+    const trackingEl = document.getElementById('td-tracking-code');
+    if (trackingEl) {
+        trackingEl.innerHTML = t.tracking_code
+            ? `<span class="font-mono">${esc(t.tracking_code)}</span>
+               <a href="?code=${encodeURIComponent(t.tracking_code)}#tracking" target="_blank" rel="noopener" class="ml-2 text-xs text-blue-600 hover:underline">Suivi public</a>`
+            : '—';
+    }
+
     document.getElementById('td-driver').textContent = t.assignment_type === 'SUBCONTRACTED'
         ? (t.subcontractor_name ? `Sous-traitant : ${t.subcontractor_name}` : 'Sous-traitant (non renseigné)')
         : (t.driver_name || 'Non assigné');
@@ -449,7 +474,6 @@ function renderTransportDetailModal(t) {
     }
 
     const historyEl = document.getElementById('td-history');
-    const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
     historyEl.innerHTML = (t.history || []).map(h => `
         <div class="flex gap-3 text-xs border-b pb-2 mb-2">
             <span class="font-mono text-gray-400">${esc(formatDisplayDate(h.changed_at) || '—')}</span>
@@ -491,6 +515,10 @@ function renderTransportDetailModal(t) {
         actionsHtml += `<button onclick="closeTransportDetail(); openAffretementConfirmation(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-file-contract mr-1"></i>Confirmation</button>`;
     }
     actionsHtml += `<button onclick="closeTransportDetail(); openTransportCmr(${t.id})" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 mr-2"><i class="fa-solid fa-truck-ramp-box mr-1"></i>CMR</button>`;
+    if (t.transport_mode === 'GROUPAGE' || t.transport_mode === 'LTL') {
+        actionsHtml += `<button type="button" onclick="openTransportBordereau(${t.id}, 'pickup')" class="px-3 py-1 bg-amber-600 text-white rounded text-xs hover:bg-amber-700 mr-2"><i class="fa-solid fa-file-lines mr-1"></i>Bordereau enlèvement</button>`;
+        actionsHtml += `<button type="button" onclick="openTransportBordereau(${t.id}, 'delivery')" class="px-3 py-1 bg-amber-700 text-white rounded text-xs hover:bg-amber-800 mr-2"><i class="fa-solid fa-file-lines mr-1"></i>Bordereau livraison</button>`;
+    }
     if (typeof canValidateTransport === 'function' && canValidateTransport() && t.status === 'Livré') {
         actionsHtml += `<button onclick="validateTransportFromDetail(${t.id})" class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 mr-2">Valider transport</button>`;
     }
@@ -533,6 +561,26 @@ window.getNextStatuses = getNextStatuses;
 window.closeTransportDetail = function() {
     document.getElementById('transport-detail-modal').classList.add('hidden');
     currentTransportDetail = null;
+};
+
+window.openTransportBordereau = async function (orderId, type) {
+    try {
+        const res = await apiFetch(`transport-orders/${orderId}/bordereau?type=${type === 'pickup' ? 'pickup' : 'delivery'}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Génération impossible');
+        }
+        const html = await res.text();
+        const w = window.open('', '_blank');
+        if (w) {
+            w.document.write(html);
+            w.document.close();
+        } else {
+            showToast('Autorisez les pop-ups pour afficher le bordereau', 'error');
+        }
+    } catch (e) {
+        showToast(e.message || 'Erreur bordereau', 'error');
+    }
 };
 
 window.changeTransportStatus = async function (orderId, status, options = {}) {

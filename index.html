@@ -359,6 +359,22 @@
                         <input type="date" id="add-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type de transport</label>
+                        <select id="add-order-transport-mode" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="FTL">Lot complet (FTL)</option>
+                            <option value="LTL">Demi-lot (LTL)</option>
+                            <option value="GROUPAGE">Groupage / Messagerie</option>
+                        </select>
+                    </div>
+                    <div id="add-order-agency-wrap">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Agence</label>
+                        <select id="add-order-agency" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">— Par défaut —</option>
+                        </select>
+                    </div>
+                </div>
                 <!-- Affectation transport -->
                 <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
                     <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Affectation transport</h4>
@@ -407,9 +423,47 @@
                 </div>
                 <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Poids (kg)</label>
-                        <input type="number" id="add-order-weight" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Poids réel (kg)</label>
+                        <input type="number" id="add-order-weight" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Volume (m³)</label>
+                        <input type="number" id="add-order-volume" step="0.01" min="0" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Hauteur (cm)</label>
+                        <input type="number" id="add-order-height-cm" min="0" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="120">
+                    </div>
+                </div>
+                <div class="border border-indigo-200 rounded-lg p-4 bg-indigo-50 space-y-3">
+                    <h4 class="text-sm font-bold text-indigo-900"><i class="fa-solid fa-weight-hanging mr-1"></i> Poids taxé (facturable)</h4>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Longueur (m)</label>
+                            <input type="number" id="add-order-length-m" step="0.01" min="0" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 text-sm" placeholder="0">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Largeur (m)</label>
+                            <input type="number" id="add-order-width-m" step="0.01" min="0" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 text-sm" placeholder="0">
+                        </div>
+                        <div class="flex items-end pb-1">
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                                <input type="checkbox" id="add-order-stackable" checked onchange="updateAddOrderTaxablePreview()" class="w-4 h-4 text-indigo-600 rounded">
+                                Gerbable (h ≤ 120 cm)
+                            </label>
+                        </div>
+                    </div>
+                    <div id="add-order-taxable-preview" class="text-xs text-indigo-900 bg-white border border-indigo-100 rounded p-3">
+                        Poids volumétrique : — · Poids taxé : —
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" onclick="computeAddOrderHgvRoute()" class="px-3 py-1.5 bg-indigo-700 text-white rounded text-xs font-semibold hover:bg-indigo-800">
+                            <i class="fa-solid fa-route mr-1"></i> Calculer itinéraire PL (classe 4)
+                        </button>
+                        <span id="add-order-route-km" class="text-xs text-indigo-800 font-semibold"></span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
                         <select id="add-order-pallet-type" onchange="toggleOrderPalletFields('add-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
@@ -1590,6 +1644,10 @@
                     <div><span class="text-gray-400 text-xs uppercase">Chauffeur</span><p id="td-driver" class="font-medium"></p></div>
                     <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Trajet</span><p id="td-route"></p></div>
                     <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Dates</span><p id="td-dates"></p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Mode transport</span><p id="td-transport-mode" class="font-medium">—</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Poids taxé</span><p id="td-taxable-weight" class="font-medium">—</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Km PL (classe 4)</span><p id="td-route-km" class="font-medium">—</p></div>
+                    <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Code suivi</span><p id="td-tracking-code" class="font-mono text-sm text-teal-700">—</p></div>
                     <div class="td-price-row"><span class="text-gray-400 text-xs uppercase">Montant</span><p id="td-price" class="font-bold text-blue-700"></p></div>
                 </div>
                 <div id="td-actions" class="flex flex-wrap gap-2 border-t pt-4"></div>
