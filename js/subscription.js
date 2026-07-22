@@ -76,6 +76,95 @@ function getFallbackPlans() {
     ];
 }
 
+const PUBLIC_PLAN_COMPARISON_ROWS = [
+    { label: 'Utilisateurs PC inclus', independant: '1', pme: '5', premium: '15' },
+    { label: 'Chauffeurs mobile inclus', independant: '3', pme: '25', premium: '50' },
+    { label: 'Suppléments PC / mobile', independant: '+29 € / +19 €', pme: '+29 € / +19 €', premium: '+29 € / +19 €' },
+    { label: 'Commandes, planning & flotte', independant: true, pme: true, premium: true },
+    { label: 'App mobile (GPS, eCMR, signatures)', independant: true, pme: true, premium: true },
+    { label: 'Suivi client public (code TRK)', independant: true, pme: true, premium: true },
+    { label: 'Factur-X & export comptable', independant: true, pme: true, premium: true },
+    { label: 'Calculateur de cotation', independant: true, pme: true, premium: true },
+    { label: 'Carbone GLEC par transport', independant: true, pme: true, premium: true },
+    { label: 'Affrètement & sous-traitants', independant: false, pme: true, premium: true },
+    { label: 'Dashboard marges & confirmation PDF', independant: false, pme: true, premium: true },
+    { label: 'Palettes Europe', independant: false, pme: true, premium: true },
+    { label: 'Optimisation green & rapports CSRD', independant: false, pme: true, premium: true },
+    { label: 'Multi-agences & administration', independant: false, pme: false, premium: true }
+];
+
+function renderPlanComparisonCell(value) {
+    if (value === true) {
+        return '<span class="public-plans-check" aria-label="Inclus"><i class="fa-solid fa-check"></i></span>';
+    }
+    if (value === false) {
+        return '<span class="public-plans-dash" aria-label="Non inclus">—</span>';
+    }
+    return `<span class="public-plans-text">${value}</span>`;
+}
+
+function renderPublicPlansComparison() {
+    const plans = window.cachedPlans || getFallbackPlans();
+    const planMeta = Object.fromEntries(plans.map((p) => [p.id, p]));
+    const headCells = ['independant', 'pme', 'premium'].map((id) => {
+        const p = planMeta[id] || {};
+        const popular = p.popular ? ' public-plans-col--popular' : '';
+        return `<th scope="col" class="public-plans-col${popular}">
+            <span class="public-plans-col-name">${p.name || id}</span>
+            <span class="public-plans-col-price">${p.priceMonthly ?? '—'} €<small>/mois HT</small></span>
+        </th>`;
+    }).join('');
+
+    const bodyRows = PUBLIC_PLAN_COMPARISON_ROWS.map((row) => `
+        <tr>
+            <th scope="row">${row.label}</th>
+            <td>${renderPlanComparisonCell(row.independant)}</td>
+            <td>${renderPlanComparisonCell(row.pme)}</td>
+            <td>${renderPlanComparisonCell(row.premium)}</td>
+        </tr>
+    `).join('');
+
+    return `<div class="public-plans-comparison-wrap">
+        <table class="public-plans-comparison" aria-label="Comparatif des forfaits Flenova">
+            <thead>
+                <tr>
+                    <th scope="col" class="public-plans-feature-col">Fonctionnalité</th>
+                    ${headCells}
+                </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+        </table>
+    </div>`;
+}
+
+function renderPublicPlansSection() {
+    return `<section class="public-plans-section" id="public-plans" aria-labelledby="public-plans-title">
+        <div class="public-section-inner">
+            <p class="public-page-eyebrow">Tarifs transparents</p>
+            <h2 class="public-section-title" id="public-plans-title">Trois forfaits, une couverture complète</h2>
+            <p class="public-section-lead">Du transporteur solo à la PME multi-agences : choisissez le forfait adapté à votre volume. Essai Premium 30 jours offert à l'inscription.</p>
+            ${renderPublicPlansComparison()}
+            <div class="public-plans-cards mt-12">
+                ${renderPricingCards({ mode: 'public' })}
+            </div>
+            <p class="public-plans-footnote text-center mt-6">
+                <button type="button" class="public-pillar-link" onclick="publicRouter('tarifs')">Voir le détail des tarifs <i class="fa-solid fa-arrow-right"></i></button>
+            </p>
+        </div>
+    </section>`;
+}
+
+async function hydratePublicPlansSection() {
+    const mount = document.getElementById('public-plans-mount');
+    if (!mount) return;
+    try {
+        await loadPublicPlans();
+        mount.outerHTML = renderPublicPlansSection();
+    } catch (e) {
+        mount.outerHTML = renderPublicPlansSection();
+    }
+}
+
 function renderPricingCards(options = {}) {
     const { mode = 'public', selectedPlan = null } = options;
     const plans = window.cachedPlans || getFallbackPlans();
@@ -327,6 +416,8 @@ window.dismissSaasOverdueModal = async function () {
 window.renderAppPricingPage = renderAppPricingPage;
 window.showOverdueBillingModal = showOverdueBillingModal;
 window.renderPublicPricingAsync = renderPublicPricingAsync;
+window.renderPublicPlansSection = renderPublicPlansSection;
+window.hydratePublicPlansSection = hydratePublicPlansSection;
 window.loadPublicPlans = loadPublicPlans;
 
 window.hydrateSubscription = function (payload) {

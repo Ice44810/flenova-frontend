@@ -2175,6 +2175,99 @@ body.public-site-active {
     transform: scale(1.03);
 }
 
+/* Forfaits — comparatif page d'accueil */
+.public-plans-section {
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    padding: 4rem 0;
+    border-top: 1px solid #e5e7eb;
+}
+.public-plans-comparison-wrap {
+    overflow-x: auto;
+    margin-top: 2rem;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+.public-plans-comparison {
+    width: 100%;
+    min-width: 640px;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+.public-plans-comparison thead th {
+    padding: 1rem 0.75rem;
+    text-align: center;
+    vertical-align: bottom;
+    border-bottom: 2px solid #e5e7eb;
+    background: #f9fafb;
+}
+.public-plans-comparison .public-plans-feature-col {
+    text-align: left;
+    font-weight: 600;
+    color: var(--public-heading, #1e3a5f);
+    min-width: 220px;
+    padding-left: 1.25rem;
+}
+.public-plans-col-name {
+    display: block;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--public-heading, #1e3a5f);
+}
+.public-plans-col-price {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+.public-plans-col-price small {
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+.public-plans-col--popular {
+    background: #eff6ff;
+}
+.public-plans-comparison tbody th {
+    text-align: left;
+    padding: 0.75rem 1.25rem;
+    font-weight: 500;
+    color: #374151;
+    border-bottom: 1px solid #f3f4f6;
+}
+.public-plans-comparison tbody td {
+    text-align: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    color: #4b5563;
+}
+.public-plans-comparison tbody tr:last-child th,
+.public-plans-comparison tbody tr:last-child td {
+    border-bottom: none;
+}
+.public-plans-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    background: #dcfce7;
+    color: #16a34a;
+    font-size: 0.75rem;
+}
+.public-plans-dash {
+    color: #d1d5db;
+    font-weight: 600;
+}
+.public-plans-text {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--public-blue, #0056b3);
+    white-space: nowrap;
+}
+
 @media (max-width: 900px) {
     .public-hero-inner {
         grid-template-columns: 1fr;

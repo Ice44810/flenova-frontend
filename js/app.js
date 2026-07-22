@@ -383,6 +383,10 @@ const PUBLIC_FAQ_ITEMS = [
     {
         q: 'Flenova convient-il aux petites structures ?',
         a: 'Absolument. Le forfait Indépendant démarre à 129 €/mois HT pour 1 utilisateur et 3 chauffeurs mobiles. Suppléments disponibles si vous dépassez ces quotas.'
+    },
+    {
+        q: 'Quelle différence entre Indépendant, PME et Premium ?',
+        a: 'Indépendant (129 €) couvre l\'exploitation transport complète sans affrètement. PME (269 €) ajoute sous-traitants, marges, palettes et RSE pour 5 PC et 25 mobiles. Premium (449 €) inclut multi-agences, admin et 15 PC / 50 mobiles. Suppléments : +29 €/PC et +19 €/mobile au-delà des quotas.'
     }
 ];
 
@@ -440,7 +444,7 @@ function renderPublicPainPoints() {
 
 function renderPublicProductPillars() {
     const pillars = [
-        { icon: 'fa-truck-ramp-box', tag: 'Exploitation', title: 'Commandes &amp; planning', desc: 'Ordres de transport, affectation chauffeurs, affrètement et tableau de bord marges.', link: 'fonctionnalites' },
+        { icon: 'fa-truck-ramp-box', tag: 'Exploitation', title: 'Commandes &amp; planning', desc: 'Ordres de transport, affectation chauffeurs, app mobile et suivi client — affrètement &amp; marges dès le forfait PME.', link: 'fonctionnalites' },
         { icon: 'fa-mobile-screen-button', tag: 'Mobile', title: 'App chauffeurs', desc: 'Missions, arrivée GPS, signatures et preuves de livraison depuis le smartphone.', link: 'fonctionnalites' },
         { icon: 'fa-file-invoice-dollar', tag: 'Facturation', title: 'Factur-X &amp; compta', desc: 'Préfacturation, factures clients, achats et export CSV pour votre expert-comptable.', link: 'fonctionnalites' }
     ];
@@ -524,7 +528,7 @@ function renderPublicWhyFlenova() {
     const items = [
         { icon: 'fa-euro-sign', title: 'Abordable', desc: 'Dès 129 €/mois HT. Pas de devis opaque ni de licence enterprise.' },
         { icon: 'fa-wand-magic-sparkles', title: 'Simple', desc: 'Interface pensée pour les PME. Prise en main rapide, sans intégrateur.' },
-        { icon: 'fa-layer-group', title: 'Complet', desc: 'Web + mobile + facturation + export compta dans un seul abonnement.' }
+        { icon: 'fa-layer-group', title: 'Complet', desc: 'Web + mobile + facturation + export compta — du solo (129 €) au multi-agences (449 €).' }
     ];
     return `<section class="public-why-section">
         <div class="public-section-inner">
@@ -622,6 +626,14 @@ function renderPublicHome() {
         ${renderPublicProductPillars()}
         ${renderPublicDifferentiators()}
         ${renderPublicMvpCycle(false)}
+        <div id="public-plans-mount" class="public-plans-mount">
+            <section class="public-plans-section public-plans-section--loading">
+                <div class="public-section-inner text-center py-16 text-gray-500">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl" aria-hidden="true"></i>
+                    <p class="mt-3 text-sm">Chargement des forfaits…</p>
+                </div>
+            </section>
+        </div>
         ${renderPublicWhyFlenova()}
         ${renderPublicReviewsLoading()}
         ${renderPublicFaq()}
@@ -795,6 +807,7 @@ function publicRouter(route) {
         default:
             container.innerHTML = renderPublicHome();
             loadPublicReviews();
+            if (typeof hydratePublicPlansSection === 'function') hydratePublicPlansSection();
             break;
     }
 }
