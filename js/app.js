@@ -422,7 +422,7 @@ function renderPublicSocialProof() {
 
 function renderPublicPainPoints() {
     const items = [
-        { icon: 'fa-table', title: 'Vous jonglez entre Excel et WhatsApp', desc: 'Plannings sur tableur, ressaisies multiples, infos dispersées… Centralisez tout dans un TMS unique.' },
+        { icon: 'fa-table', title: 'Vous jonglez entre Excel SMS', desc: 'Plannings sur tableur, ressaisies multiples, infos dispersées… Centralisez tout dans un TMS unique.' },
         { icon: 'fa-mobile-screen', title: 'Vos chauffeurs sont déconnectés du bureau', desc: 'L\'app mobile relie le terrain à l\'exploitation : statuts, signatures et documents en temps réel.' },
         { icon: 'fa-file-invoice', title: 'La facturation traîne après la livraison', desc: 'Passez de l\'exécution à la préfacturation sans ressaisie. Factur-X et export comptable inclus.' }
     ];
@@ -489,7 +489,7 @@ function renderPublicDifferentiators() {
     const items = [
         {
             icon: 'fa-shield-halved',
-            badge: 'Sans GedMouv',
+            badge: 'SANS SURCOÛT',
             title: 'Documents sous-traitants intégrés',
             desc: 'Déposez les attestations assurance RC Pro et URSSAF, recevez des alertes avant expiration et bloquez l\'affrètement si un document est périmé — le tout dans Flenova, sans payer une plateforme dédiée.'
         },
@@ -683,7 +683,7 @@ function renderPublicFeatures() {
 
     return `<div class="public-features-page fade-in">
         <div class="public-page-header py-12">
-            <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
+            <div class="max-w-6xl mx-auto px-4 lg:px-8 text-center">
                 <p class="public-page-eyebrow">Fonctionnalités</p>
                 <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Tout votre transport, une seule plateforme</h1>
                 <p class="text-lg text-gray-600 max-w-2xl mx-auto">De la prise de commande à la facturation : exploitation, mobile chauffeurs et compta réunis dans un TMS pensé pour les PME.</p>
