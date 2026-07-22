@@ -4929,8 +4929,11 @@ function renderQuotationCalculator() {
                     <div class="text-5xl font-black" id="res-total">0.00 €</div>
                 </div>
                 
-                <button onclick="saveQuotation()" class="mt-8 w-full py-3 bg-white text-indigo-900 rounded-xl font-bold hover:bg-indigo-50 transition shadow-lg">
+                <button onclick="saveQuotation()" class="mt-4 w-full py-3 bg-white text-indigo-900 rounded-xl font-bold hover:bg-indigo-50 transition shadow-lg">
                     Générer Offre Commerciale
+                </button>
+                <button type="button" onclick="createOrderFromQuotation()" class="mt-3 w-full py-3 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-400 transition border border-indigo-400">
+                    <i class="fa-solid fa-file-circle-plus mr-1"></i> Créer une commande
                 </button>
             </div>
         </div>
@@ -6033,6 +6036,15 @@ window.copyDriverInviteCode = copyDriverInviteCode;
 window.regenerateDriverInviteCode = regenerateDriverInviteCode;
 
 document.addEventListener('DOMContentLoaded', () => {
+    const addOrderModal = document.getElementById('add-order-modal');
+    if (addOrderModal) {
+        addOrderModal.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                submitAddOrder();
+            }
+        });
+    }
     const mobileCheckbox = document.getElementById('driver-generate-mobile-code');
     if (mobileCheckbox) {
         mobileCheckbox.addEventListener('change', () => {
@@ -7657,19 +7669,154 @@ window.loadDashboardPallets = async function (highlightClientId) {
     }
 };
 
-function openAddOrderModal() {
-    hideAllModals();
-    const clientSelect = document.getElementById('add-order-client');
-    if (clientSelect) {
-        clientSelect.innerHTML = (db.clients || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+function getOrderQuickPrefs() {
+    try {
+        return JSON.parse(localStorage.getItem('flenova_order_quick_prefs') || '{}');
+    } catch {
+        return {};
     }
+}
 
-    const vehicleSelect = document.getElementById('add-order-vehicle');
+function saveOrderQuickPrefs(prefs) {
+    try {
+        localStorage.setItem('flenova_order_quick_prefs', JSON.stringify({ ...getOrderQuickPrefs(), ...prefs }));
+    } catch { /* ignore */ }
+}
+
+function getClientsSortedForOrders() {
+    const clients = [...(db.clients || [])];
+    const lastByClient = {};
+    (db.orders || []).forEach((o) => {
+        if (!o.client_id) return;
+        const t = new Date(o.load_date || o.created_at || 0).getTime();
+        if (!lastByClient[o.client_id] || t > lastByClient[o.client_id]) lastByClient[o.client_id] = t;
+    });
+    return clients.sort((a, b) => {
+        const score = (lastByClient[b.id] || 0) - (lastByClient[a.id] || 0);
+        if (score !== 0) return score;
+        return String(a.name || '').localeCompare(String(b.name || ''), 'fr');
+    });
+}
+
+function populateAddOrderClientSelect(selectedId) {
+    const clientSelect = document.getElementById('add-order-client');
+    if (!clientSelect) return;
+    const clients = getClientsSortedForOrders();
+    clientSelect.innerHTML = clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    const prefs = getOrderQuickPrefs();
+    if (selectedId) clientSelect.value = String(selectedId);
+    else if (prefs.lastClientId && clients.some(c => c.id === prefs.lastClientId)) {
+        clientSelect.value = String(prefs.lastClientId);
+    }
+}
+
+function setAddOrderMode(mode) {
+    window.addOrderFormMode = mode;
+    const isQuick = mode !== 'full';
+    document.getElementById('add-order-advanced-sections')?.classList.toggle('hidden', isQuick);
+    document.getElementById('add-order-assignment-subcontractor-toggle')?.classList.toggle('hidden', isQuick);
+    document.getElementById('add-order-vehicle-wrap')?.classList.toggle('hidden', isQuick);
+    document.getElementById('add-order-trailer-wrap')?.classList.toggle('hidden', isQuick);
+
+    const quickBtn = document.getElementById('add-order-mode-quick-btn');
+    const fullBtn = document.getElementById('add-order-mode-full-btn');
+    if (quickBtn && fullBtn) {
+        quickBtn.classList.toggle('bg-blue-600', isQuick);
+        quickBtn.classList.toggle('text-white', isQuick);
+        quickBtn.classList.toggle('text-gray-600', !isQuick);
+        quickBtn.classList.toggle('hover:bg-gray-100', !isQuick);
+        fullBtn.classList.toggle('bg-blue-600', !isQuick);
+        fullBtn.classList.toggle('text-white', !isQuick);
+        fullBtn.classList.toggle('text-gray-600', isQuick);
+        fullBtn.classList.toggle('hover:bg-gray-100', isQuick);
+    }
+    document.getElementById('add-order-quick-hint')?.classList.toggle('hidden', !isQuick);
+    saveOrderQuickPrefs({ formMode: mode });
+}
+window.setAddOrderMode = setAddOrderMode;
+
+function applyClientHintsToOrderForm() {
+    const clientId = parseInt(document.getElementById('add-order-client')?.value, 10);
+    if (!clientId) return;
+    const client = (db.clients || []).find(c => c.id === clientId);
+    const originEl = document.getElementById('add-order-origin');
+    const destEl = document.getElementById('add-order-dest');
+    if (originEl && !originEl.value.trim() && client?.address) {
+        originEl.value = client.address;
+    }
+    const lastForClient = [...(db.orders || [])]
+        .filter(o => o.client_id === clientId && o.dest)
+        .sort((a, b) => new Date(b.load_date || 0) - new Date(a.load_date || 0))[0];
+    if (destEl && !destEl.value.trim() && lastForClient?.dest) {
+        destEl.value = lastForClient.dest;
+    }
+}
+window.applyClientHintsToOrderForm = applyClientHintsToOrderForm;
+
+function applyAddOrderPrefill(prefill = {}) {
+    const setVal = (id, value) => {
+        const el = document.getElementById(id);
+        if (el && value != null && value !== '') el.value = value;
+    };
+    if (prefill.client_id) {
+        populateAddOrderClientSelect(prefill.client_id);
+    }
+    setVal('add-order-origin', prefill.origin);
+    setVal('add-order-dest', prefill.dest);
+    setVal('add-order-cargo', prefill.cargo);
+    setVal('add-order-price', prefill.price);
+    setVal('add-order-weight', prefill.weight);
+    setVal('add-order-volume', prefill.volume);
+    if (prefill.driver_id) {
+        const driverSelect = document.getElementById('add-order-driver');
+        if (driverSelect) driverSelect.value = String(prefill.driver_id);
+    }
+}
+
+function prefillAddOrderFromLast() {
+    const last = [...(db.orders || [])].sort((a, b) => {
+        const ta = new Date(a.created_at || a.load_date || 0).getTime();
+        const tb = new Date(b.created_at || b.load_date || 0).getTime();
+        return tb - ta;
+    })[0];
+    if (!last) {
+        showToast('Aucune commande précédente', 'info');
+        return;
+    }
+    applyAddOrderPrefill({
+        client_id: last.client_id,
+        origin: last.origin,
+        dest: last.dest,
+        cargo: last.cargo,
+        price: last.price,
+        weight: last.weight,
+        volume: last.volume,
+        driver_id: last.driver_id
+    });
+    showToast(`Reprise de ${last.ref || `T${last.id}`}`, 'success');
+}
+window.prefillAddOrderFromLast = prefillAddOrderFromLast;
+
+window.createOrderFromQuotation = function () {
+    const totalText = document.getElementById('res-total')?.textContent || '0';
+    const price = parseFloat(String(totalText).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+    openAddOrderModal({
+        price,
+        weight: parseFloat(document.getElementById('q-gross-kg')?.value) || 0,
+        volume: parseFloat(document.getElementById('q-volume-m3')?.value) || 0,
+        fullMode: false
+    });
+};
+
+function openAddOrderModal(prefill = {}) {
+    hideAllModals();
+    populateAddOrderClientSelect(prefill.client_id);
+
     populateOrderFleetSelects('add-order');
 
     const driverSelect = document.getElementById('add-order-driver');
     if (driverSelect) {
-        driverSelect.innerHTML = '<option value="">-- Sélectionner un chauffeur --</option>' +
+        driverSelect.innerHTML = '<option value="">— Plus tard —</option>' +
             (db.drivers || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
     }
 
@@ -7689,6 +7836,11 @@ function openAddOrderModal() {
         agencyWrap.classList.remove('hidden');
     }
 
+    document.getElementById('add-order-origin').value = '';
+    document.getElementById('add-order-dest').value = '';
+    document.getElementById('add-order-cargo').value = '';
+    document.getElementById('add-order-price').value = '';
+    document.getElementById('add-order-weight').value = '';
     const transportMode = document.getElementById('add-order-transport-mode');
     if (transportMode) transportMode.value = 'FTL';
     const volumeInput = document.getElementById('add-order-volume');
@@ -7702,17 +7854,20 @@ function openAddOrderModal() {
     document.getElementById('add-order-delivery-date').value = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
     const refInput = document.getElementById('add-order-ref');
+    const refDisplay = document.getElementById('add-order-ref-display');
     if (refInput) refInput.value = '…';
+    if (refDisplay) refDisplay.textContent = '…';
     apiFetch('transport-orders/next-ref')
         .then(res => res.ok ? res.json() : null)
         .then(json => {
-            if (refInput && json?.data?.ref) refInput.value = json.data.ref;
+            const ref = json?.data?.ref;
+            if (refInput && ref) refInput.value = ref;
+            if (refDisplay && ref) refDisplay.textContent = ref;
         })
         .catch(() => {
-            if (refInput) {
-                const year = new Date().getFullYear();
-                refInput.value = `CMD-${year}-${String((db.orders || []).length + 1).padStart(3, '0')}`;
-            }
+            const fallback = `CMD-${new Date().getFullYear()}-${String((db.orders || []).length + 1).padStart(3, '0')}`;
+            if (refInput) refInput.value = fallback;
+            if (refDisplay) refDisplay.textContent = fallback;
         });
 
     document.getElementById('add-order-pallet-type').value = 'palette_europe';
@@ -7725,9 +7880,21 @@ function openAddOrderModal() {
     resetOrderCmrFields('add-order');
     updateAddOrderMargin();
 
+    applyAddOrderPrefill(prefill);
+    const prefs = getOrderQuickPrefs();
+    if (!prefill.driver_id && prefs.lastDriverId && driverSelect) {
+        driverSelect.value = String(prefs.lastDriverId);
+    }
+    if (prefill.client_id || prefs.lastClientId) {
+        applyClientHintsToOrderForm();
+    }
+
+    setAddOrderMode(prefill.fullMode ? 'full' : (prefs.formMode || 'quick'));
+
     const modal = document.getElementById('add-order-modal');
     modal.classList.remove('hidden');
     if (!modal.classList.contains('flex')) modal.classList.add('flex', 'items-center', 'justify-center');
+    setTimeout(() => document.getElementById('add-order-client')?.focus(), 50);
 }
 window.openAddOrderModal = openAddOrderModal;
 
@@ -7747,7 +7914,7 @@ async function submitAddOrder() {
     const newOrder = {
         ref: document.getElementById('add-order-ref').value,
         client_id: parseInt(document.getElementById('add-order-client').value, 10),
-        cargo: document.getElementById('add-order-cargo').value,
+        cargo: document.getElementById('add-order-cargo').value?.trim() || 'Marchandises générales',
         origin: document.getElementById('add-order-origin').value,
         dest: document.getElementById('add-order-dest').value,
         load_date: document.getElementById('add-order-load-date').value,
@@ -7789,6 +7956,10 @@ async function submitAddOrder() {
         } else {
             showToast('Commande créée avec succès !', 'success');
         }
+        saveOrderQuickPrefs({
+            lastClientId: newOrder.client_id,
+            lastDriverId: assignment.driver_id || null
+        });
         closeAddOrderModal();
         if (typeof refreshAfterMvpStep === 'function') {
             await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });
