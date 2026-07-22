@@ -4755,54 +4755,6 @@ function computeTaxableWeightFrontend(input = {}) {
     };
 }
 
-window.updateAddOrderTaxablePreview = function () {
-    const preview = document.getElementById('add-order-taxable-preview');
-    if (!preview) return;
-    const result = computeTaxableWeightFrontend({
-        grossWeightKg: parseFloat(document.getElementById('add-order-weight')?.value) || 0,
-        volumeM3: parseFloat(document.getElementById('add-order-volume')?.value) || 0,
-        heightCm: parseFloat(document.getElementById('add-order-height-cm')?.value) || 0,
-        lengthM: parseFloat(document.getElementById('add-order-length-m')?.value) || 0,
-        widthM: parseFloat(document.getElementById('add-order-width-m')?.value) || 0,
-        stackable: document.getElementById('add-order-stackable')?.checked
-    });
-    const formula = result.method === 'ldm_1750'
-        ? 'Non gerbable : (L × l / 2,4) × 1750 kg/LDM'
-        : 'Gerbable : Volume × 333 kg/m³';
-    preview.innerHTML = `<strong>${formula}</strong><br>
-        Poids réel : ${result.grossWeightKg.toLocaleString()} kg ·
-        Poids volumétrique : ${result.volumetricWeightKg.toLocaleString()} kg ·
-        <span class="font-bold text-indigo-800">Poids taxé : ${result.taxableWeightKg.toLocaleString()} kg</span>`;
-};
-
-window.computeAddOrderHgvRoute = async function () {
-    const origin = document.getElementById('add-order-origin')?.value?.trim();
-    const dest = document.getElementById('add-order-dest')?.value?.trim();
-    const label = document.getElementById('add-order-route-km');
-    if (!origin || !dest) {
-        showToast('Renseignez origine et destination', 'error');
-        return;
-    }
-    if (label) label.textContent = 'Calcul en cours…';
-    try {
-        const res = await apiFetch(`routing/hgv?origin=${encodeURIComponent(origin)}&dest=${encodeURIComponent(dest)}`);
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Calcul impossible');
-        }
-        const data = await res.json();
-        if (label) {
-            label.textContent = `PL : ${data.hgvKm ?? '—'} km · Voiture : ${data.carKm ?? '—'} km`;
-        }
-        const kmInput = document.getElementById('q-km');
-        if (kmInput && data.hgvKm) kmInput.value = data.hgvKm;
-        if (typeof updateQuotation === 'function') updateQuotation();
-    } catch (e) {
-        if (label) label.textContent = '';
-        showToast(e.message || 'Erreur itinéraire PL', 'error');
-    }
-};
-
 async function renderPublicTrackingPage() {
     const params = new URLSearchParams(window.location.search);
     const hashQuery = (window.location.hash || '').includes('?')
@@ -7739,15 +7691,8 @@ function openAddOrderModal() {
 
     const transportMode = document.getElementById('add-order-transport-mode');
     if (transportMode) transportMode.value = 'FTL';
-    ['add-order-volume', 'add-order-height-cm', 'add-order-length-m', 'add-order-width-m'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    const stackable = document.getElementById('add-order-stackable');
-    if (stackable) stackable.checked = true;
-    const routeKm = document.getElementById('add-order-route-km');
-    if (routeKm) routeKm.textContent = '';
-    if (typeof updateAddOrderTaxablePreview === 'function') updateAddOrderTaxablePreview();
+    const volumeInput = document.getElementById('add-order-volume');
+    if (volumeInput) volumeInput.value = '';
 
     const internalRadio = document.querySelector('input[name="add-order-assignment"][value="INTERNAL"]');
     if (internalRadio) internalRadio.checked = true;
@@ -7798,9 +7743,6 @@ async function submitAddOrder() {
     const pallet = getOrderPalletPayload('add-order');
     const cmr = getOrderCmrPayload('add-order');
     const volumeVal = parseFloat(document.getElementById('add-order-volume')?.value);
-    const heightVal = parseFloat(document.getElementById('add-order-height-cm')?.value);
-    const lengthVal = parseFloat(document.getElementById('add-order-length-m')?.value);
-    const widthVal = parseFloat(document.getElementById('add-order-width-m')?.value);
     const agencyVal = document.getElementById('add-order-agency')?.value;
     const newOrder = {
         ref: document.getElementById('add-order-ref').value,
@@ -7814,10 +7756,6 @@ async function submitAddOrder() {
         transport_mode: document.getElementById('add-order-transport-mode')?.value || 'FTL',
         agency_id: agencyVal ? parseInt(agencyVal, 10) : null,
         volume: Number.isFinite(volumeVal) ? volumeVal : null,
-        height_cm: Number.isFinite(heightVal) ? heightVal : null,
-        length_m: Number.isFinite(lengthVal) ? lengthVal : null,
-        width_m: Number.isFinite(widthVal) ? widthVal : null,
-        stackable: document.getElementById('add-order-stackable')?.checked !== false,
         price: parseFloat(document.getElementById('add-order-price').value) || 0,
         status: 'Brouillon',
         ...assignment,

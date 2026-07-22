@@ -428,46 +428,14 @@
                         </div>
                     </div>
                 </div>
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Poids réel (kg)</label>
-                        <input type="number" id="add-order-weight" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                        <input type="number" id="add-order-weight" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Volume (m³)</label>
-                        <input type="number" id="add-order-volume" step="0.01" min="0" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Hauteur (cm)</label>
-                        <input type="number" id="add-order-height-cm" min="0" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="120">
-                    </div>
-                </div>
-                <div class="border border-indigo-200 rounded-lg p-4 bg-indigo-50 space-y-3">
-                    <h4 class="text-sm font-bold text-indigo-900"><i class="fa-solid fa-weight-hanging mr-1"></i> Poids taxé (facturable)</h4>
-                    <div class="grid grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-600 mb-1">Longueur (m)</label>
-                            <input type="number" id="add-order-length-m" step="0.01" min="0" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 text-sm" placeholder="0">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-600 mb-1">Largeur (m)</label>
-                            <input type="number" id="add-order-width-m" step="0.01" min="0" oninput="updateAddOrderTaxablePreview()" class="w-full border border-gray-300 rounded-md p-2 text-sm" placeholder="0">
-                        </div>
-                        <div class="flex items-end pb-1">
-                            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
-                                <input type="checkbox" id="add-order-stackable" checked onchange="updateAddOrderTaxablePreview()" class="w-4 h-4 text-indigo-600 rounded">
-                                Gerbable (h ≤ 120 cm)
-                            </label>
-                        </div>
-                    </div>
-                    <div id="add-order-taxable-preview" class="text-xs text-indigo-900 bg-white border border-indigo-100 rounded p-3">
-                        Poids volumétrique : — · Poids taxé : —
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button type="button" onclick="computeAddOrderHgvRoute()" class="px-3 py-1.5 bg-indigo-700 text-white rounded text-xs font-semibold hover:bg-indigo-800">
-                            <i class="fa-solid fa-route mr-1"></i> Calculer itinéraire PL (classe 4)
-                        </button>
-                        <span id="add-order-route-km" class="text-xs text-indigo-800 font-semibold"></span>
+                        <input type="number" id="add-order-volume" step="0.01" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-4">
@@ -526,11 +494,7 @@
                             <input type="text" id="add-order-dest-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Volume (m³)</label>
-                            <input type="number" id="add-order-volume" min="0" step="0.001" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
-                        </div>
+                    <div class="grid grid-cols-2 gap-4">
                         <div class="flex items-end pb-2">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" id="add-order-temperature" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
