@@ -5692,8 +5692,15 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
 
     if (activeTab === 'invoicing') {
         const invCtx = document.getElementById('invoicingStatusChart');
-        if (invCtx) { // Use stats.totalRevenue and stats.outstandingAmount from backend
-            const statusSums = { 'Payée': stats.totalRevenue || 0, 'En attente': stats.outstandingAmount || 0 };
+        if (invCtx) {
+            const overdue = Number(stats.overdueInvoiceAmount) || 0;
+            const outstanding = Number(stats.outstandingAmount) || 0;
+            const pending = Math.max(0, outstanding - overdue);
+            const statusSums = {
+                'Payée': stats.totalRevenue || 0,
+                'En attente': pending,
+                'Facture échue': overdue
+            };
             const labels = Object.keys(statusSums);
             const data = Object.values(statusSums);
 
@@ -5701,7 +5708,7 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
                 type: 'pie',
                 data: {
                     labels: labels,
-                    datasets: [{ data: data, backgroundColor: ['#10b981', '#f59e0b'] }]
+                    datasets: [{ data: data, backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }]
                 },
                 options: { ...commonOptions, plugins: { legend: { display: true, position: 'bottom' } } }
             });
