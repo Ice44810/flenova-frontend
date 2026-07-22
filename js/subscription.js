@@ -23,18 +23,19 @@ function getFallbackPlans() {
         {
             id: 'independant',
             name: 'Indépendant',
-            tagline: 'Transporteur solo — exploitation complète sans affrètement',
+            tagline: 'Transporteur solo — exploitation & affrètement limité',
             priceMonthly: 129,
             popular: false,
-            limits: { maxUsers: 1, maxMobileDrivers: 3 },
+            limits: { maxUsers: 1, maxMobileDrivers: 3, maxAffretementSendsPerMonth: 20 },
             addonsAllowed: true,
             featureLabels: [
                 '1 utilisateur PC inclus (+29 €/mois / user suppl.)',
                 '3 chauffeurs mobile inclus (+19 €/mois / chauffeur suppl.)',
                 'Commandes, planning & app mobile (GPS, eCMR, signatures)',
                 'CMR / bordereaux & suivi client (code TRK)',
-                'Facturation Factur-X & export comptable CSV',
+                'Affrètement : 20 confirmations/mois (+1,50 €/envoi au-delà)',
                 'Calculateur de cotation (poids taxé & trinôme)',
+                'Facturation Factur-X & export comptable CSV',
                 'Carbone GLEC par transport'
             ]
         },
@@ -44,13 +45,13 @@ function getFallbackPlans() {
             tagline: 'Équipe et sous-traitance — marges & conformité',
             priceMonthly: 269,
             popular: true,
-            limits: { maxUsers: 5, maxMobileDrivers: 25 },
+            limits: { maxUsers: 5, maxMobileDrivers: 25, maxAffretementSendsPerMonth: 20 },
             addonsAllowed: true,
             featureLabels: [
                 '5 utilisateurs PC inclus (+29 €/mois / user suppl.)',
                 '25 chauffeurs mobile inclus (+19 €/mois / chauffeur suppl.)',
-                'Tout Indépendant + affrètement & sous-traitants',
-                'Confirmation affrètement PDF & dashboard marges',
+                'Tout Indépendant + affrètement complet & sous-traitants',
+                '20 confirmations affrètement/mois (+1,50 €/envoi au-delà)',
                 'Palettes Europe (solde & échanges)',
                 'Optimisation green & rapports CSRD',
                 'Conformité ST (RC Pro, URSSAF)'
@@ -62,10 +63,11 @@ function getFallbackPlans() {
             tagline: 'Multi-agences & volume — capacité étendue',
             priceMonthly: 449,
             popular: false,
-            limits: { maxUsers: 15, maxMobileDrivers: 50 },
+            limits: { maxUsers: 15, maxMobileDrivers: 50, maxAffretementSendsPerMonth: null },
             addonsAllowed: true,
             featureLabels: [
                 '15 utilisateurs PC & 50 chauffeurs mobile inclus',
+                'Confirmations affrètement illimitées (création + envoi email)',
                 'Suppléments au-delà : +29 €/PC · +19 €/mobile',
                 'Toutes les fonctions PME',
                 'Administration : users, agences, logo, IBAN',
@@ -79,6 +81,7 @@ function getFallbackPlans() {
 const PUBLIC_PLAN_COMPARISON_ROWS = [
     { label: 'Utilisateurs PC inclus', independant: '1', pme: '5', premium: '15' },
     { label: 'Chauffeurs mobile inclus', independant: '3', pme: '25', premium: '50' },
+    { label: 'Confirmations affrètement / mois', independant: '20 (+1,50 €)', pme: '20 (+1,50 €)', premium: 'Illimité' },
     { label: 'Suppléments PC / mobile', independant: '+29 € / +19 €', pme: '+29 € / +19 €', premium: '+29 € / +19 €' },
     { label: 'Commandes, planning & flotte', independant: true, pme: true, premium: true },
     { label: 'App mobile (GPS, eCMR, signatures)', independant: true, pme: true, premium: true },
@@ -86,7 +89,7 @@ const PUBLIC_PLAN_COMPARISON_ROWS = [
     { label: 'Factur-X & export comptable', independant: true, pme: true, premium: true },
     { label: 'Calculateur de cotation', independant: true, pme: true, premium: true },
     { label: 'Carbone GLEC par transport', independant: true, pme: true, premium: true },
-    { label: 'Affrètement & sous-traitants', independant: false, pme: true, premium: true },
+    { label: 'Affrètement & sous-traitants', independant: true, pme: true, premium: true },
     { label: 'Dashboard marges & confirmation PDF', independant: false, pme: true, premium: true },
     { label: 'Palettes Europe', independant: false, pme: true, premium: true },
     { label: 'Optimisation green & rapports CSRD', independant: false, pme: true, premium: true },
@@ -198,7 +201,7 @@ function renderPricingCards(options = {}) {
 
     return `<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">${cards}</div>
         <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>1 mois d'essai Premium offert</strong> à l'inscription, puis règlement mensuel par virement bancaire.<br>
-        <span class="text-sm text-gray-500">Suppléments Indépendant & PME : +29 €/utilisateur PC · +19 €/chauffeur mobile / mois.</span></p>`;
+        <span class="text-sm text-gray-500">Suppléments : +29 €/utilisateur PC · +19 €/chauffeur mobile / mois · +1,50 €/confirmation affrètement au-delà du quota (Indépendant & PME).</span></p>`;
 }
 
 async function renderPublicPricingAsync() {
@@ -274,16 +277,22 @@ function renderAddonsPanel(sub) {
 function renderBillingSummary(sub) {
     const billing = sub.billing;
     if (!billing) return '';
-    const addonsLine = billing.addonsMonthly > 0
-        ? `<p class="text-sm text-gray-600">Forfait ${billing.baseMonthly} € + suppléments ${billing.addonsMonthly} € = <strong>${billing.totalMonthly} € HT/mois</strong></p>`
-        : `<p class="text-sm text-gray-600">Estimation : <strong>${billing.totalMonthly ?? sub.priceMonthly} € HT/mois</strong></p>`;
-    return addonsLine;
+    const parts = [`Estimation : <strong>${billing.totalMonthly ?? sub.priceMonthly} € HT/mois</strong>`];
+    const detail = [];
+    if (billing.baseMonthly != null) detail.push(`forfait ${billing.baseMonthly} €`);
+    if (billing.addonsMonthly > 0) detail.push(`suppléments ${billing.addonsMonthly} €`);
+    if (billing.affretementOverageMonthly > 0) {
+        detail.push(`affrètement hors quota ${billing.affretementOverageMonthly.toFixed(2).replace('.', ',')} €`);
+    }
+    if (detail.length) parts.push(`<span class="text-gray-500">(${detail.join(' + ')})</span>`);
+    return `<p class="text-sm text-gray-600">${parts.join(' ')}</p>`;
 }
 
 function renderAppPricingPage() {
     const sub = window.cachedSubscription || {};
     const usage = sub.usage || {};
     const limits = sub.limits || {};
+    const affretement = sub.affretementUsage || {};
     const warnings = (sub.usageWarnings || []).map((w) =>
         `<p class="text-sm ${w.type?.includes('at_limit') ? 'text-red-600' : 'text-orange-600'} mt-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${w.message}</p>`
     ).join('');
@@ -301,7 +310,9 @@ function renderAppPricingPage() {
             <div class="max-w-md mx-auto mt-4 text-left bg-gray-50 rounded-xl p-4">
                 ${renderUsageBar('Utilisateurs PC', usage.users || 0, limits.maxUsers)}
                 ${renderUsageBar('Chauffeurs mobile', usage.mobileDrivers || 0, limits.maxMobileDrivers)}
+                ${affretement.limit != null ? renderUsageBar('Confirmations affrètement (mois)', affretement.sendsThisMonth || 0, affretement.limit) : ''}
             </div>
+            ${affretement.billableSendsThisMonth > 0 ? `<p class="text-sm text-amber-700 mt-2">Affrètements hors quota ce mois : ${affretement.billableSendsThisMonth} × ${String(affretement.unitPrice).replace('.', ',')} € = ${affretement.overageTotalThisMonth.toFixed(2).replace('.', ',')} € HT</p>` : ''}
             ${warnings}
             <p class="text-sm text-gray-500 mt-3">Facturation par virement bancaire. Pour modifier votre forfait, contactez notre équipe.</p>
         </div>

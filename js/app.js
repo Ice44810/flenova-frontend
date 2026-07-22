@@ -386,7 +386,7 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'Quelle différence entre Indépendant, PME et Premium ?',
-        a: 'Indépendant (129 €) couvre l\'exploitation transport complète sans affrètement. PME (269 €) ajoute sous-traitants, marges, palettes et RSE pour 5 PC et 25 mobiles. Premium (449 €) inclut multi-agences, admin et 15 PC / 50 mobiles. Suppléments : +29 €/PC et +19 €/mobile au-delà des quotas.'
+        a: 'Indépendant (129 €) couvre l\'exploitation transport et l\'affrètement (20 confirmations/mois). PME (269 €) ajoute sous-traitants complets, marges, palettes et RSE pour 5 PC et 25 mobiles. Premium (449 €) inclut multi-agences, admin et confirmations illimitées. Suppléments : +29 €/PC, +19 €/mobile, +1,50 €/confirmation affrètement au-delà du quota.'
     }
 ];
 
@@ -2354,7 +2354,7 @@ function canEditPlanningOrder(order) {
 }
 
 function canShowDispatchButton(order) {
-    if (typeof planHasFeature === 'function' && !planHasFeature('subcontractor')) return false;
+    if (typeof planHasFeature === 'function' && !planHasFeature('affretement')) return false;
     if (!order || typeof canDispatchSubcontractor !== 'function' || !canDispatchSubcontractor()) return false;
     if (isOrderSubcontracted(order)) return false;
     return !['Validé', 'Clôturé', 'Terminé', 'Annulé'].includes(order.status);
@@ -2505,6 +2505,7 @@ function renderAffretementConfirmationShell() {
                 </button>
             </div>
         </div>
+        <div id="affretement-quota-banner" class="hidden mb-4 p-3 rounded-lg text-sm border"></div>
         <div id="affretement-sent-status" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
         <div class="flex-1 overflow-auto bg-slate-100 rounded-xl border border-gray-200 p-4">
             <div id="affretement-preview" class="bg-white rounded-xl shadow-sm mx-auto">
@@ -2544,6 +2545,22 @@ async function loadAffretementConfirmationPage() {
         }
         if (preview) preview.innerHTML = data.html || '<p class="p-8 text-center text-gray-400">Aucun contenu</p>';
         if (emailInput) emailInput.value = data.subcontractor?.email || '';
+
+        const quotaEl = document.getElementById('affretement-quota-banner');
+        const quota = data.affretementQuota;
+        if (quotaEl && quota) {
+            if (quota.limit == null) {
+                quotaEl.classList.add('hidden');
+            } else {
+                const atLimit = quota.remaining === 0;
+                quotaEl.className = `mb-4 p-3 rounded-lg text-sm border ${atLimit ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-blue-50 border-blue-100 text-blue-900'}`;
+                const overageNote = atLimit
+                    ? `Quota mensuel atteint — prochains envois facturés <strong>${String(quota.unitPrice).replace('.', ',')} € HT</strong> chacun.`
+                    : `<strong>${quota.remaining}</strong> confirmation(s) incluse(s) restante(s) sur ${quota.limit} ce mois (${quota.sendsThisMonth} utilisée(s)).`;
+                quotaEl.innerHTML = `<i class="fa-solid fa-envelope-circle-check mr-1"></i> ${overageNote}`;
+                quotaEl.classList.remove('hidden');
+            }
+        }
 
         if (pdfLink && data.pdfUrl) {
             pdfLink.href = normalizeUploadUrl(data.pdfUrl);
@@ -2596,7 +2613,7 @@ async function sendAffretementConfirmation() {
         if (!res.ok) {
             throw new Error(payload.error || 'Envoi impossible');
         }
-        showToast(payload.data?.message || 'Confirmation envoyée', payload.data?.simulated ? 'info' : 'success');
+        showToast(payload.data?.message || 'Confirmation envoyée', payload.data?.usage?.billable ? 'info' : (payload.data?.simulated ? 'info' : 'success'));
         await loadAffretementConfirmationPage();
     } catch (e) {
         showToast(e.message, 'error');
