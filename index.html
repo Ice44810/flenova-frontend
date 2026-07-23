@@ -1093,6 +1093,9 @@
           <button id="credit-note-partial-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-purple-600 transition" title="Générer un avoir partiel">
             <i class="fa-solid fa-scissors"></i>
           </button>
+          <button id="submit-einvoice-header-btn" class="hidden rounded-lg px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition" title="Transmettre à la Plateforme Agréée">
+            <i class="fa-solid fa-paper-plane mr-1"></i> PA
+          </button>
         </div>
 
         <div class="h-8 w-px bg-gray-200"></div>
@@ -1144,6 +1147,17 @@
           <p class="text-xs uppercase tracking-widest text-gray-400">Référence TMS</p>
           <p class="mt-2 text-sm font-mono text-gray-700" id="modal-inv-reference"></p>
         </div>
+      </div>
+
+      <div id="einvoice-action-bar" class="hidden mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Plateforme Agréée — Iopole</p>
+          <p class="mt-1 text-sm text-emerald-900" id="modal-einvoice-status-label">Non transmise</p>
+          <p class="mt-0.5 text-xs text-emerald-700 hidden" id="modal-einvoice-submitted-at"></p>
+        </div>
+        <button id="submit-einvoice-btn" type="button" onclick="submitEinvoiceToPA(currentInvoiceModalId)" class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition">
+          <i class="fa-solid fa-paper-plane mr-2"></i>Transmettre à la PA
+        </button>
       </div>
 
       <!-- Parties -->

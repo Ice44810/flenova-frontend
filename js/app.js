@@ -2906,6 +2906,138 @@ function isCreditNoteEligibleInvoice(inv) {
     return status.includes('valid') || status === 'payée' || status === 'payee' || status === 'paid';
 }
 
+function isValidatedForPaSubmission(inv) {
+    if (!inv || isCreditNoteType(inv)) return false;
+    const status = (inv.status || '').toString().trim().toLowerCase();
+    return status.includes('valid') || status === 'validated' || status === 'validée' || status === 'validee';
+}
+
+function canSubmitToPA(inv) {
+    if (!canManageInvoices() || !inv || isCreditNoteType(inv)) return false;
+    if (inv.iopole_invoice_id) return false;
+    return isValidatedForPaSubmission(inv);
+}
+
+const EINVOICE_STATUS_LABELS = {
+    SUBMITTED: 'Transmise à la PA',
+    IN_HAND: 'En traitement PA',
+    APPROVED: 'Acceptée par le destinataire',
+    PARTIALLY_APPROVED: 'Partiellement acceptée',
+    DISPUTED: 'En litige',
+    SUSPENDED: 'Suspendue',
+    COMPLETED: 'Traitement terminé',
+    REFUSED: 'Refusée par le destinataire',
+    PAYMENT_SENT: 'Paiement envoyé',
+    PAYMENT_RECEIVED: 'Paiement reçu'
+};
+
+function formatEinvoiceStatusLabel(code) {
+    if (!code) return 'Non transmise';
+    return EINVOICE_STATUS_LABELS[code] || String(code).replace(/_/g, ' ').toLowerCase();
+}
+
+function getPaStatusBadgeClass(code) {
+    if (!code || code === 'SUBMITTED') return 'bg-sky-100 text-sky-800';
+    if (['APPROVED', 'COMPLETED', 'PAYMENT_RECEIVED'].includes(code)) return 'bg-green-100 text-green-800';
+    if (['REFUSED', 'DISPUTED'].includes(code)) return 'bg-red-100 text-red-800';
+    if (['IN_HAND', 'SUSPENDED', 'PARTIALLY_APPROVED'].includes(code)) return 'bg-orange-100 text-orange-800';
+    return 'bg-emerald-100 text-emerald-800';
+}
+
+function renderPaStatusBadge(inv) {
+    if (isCreditNoteType(inv)) return '<span class="text-gray-300">—</span>';
+    if (inv.iopole_invoice_id) {
+        const code = inv.einvoice_status || 'SUBMITTED';
+        return `<span class="px-2 py-0.5 rounded text-xs font-semibold ${getPaStatusBadgeClass(code)}" title="ID PA: ${inv.iopole_invoice_id}">${formatEinvoiceStatusLabel(code)}</span>`;
+    }
+    if (isValidatedForPaSubmission(inv)) {
+        return '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-600">Non transmise</span>';
+    }
+    return '<span class="text-gray-300">—</span>';
+}
+
+let currentInvoiceModalId = null;
+
+window.submitEinvoiceToPA = async function (invoiceId) {
+    const id = invoiceId || currentInvoiceModalId;
+    if (!id) return showToast('Facture introuvable', 'error');
+    if (!canManageInvoices()) return showToast('Action non autorisée', 'error');
+
+    const inv = db.sales_invoices.find(i => String(i.id) === String(id));
+    if (!canSubmitToPA(inv)) {
+        return showToast('Seules les factures validées non encore transmises peuvent être envoyées à la PA', 'error');
+    }
+    if (!confirm('Transmettre cette facture à la Plateforme Agréée Iopole (Factur-X) ?')) return;
+
+    const submitBtn = document.getElementById('submit-einvoice-btn');
+    const headerBtn = document.getElementById('submit-einvoice-header-btn');
+    if (submitBtn) submitBtn.disabled = true;
+    if (headerBtn) headerBtn.disabled = true;
+
+    showToast('Transmission à la PA en cours…', 'info');
+    try {
+        const res = await apiFetch(`sales-invoices/${id}/submit-einvoice`, { method: 'POST' });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || payload.message || 'Échec de la transmission à la PA', 'error');
+            return;
+        }
+        showToast('Facture transmise à la Plateforme Agréée', 'success');
+        await fetchAllData();
+        openInvoiceModal(id);
+    } catch (e) {
+        console.error(e);
+        showToast('Erreur de communication avec le serveur', 'error');
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
+        if (headerBtn) headerBtn.disabled = false;
+    }
+};
+
+function updateInvoiceModalPaUi(inv) {
+    currentInvoiceModalId = inv?.id || null;
+    const actionBar = document.getElementById('einvoice-action-bar');
+    const statusLabel = document.getElementById('modal-einvoice-status-label');
+    const submittedAtEl = document.getElementById('modal-einvoice-submitted-at');
+    const submitBtn = document.getElementById('submit-einvoice-btn');
+    const headerBtn = document.getElementById('submit-einvoice-header-btn');
+    const showPa = inv && !isCreditNoteType(inv);
+
+    if (actionBar) actionBar.classList.toggle('hidden', !showPa);
+
+    if (!showPa) {
+        if (submitBtn) submitBtn.classList.add('hidden');
+        if (headerBtn) headerBtn.classList.add('hidden');
+        return;
+    }
+
+    const submitted = Boolean(inv.iopole_invoice_id);
+    const canSubmit = canSubmitToPA(inv);
+    const statusText = submitted
+        ? formatEinvoiceStatusLabel(inv.einvoice_status || 'SUBMITTED')
+        : (isValidatedForPaSubmission(inv) ? 'Prête pour transmission PA' : 'Validez la facture avant transmission');
+
+    if (statusLabel) statusLabel.textContent = statusText;
+    if (submittedAtEl) {
+        if (inv.einvoice_submitted_at) {
+            submittedAtEl.textContent = `Transmise le ${formatDisplayDate(inv.einvoice_submitted_at)}`;
+            submittedAtEl.classList.remove('hidden');
+        } else {
+            submittedAtEl.classList.add('hidden');
+            submittedAtEl.textContent = '';
+        }
+    }
+
+    if (submitBtn) {
+        submitBtn.classList.toggle('hidden', !canSubmit);
+        submitBtn.disabled = !canSubmit;
+    }
+    if (headerBtn) {
+        headerBtn.classList.toggle('hidden', !canSubmit);
+        headerBtn.onclick = () => submitEinvoiceToPA(inv.id);
+    }
+}
+
 function renderSalesInvoices() {
     const canManage = canManageInvoices();
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
@@ -2935,6 +3067,7 @@ function renderSalesInvoices() {
                         <th class="px-4 py-3">Date</th>
                         <th class="px-4 py-3">Montant TTC</th>
                         <th class="px-4 py-3">Statut</th>
+                        <th class="px-4 py-3">PA</th>
                         <th class="px-4 py-3">Actions</th>
                         <th class="px-4 py-3">Relances</th>
                     </tr>
@@ -2966,8 +3099,10 @@ function renderSalesInvoices() {
                 inv.status === 'Brouillon' ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800'
             }">${inv.status}</span>
                             </td>
+                            <td class="px-4 py-3">${renderPaStatusBadge(inv)}</td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <button onclick="openInvoiceModal('${inv.id}')" class="text-blue-600 hover:underline mr-2">Voir</button>
+                                ${canSubmitToPA(inv) ? `<button onclick="submitEinvoiceToPA('${inv.id}')" class="text-emerald-600 hover:underline mr-2" title="Transmettre à la PA Iopole"><i class="fa-solid fa-paper-plane mr-1"></i>PA</button>` : ''}
                                 ${canCredit ? `
                                     <button onclick="createCreditNote('${inv.id}', false)" class="text-purple-600 hover:underline mr-2" title="Annuler la facture en totalité">Avoir total</button>
                                     <button onclick="openPartialCreditNoteModal('${inv.id}')" class="text-purple-600 hover:underline mr-2" title="Créditer une partie">Avoir partiel</button>
@@ -3195,6 +3330,8 @@ window.openInvoiceModal = async function (invoiceId) {
         }
     }
 
+    updateInvoiceModalPaUi(inv);
+
     const modal = document.getElementById('invoice-modal');
     if (modal) {
         modal.style.top = '';
@@ -3356,6 +3493,21 @@ function renderSettingInvoices() {
                     </div>
                 </div>
 
+                <div class="space-y-4">
+                    <h3 class="flex items-center font-bold text-emerald-700 uppercase text-xs tracking-wider">
+                        <i class="fa-solid fa-building-shield mr-2"></i> Plateforme Agréée — Iopole
+                    </h3>
+                    <div id="iopole-config-panel" class="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-gray-700">
+                        <p class="text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Vérification de la connexion PA…</p>
+                    </div>
+                    <p class="text-xs text-gray-500 leading-relaxed">
+                        Les identifiants OAuth (<code class="text-[11px] bg-gray-100 px-1 rounded">IOPOLE_CLIENT_ID</code>,
+                        <code class="text-[11px] bg-gray-100 px-1 rounded">IOPOLE_CLIENT_SECRET</code>) et l'identifiant client
+                        (<code class="text-[11px] bg-gray-100 px-1 rounded">IOPOLE_CUSTOMER_ID</code>, header <strong>customer-id</strong>)
+                        se configurent dans <code class="text-[11px] bg-gray-100 px-1 rounded">Backend/.env</code> sur le serveur.
+                    </p>
+                </div>
+
                 <div class="flex justify-end pt-6 gap-4 border-t">
                     <button type="button" onclick="router('sales_invoices')" class="px-6 py-2.5 text-gray-500 font-medium hover:bg-gray-100 rounded-xl transition-all">Annuler</button>
                     <button type="submit" class="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-lg shadow-blue-100 transition-all transform hover:-translate-y-0.5">
@@ -3407,6 +3559,61 @@ window.updateThemePreview = function (color) {
     const textInput = document.getElementById('color-text');
     if (header) header.style.backgroundColor = color;
     if (textInput) textInput.value = color.toUpperCase();
+};
+
+window.refreshIopoleConfigPanel = async function () {
+    const panel = document.getElementById('iopole-config-panel');
+    if (!panel) return;
+
+    try {
+        const res = await apiFetch('e-invoicing/status');
+        const payload = await res.json().catch(() => ({}));
+        const data = payload.data || {};
+
+        if (!data.configured) {
+            panel.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-700"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                    <div>
+                        <p class="font-semibold text-amber-900">Configuration incomplète</p>
+                        <p class="mt-1 text-sm text-amber-800">${data.message || 'Complétez Backend/.env (credentials + Customer ID).'}</p>
+                        <ul class="mt-2 text-xs text-amber-900/80 list-disc pl-4 space-y-1">
+                            <li>Credentials OAuth : ${data.credentialsConfigured ? '✓' : '✗ manquant'}</li>
+                            <li>Identifiant client (Customer ID) : ${data.customerIdConfigured ? '✓' : '✗ manquant'}</li>
+                        </ul>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        if (!data.connected) {
+            panel.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-700"><i class="fa-solid fa-plug-circle-xmark"></i></span>
+                    <div>
+                        <p class="font-semibold text-red-900">Connexion PA échouée</p>
+                        <p class="mt-1 text-sm text-red-800">${data.message || 'Vérifiez les credentials dans Backend/.env'}</p>
+                        ${data.customerId ? `<p class="mt-2 text-xs font-mono text-red-900/80">Customer ID : ${data.customerId}</p>` : ''}
+                    </div>
+                </div>`;
+            return;
+        }
+
+        panel.innerHTML = `
+            <div class="flex items-start gap-3">
+                <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><i class="fa-solid fa-circle-check"></i></span>
+                <div class="min-w-0 flex-1">
+                    <p class="font-semibold text-emerald-900">Connexion PA active</p>
+                    <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                        <div><dt class="text-gray-500 uppercase tracking-wide">Identifiant client</dt><dd class="mt-0.5 font-mono text-emerald-950 break-all">${data.customerId || '—'}</dd></div>
+                        <div><dt class="text-gray-500 uppercase tracking-wide">Mode</dt><dd class="mt-0.5 font-semibold uppercase text-emerald-900">${(data.mode || 'push').toUpperCase()}</dd></div>
+                        <div class="sm:col-span-2"><dt class="text-gray-500 uppercase tracking-wide">API</dt><dd class="mt-0.5 font-mono text-emerald-950 break-all">${data.apiUrl || '—'}</dd></div>
+                    </dl>
+                </div>
+            </div>`;
+    } catch (e) {
+        panel.innerHTML = `<p class="text-red-700"><i class="fa-solid fa-circle-xmark mr-2"></i>Impossible de lire la configuration PA (${e.message || 'erreur réseau'}).</p>`;
+    }
 };
 
 window.saveInvoiceSettings = async function (e) {
@@ -5246,7 +5453,10 @@ async function router(route) {
         case 'invoice_settings':
             title = 'Paramètres Facturation';
             content = renderSettingInvoices();
-            setTimeout(() => loadBankSettingsIntoForm(), 0);
+            setTimeout(() => {
+                loadBankSettingsIntoForm();
+                refreshIopoleConfigPanel();
+            }, 0);
             break;
         case 'create_invoice':
             title = editingInvoiceId ? 'Modifier le brouillon' : 'Nouvelle Facture';
