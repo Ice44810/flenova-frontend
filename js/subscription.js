@@ -185,8 +185,10 @@ function renderPricingCards(options = {}) {
             buttonHtml = `<a href="register.html?plan=${plan.id}" class="block w-full py-2.5 text-center ${plan.popular ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-blue-600 text-blue-600 hover:bg-blue-50'} rounded-lg font-semibold transition">Choisir ce forfait</a>`;
         } else if (selectedPlan === plan.id) {
             buttonHtml = `<div class="w-full py-2.5 text-center bg-green-50 border border-green-200 text-green-800 rounded-lg font-semibold">Votre forfait actuel</div>`;
+        } else if (mode === 'app' && window.cachedSubscription?.needsPayment) {
+            buttonHtml = `<button type="button" onclick="subscribeToPlan('${plan.id}')" class="block w-full py-2.5 text-center bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-semibold transition">Activer ${plan.name}</button>`;
         } else {
-            buttonHtml = `<p class="text-center text-sm text-gray-500 py-2">Changement de forfait sur demande — contactez notre équipe.</p>`;
+            buttonHtml = `<p class="text-center text-sm text-gray-500 py-2">Changement de forfait via GoCardless — contactez notre équipe ou réactivez depuis Tarifs.</p>`;
         }
 
         return `<div class="bg-white p-8 rounded-2xl shadow-lg ${borderClass}">
@@ -200,8 +202,8 @@ function renderPricingCards(options = {}) {
     }).join('');
 
     return `<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">${cards}</div>
-        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>1 mois d'essai Premium offert</strong> à l'inscription, puis règlement mensuel par virement bancaire.<br>
-        <span class="text-sm text-gray-500">Suppléments : +29 €/utilisateur PC · +19 €/chauffeur mobile / mois · +1,50 €/confirmation affrètement au-delà du quota (Indépendant & PME).</span></p>`;
+        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>1 mois d'essai Premium offert</strong> à l'inscription.<br>
+        <span class="text-sm text-gray-500">Prélèvement SEPA via <strong>GoCardless</strong> · Suppléments : +29 €/utilisateur PC · +19 €/chauffeur mobile / mois · +1,50 €/confirmation affrètement au-delà du quota (Indépendant & PME).</span></p>`;
 }
 
 async function renderPublicPricingAsync() {
@@ -314,7 +316,8 @@ function renderAppPricingPage() {
             </div>
             ${affretement.billableSendsThisMonth > 0 ? `<p class="text-sm text-amber-700 mt-2">Affrètements hors quota ce mois : ${affretement.billableSendsThisMonth} × ${String(affretement.unitPrice).replace('.', ',')} € = ${affretement.overageTotalThisMonth.toFixed(2).replace('.', ',')} € HT</p>` : ''}
             ${warnings}
-            <p class="text-sm text-gray-500 mt-3">Facturation par virement bancaire. Pour modifier votre forfait, contactez notre équipe.</p>
+            <p class="text-sm text-gray-500 mt-3">Abonnement et prélèvement SEPA gérés par <strong>GoCardless</strong>. Les suppléments mettent à jour le montant mensuel automatiquement.</p>
+            ${sub.needsPayment && !sub.isDemo ? `<button type="button" onclick="subscribeToPlan('${sub.targetPlan || sub.plan}')" class="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">Activer mon abonnement</button>` : ''}
         </div>
         ${renderAddonsPanel(sub)}
         <div class="mt-10">${renderPricingCards({ mode: 'app', selectedPlan: sub.plan })}</div>
@@ -322,6 +325,61 @@ function renderAppPricingPage() {
 }
 
 window._addonDraft = { extra_pc_users: 0, extra_mobile_drivers: 0 };
+
+async function completeGoCardlessReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const gcFlag = params.get('gocardless');
+    const billingRequestId = params.get('billing_request_id');
+    if (!billingRequestId || (gcFlag && gcFlag !== 'success')) return;
+
+    try {
+        const res = await apiFetch('gocardless/complete', {
+            method: 'POST',
+            body: { billing_request_id: billingRequestId }
+        });
+        if (res?.data) window.cachedSubscription = res.data;
+        const clean = new URL(window.location.href);
+        clean.searchParams.delete('gocardless');
+        clean.searchParams.delete('billing_request_id');
+        clean.searchParams.delete('billing_request_flow_id');
+        window.history.replaceState({}, '', clean.pathname + clean.search + (window.location.hash || ''));
+        alert(res?.message || 'Abonnement activé via GoCardless.');
+        if (typeof router === 'function') router('pricing');
+    } catch (e) {
+        console.warn('[GoCardless] complete:', e.message);
+        alert(e.message || 'Autorisation reçue — finalisation en cours. Rechargez la page Tarifs dans un instant.');
+    }
+}
+
+if (typeof window !== 'undefined') {
+    const maybeCompleteGc = () => {
+        if (new URLSearchParams(window.location.search).has('billing_request_id')) {
+            completeGoCardlessReturn();
+        }
+    };
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', maybeCompleteGc);
+    } else {
+        maybeCompleteGc();
+    }
+}
+
+window.subscribeToPlan = async function (planId) {
+    if (!planId) return;
+    if (!confirm(`Activer le forfait ${planId} via prélèvement SEPA (GoCardless) ?`)) return;
+    try {
+        const res = await apiFetch('subscription/subscribe', { method: 'POST', body: { plan: planId } });
+        if (res?.redirectUrl) {
+            window.location.href = res.redirectUrl;
+            return;
+        }
+        if (res?.data) window.cachedSubscription = res.data;
+        alert(res?.message || 'Abonnement activé.');
+        router('pricing');
+    } catch (e) {
+        alert(e.message || 'Impossible d\'activer l\'abonnement. Vérifiez la configuration GoCardless.');
+    }
+};
 
 window.adjustSubscriptionAddon = function (field, delta) {
     const sub = window.cachedSubscription || {};
