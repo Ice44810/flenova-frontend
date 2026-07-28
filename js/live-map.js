@@ -387,6 +387,96 @@
         }
     }
 
+    let assignmentMap = null;
+    let assignmentMarkers = [];
+
+    function clearAssignmentMarkers() {
+        assignmentMarkers.forEach((m) => m.remove());
+        assignmentMarkers = [];
+    }
+
+    async function renderAssignmentMap(containerId, orderId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '<p class="text-sm text-gray-500 p-4">Chargement carte…</p>';
+
+        try {
+            await loadMapLibre();
+            const config = await loadMapsConfig();
+            const res = await fetch(`/api/tracking/orders/${orderId}/assignment-map`, {
+                credentials: 'include',
+                headers: { Accept: 'application/json' }
+            });
+            if (!res.ok) throw new Error('Carte indisponible');
+            const payload = await res.json();
+            const data = payload.data;
+            const loading = data.loadingPoint;
+            const drivers = data.drivers || [];
+
+            container.innerHTML = '';
+            if (assignmentMap) {
+                try { assignmentMap.remove(); } catch (_) { /* ignore */ }
+                assignmentMap = null;
+            }
+            clearAssignmentMarkers();
+
+            assignmentMap = new maplibregl.Map({
+                container,
+                style: buildStyle(config),
+                center: loading ? [loading.longitude, loading.latitude] : FRANCE_CENTER,
+                zoom: loading ? 9 : DEFAULT_ZOOM
+            });
+            assignmentMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+            assignmentMap.on('load', () => {
+                if (loading) {
+                    const loadEl = document.createElement('div');
+                    loadEl.className = 'flenova-live-marker';
+                    loadEl.style.background = '#dc2626';
+                    loadEl.innerHTML = '<i class="fa-solid fa-warehouse"></i>';
+                    loadEl.title = data.order?.origin || 'Chargement';
+                    const loadMarker = new maplibregl.Marker({ element: loadEl })
+                        .setLngLat([loading.longitude, loading.latitude])
+                        .addTo(assignmentMap);
+                    assignmentMarkers.push(loadMarker);
+                }
+
+                const bounds = new maplibregl.LngLatBounds();
+                if (loading) bounds.extend([loading.longitude, loading.latitude]);
+
+                drivers.forEach((d) => {
+                    if (!d.position) return;
+                    const el = createTruckEl('#2563eb', d.name);
+                    const marker = new maplibregl.Marker({ element: el })
+                        .setLngLat([d.position.longitude, d.position.latitude])
+                        .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(
+                            `<strong>${d.name}</strong><br>${d.distanceKm != null ? d.distanceKm + ' km' : '—'}${d.etaMinutes ? ' · ~' + d.etaMinutes + ' min' : ''}<br>Score ${d.scores?.combined ?? '—'}`
+                        ))
+                        .addTo(assignmentMap);
+                    assignmentMarkers.push(marker);
+                    bounds.extend([d.position.longitude, d.position.latitude]);
+                });
+
+                if (loading && drivers.some((d) => d.position)) {
+                    assignmentMap.fitBounds(bounds, { padding: 48, maxZoom: 11 });
+                }
+            });
+
+            return data;
+        } catch (err) {
+            container.innerHTML = `<p class="text-sm text-red-500 p-4">${err.message}</p>`;
+            return null;
+        }
+    }
+
+    function destroyAssignmentMap() {
+        clearAssignmentMarkers();
+        if (assignmentMap) {
+            try { assignmentMap.remove(); } catch (_) { /* ignore */ }
+            assignmentMap = null;
+        }
+    }
+
     function destroyOperationalMap() {
         stopOperationalPoll();
         unfollow();
@@ -400,6 +490,8 @@
     global.LiveMap = {
         initOperationalMap,
         initPublicTrackingMap,
+        renderAssignmentMap,
+        destroyAssignmentMap,
         follow: followOrder,
         unfollow,
         refresh: refreshOperationalPositions,

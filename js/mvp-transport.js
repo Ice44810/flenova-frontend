@@ -627,22 +627,75 @@ window.validateTransportFromDetail = async function (orderId, options = {}) {
 };
 
 window.assignTransportFromDetail = async function (orderId) {
-    const drivers = db.drivers || [];
+    const modal = document.getElementById('assign-driver-modal');
+    const listEl = document.getElementById('assign-driver-list');
+    const subtitle = document.getElementById('assign-driver-subtitle');
+    if (!modal || !listEl) {
+        showToast('Interface d\'affectation indisponible', 'error');
+        return;
+    }
+
+    modal.classList.remove('hidden');
+    modal.dataset.orderId = String(orderId);
+    listEl.innerHTML = '<p class="text-sm text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Recherche des chauffeurs disponibles…</p>';
+
+    let mapData = null;
+    if (typeof LiveMap !== 'undefined' && LiveMap.renderAssignmentMap) {
+        mapData = await LiveMap.renderAssignmentMap('assign-driver-map', orderId);
+    } else {
+        try {
+            const res = await apiFetch(`drivers/available-near?orderId=${orderId}`);
+            if (res.ok) {
+                const json = await res.json();
+                mapData = json.data;
+            }
+        } catch (_) { /* ignore */ }
+    }
+
+    const drivers = mapData?.drivers || [];
+    const loading = mapData?.loadingPoint;
+
+    if (subtitle) {
+        subtitle.textContent = loading?.address
+            ? `Chargement : ${loading.address} — ${drivers.length} chauffeur(s) dans le rayon`
+            : `${drivers.length} chauffeur(s) disponible(s)`;
+    }
+
     if (!drivers.length) {
-        showToast('Aucun chauffeur disponible', 'error');
+        listEl.innerHTML = '<p class="text-sm text-amber-600">Aucun chauffeur disponible à proximité. Vérifiez les statuts, permis et adresses de base.</p>';
         return;
     }
-    const list = drivers.map(d => {
-        const fleet = [d.default_vehicle_plate, d.default_trailer_plate].filter(Boolean).join(' + ');
-        return `${d.id} — ${d.name}${fleet ? ` (${fleet})` : ''}`;
-    }).join('\n');
-    const input = prompt(`ID du chauffeur à affecter :\n\n${list}`);
-    if (input == null || input.trim() === '') return;
-    const driverId = parseInt(String(input).trim().split(/[^0-9]/)[0], 10);
-    if (!driverId) {
-        showToast('Chauffeur invalide', 'error');
-        return;
+
+    listEl.innerHTML = drivers.map((d) => `
+        <button type="button" onclick="confirmAssignDriver(${orderId}, ${d.id})"
+            class="w-full text-left border border-gray-200 rounded-lg p-3 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors">
+            <div class="flex justify-between items-start gap-2">
+                <div>
+                    <p class="font-semibold text-gray-800">${d.name}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">${[d.default_vehicle_plate, d.default_trailer_plate].filter(Boolean).join(' + ') || 'Flotte non définie'}</p>
+                </div>
+                <span class="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">${d.scores?.combined ?? '—'}/100</span>
+            </div>
+            <div class="flex flex-wrap gap-3 mt-2 text-xs text-gray-600">
+                ${d.distanceKm != null ? `<span><i class="fa-solid fa-route mr-1"></i>${d.distanceKm} km</span>` : ''}
+                ${d.etaMinutes ? `<span><i class="fa-solid fa-clock mr-1"></i>~${d.etaMinutes} min</span>` : ''}
+                <span><i class="fa-solid fa-location-dot mr-1"></i>${d.position?.source === 'availability_gps' ? 'GPS live' : (d.position?.source === 'base_address' || d.position?.source === 'base_address_geocoded' ? 'Base' : 'Dernière position')}</span>
+            </div>
+            <p class="text-[10px] text-gray-400 mt-1">${d.compliance?.license || ''} · ${d.compliance?.vehicleInsurance || ''}</p>
+        </button>
+    `).join('');
+};
+
+window.closeAssignDriverModal = function () {
+    const modal = document.getElementById('assign-driver-modal');
+    if (modal) modal.classList.add('hidden');
+    if (typeof LiveMap !== 'undefined' && LiveMap.destroyAssignmentMap) {
+        LiveMap.destroyAssignmentMap();
     }
+};
+
+window.confirmAssignDriver = async function (orderId, driverId) {
+    if (!confirm('Confirmer l\'affectation de ce chauffeur ?')) return;
     try {
         const res = await apiFetch(`transport-orders/${orderId}/assign`, {
             method: 'POST',
@@ -650,6 +703,7 @@ window.assignTransportFromDetail = async function (orderId) {
         });
         if (res.ok) {
             showToast('Transport affecté (camion + remorque du chauffeur)', 'success');
+            closeAssignDriverModal();
             await refreshAfterMvpStep({ orderId, step: 'assign', status: 'Pris en charge' });
         } else {
             const err = await res.json().catch(() => ({}));

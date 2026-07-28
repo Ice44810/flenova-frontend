@@ -6434,6 +6434,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    const rcFile = document.getElementById('add-subcontractor-insurance-file');
+    if (rcFile) {
+        rcFile.addEventListener('change', () => {
+            void handleDocumentOcrUpload(rcFile, 'add-subcontractor-rc-expiry', 'RC_PRO', 'subcontractor-rc-ocr-hint');
+        });
+    }
+    const urssafFile = document.getElementById('add-subcontractor-urssaf-file');
+    if (urssafFile) {
+        urssafFile.addEventListener('change', () => {
+            void handleDocumentOcrUpload(urssafFile, 'add-subcontractor-urssaf-expiry', 'URSSAF', 'subcontractor-urssaf-ocr-hint');
+        });
+    }
+    const licenseFile = document.getElementById('driver-license-file');
+    if (licenseFile) {
+        licenseFile.addEventListener('change', () => {
+            void handleDocumentOcrUpload(licenseFile, 'driver-license-expiry', 'DRIVER_LICENSE', 'driver-license-ocr-hint');
+        });
+    }
 });
 
 function openAddDriverModal() {
@@ -6447,6 +6466,10 @@ function openAddDriverModal() {
     document.getElementById('driver-status').value = 'Disponible';
     document.getElementById('driver-address').value = '';
     document.getElementById('driver-notes').value = '';
+    const licenseFile = document.getElementById('driver-license-file');
+    if (licenseFile) licenseFile.value = '';
+    const licenseHint = document.getElementById('driver-license-ocr-hint');
+    if (licenseHint) licenseHint.innerHTML = '';
     populateDriverFleetSelects(null, null);
     syncDriverMobileSection({ mode: 'create' });
 
@@ -6486,6 +6509,8 @@ function closeDriverModal() {
 async function submitDriver(e) {
     if (e) e.preventDefault();
     const id = document.getElementById('edit-driver-id').value;
+    const licenseFile = document.getElementById('driver-license-file')?.files?.[0];
+
     const driverData = {
         name: document.getElementById('driver-name').value,
         phone: document.getElementById('driver-phone').value,
@@ -6502,8 +6527,17 @@ async function submitDriver(e) {
     }
     if (!driverData.name) return showToast("Le nom est obligatoire", "error");
 
+    let body = driverData;
+    if (licenseFile) {
+        body = new FormData();
+        Object.entries(driverData).forEach(([k, v]) => {
+            if (v != null && v !== '') body.append(k, v);
+        });
+        body.append('license_doc', licenseFile);
+    }
+
     try {
-        const response = await apiFetch(id ? `drivers/${id}` : 'drivers', { method: id ? 'PUT' : 'POST', body: driverData });
+        const response = await apiFetch(id ? `drivers/${id}` : 'drivers', { method: id ? 'PUT' : 'POST', body });
 
         if (response.ok) {
             const result = await response.json().catch(() => ({}));
@@ -6573,7 +6607,14 @@ function openAddSubcontractorModal() {
     document.getElementById('add-subcontractor-rc-expiry').value = '';
     document.getElementById('add-subcontractor-urssaf-expiry').value = '';
     document.getElementById('add-subcontractor-insurance-file').value = '';
+    document.getElementById('add-subcontractor-urssaf-file').value = '';
     document.getElementById('subcontractor-insurance-view').classList.add('hidden');
+    const urssafView = document.getElementById('subcontractor-urssaf-view');
+    if (urssafView) urssafView.classList.add('hidden');
+    ['subcontractor-rc-ocr-hint', 'subcontractor-urssaf-ocr-hint'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+    });
     document.getElementById('add-subcontractor-status').value = 'ACTIF';
     document.getElementById('subcontractor-rc-warning').classList.add('hidden');
     document.getElementById('btn-delete-subcontractor').classList.add('hidden');
@@ -6605,6 +6646,18 @@ function openEditSubcontractorModal(subcontractorId) {
     } else {
         viewLink.classList.add('hidden');
     }
+
+    const urssafView = document.getElementById('subcontractor-urssaf-view');
+    if (urssafView) {
+        if (subcontractor.urssaf_doc_url) {
+            urssafView.href = normalizeUploadUrl(subcontractor.urssaf_doc_url);
+            urssafView.classList.remove('hidden');
+        } else {
+            urssafView.classList.add('hidden');
+        }
+    }
+    const urssafFileInput = document.getElementById('add-subcontractor-urssaf-file');
+    if (urssafFileInput) urssafFileInput.value = '';
 
     document.getElementById('add-subcontractor-status').value = subcontractor.status || 'ACTIF';
 
@@ -6639,6 +6692,10 @@ async function submitAddSubcontractor() {
     const fileInput = document.getElementById('add-subcontractor-insurance-file');
     if (fileInput && fileInput.files[0]) {
         formData.append('insurance_doc', fileInput.files[0]);
+    }
+    const urssafInput = document.getElementById('add-subcontractor-urssaf-file');
+    if (urssafInput && urssafInput.files[0]) {
+        formData.append('urssaf_doc', urssafInput.files[0]);
     }
 
     if (!document.getElementById('add-subcontractor-name').value || !document.getElementById('add-subcontractor-rc-expiry').value) {
