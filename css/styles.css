@@ -548,6 +548,56 @@ body.invoice-modal-open {
     width: 1.5rem;
 }
 
+/* Sidebar — groupe repliable (Transports) */
+.sidebar-group-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.65rem 1.5rem;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.2s, background-color 0.2s;
+}
+.sidebar-group-toggle:hover {
+    color: #e2e8f0;
+    background-color: rgba(30, 41, 59, 0.5);
+}
+.sidebar-group.is-open .sidebar-group-chevron {
+    transform: rotate(0deg);
+}
+.sidebar-group:not(.is-open) .sidebar-group-chevron {
+    transform: rotate(-90deg);
+}
+.sidebar-group-chevron {
+    transition: transform 0.2s ease;
+    opacity: 0.7;
+}
+.sidebar-group-items {
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+.sidebar-group:not(.is-open) .sidebar-group-items {
+    max-height: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+}
+.sidebar-group.is-open .sidebar-group-items {
+    opacity: 1;
+}
+.nav-item-sub {
+    padding-left: 2.25rem !important;
+    padding-right: 1.5rem !important;
+    font-size: 0.875rem;
+}
+.nav-item-sub i {
+    width: 1.25rem;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
 /* Modal Styles */
 .modal-overlay {
     position: fixed;

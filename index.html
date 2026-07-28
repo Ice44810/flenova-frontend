@@ -75,40 +75,48 @@
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Opérations</p>
+                <div class="sidebar-group is-open mb-6" data-sidebar-group="transports">
+                    <button type="button" class="sidebar-group-toggle" onclick="toggleSidebarGroup('transports')" aria-expanded="true" aria-controls="sidebar-group-transports">
+                        <i class="fa-solid fa-truck-fast w-6" aria-hidden="true"></i>
+                        <span>Transports</span>
+                        <i class="fa-solid fa-chevron-down sidebar-group-chevron ml-auto text-xs" aria-hidden="true"></i>
+                    </button>
+                    <ul id="sidebar-group-transports" class="sidebar-group-items space-y-0.5 mt-1">
+                        <li data-nav-route="transports"><a href="#" onclick="router('transports'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-list w-6"></i>
+                                <span>Tous les transports</span>
+                            </a>
+                        </li>
+                        <li data-nav-route="planning"><a href="#" onclick="router('planning'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-calendar-days w-6"></i>
+                                <span>Planning</span>
+                            </a>
+                        </li>
+                        <li data-nav-route="inprogress_transports"><a href="#" onclick="router('inprogress_transports'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-truck-moving w-6"></i>
+                                <span>Transports En cours</span>
+                            </a>
+                        </li>
+                        <li data-nav-route="completed_transports"><a href="#" onclick="router('completed_transports'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-circle-check w-6"></i>
+                                <span>Transports Réalisés</span>
+                            </a>
+                        </li>
+                        <li data-nav-route="disputes"><a href="#" onclick="router('disputes'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-scale-balanced w-6"></i>
+                                <span>Litiges</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Clients</p>
                 <ul class="space-y-1 mb-6">
-                    <li data-nav-route="transports"><a href="#" onclick="router('transports'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-list w-6"></i>
-                            <span>Transports</span>
-                        </a>
-                    </li>
-                    <li data-nav-route="planning"><a href="#" onclick="router('planning'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-calendar-days w-6"></i>
-                            <span>Planning</span>
-                        </a>
-                    </li>
-
-                    <li data-nav-route="inprogress_transports"><a href="#" onclick="router('inprogress_transports'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-truck-moving w-6"></i>
-                            <span>Transports En cours</span>
-                        </a>
-                    </li>
-
-                    <li data-nav-route="completed_transports"><a href="#" onclick="router('completed_transports'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-truck-moving w-6"></i>
-                            <span>Transports Réalisés</span>
-                        </a>
-                    </li>
-                    <li data-nav-route="disputes"><a href="#" onclick="router('disputes'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-scale-balanced w-6"></i>
-                            <span>Litiges</span>
-                        </a>
-                    </li>
                     <li data-nav-route="clients"><a href="#" onclick="router('clients'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-building-user w-6"></i>
@@ -227,44 +235,53 @@
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Support</p>
+                <div class="sidebar-group is-open mb-6" data-sidebar-group="support">
+                    <button type="button" class="sidebar-group-toggle" onclick="toggleSidebarGroup('support')" aria-expanded="true" aria-controls="sidebar-group-support">
+                        <i class="fa-solid fa-life-ring w-6" aria-hidden="true"></i>
+                        <span>Support</span>
+                        <i class="fa-solid fa-chevron-down sidebar-group-chevron ml-auto text-xs" aria-hidden="true"></i>
+                    </button>
+                    <ul id="sidebar-group-support" class="sidebar-group-items space-y-0.5 mt-1">
+                        <li data-nav-route="onboarding">
+                            <a href="#" onclick="router('onboarding'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-rocket w-6"></i>
+                                <span>Prise en main</span>
+                            </a>
+                        </li>
+                        <li data-nav-route="feedback">
+                            <a href="#" onclick="router('feedback'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-comment-dots w-6"></i>
+                                <span>Vos retours</span>
+                            </a>
+                        </li>
+                        <li data-nav-route="solutions">
+                            <a href="#" onclick="router('solutions'); return false;"
+                                class="nav-item nav-item-sub nav-item-muted flex items-center py-2.5 transition-colors text-gray-500 opacity-60 border-r-4 border-transparent cursor-pointer"
+                                title="Présentation marketing — même contenu que le site public">
+                                <i class="fa-solid fa-lightbulb w-6"></i>
+                                <span>Nos Solutions</span>
+                            </a>
+                        </li>
+                        <li data-nav-route="contact">
+                            <a href="#" onclick="router('contact'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-headset w-6"></i>
+                                <span>Contact & Aide</span>
+                            </a>
+                        </li>
+                        <li data-nav-route="about">
+                            <a href="#" onclick="router('about'); return false;"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-info-circle w-6"></i>
+                                <span>À propos</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
                 <ul class="space-y-1">
-                    <li data-nav-route="onboarding">
-                        <a href="#" onclick="router('onboarding'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-rocket w-6"></i>
-                            <span>Prise en main</span>
-                        </a>
-                    </li>
-                    <li data-nav-route="feedback">
-                        <a href="#" onclick="router('feedback'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-comment-dots w-6"></i>
-                            <span>Vos retours</span>
-                        </a>
-                    </li>
-                    <li data-nav-route="solutions">
-                        <a href="#" onclick="router('solutions'); return false;"
-                            class="nav-item nav-item-muted flex items-center px-6 py-3 transition-colors text-gray-500 opacity-60 border-r-4 border-transparent cursor-pointer"
-                            title="Présentation marketing — même contenu que le site public">
-                            <i class="fa-solid fa-lightbulb w-6"></i>
-                            <span>Nos Solutions</span>
-                        </a>
-                    </li>
-                    <li data-nav-route="contact">
-                        <a href="#" onclick="router('contact'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-headset w-6"></i>
-                            <span>Contact & Aide</span>
-                        </a>
-                    </li>
-                    <li data-nav-route="about">
-                        <a href="#" onclick="router('about'); return false;"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-info-circle w-6"></i>
-                            <span>À propos</span>
-                        </a>
-                    </li>
                     <li data-nav-route="privacy">
                         <a href="#" onclick="router('privacy'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">

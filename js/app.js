@@ -903,6 +903,53 @@ function updateAppCompanyHeader(user) {
 }
 window.updateAppCompanyHeader = updateAppCompanyHeader;
 
+const SIDEBAR_GROUP_ROUTES = {
+    transports: new Set(['transports', 'planning', 'inprogress_transports', 'completed_transports', 'disputes', 'create_order']),
+    support: new Set(['onboarding', 'feedback', 'solutions', 'contact', 'about']),
+};
+
+function setSidebarGroupOpen(groupId, open) {
+    const group = document.querySelector(`.sidebar-group[data-sidebar-group="${groupId}"]`);
+    if (!group) return;
+    group.classList.toggle('is-open', open);
+    const toggle = group.querySelector('.sidebar-group-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const items = group.querySelector('.sidebar-group-items');
+    if (items && open) {
+        items.style.maxHeight = `${items.scrollHeight}px`;
+    } else if (items) {
+        items.style.maxHeight = '0';
+    }
+    try {
+        localStorage.setItem(`sidebar-group-${groupId}`, open ? '1' : '0');
+    } catch (_) { /* ignore */ }
+}
+
+window.toggleSidebarGroup = function (groupId) {
+    const group = document.querySelector(`.sidebar-group[data-sidebar-group="${groupId}"]`);
+    if (!group) return;
+    setSidebarGroupOpen(groupId, !group.classList.contains('is-open'));
+};
+
+window.syncSidebarGroups = function (route) {
+    Object.entries(SIDEBAR_GROUP_ROUTES).forEach(([groupId, routes]) => {
+        if (routes.has(route)) setSidebarGroupOpen(groupId, true);
+    });
+};
+
+function initSidebarGroups() {
+    Object.keys(SIDEBAR_GROUP_ROUTES).forEach((groupId) => {
+        let open = true;
+        try {
+            const stored = localStorage.getItem(`sidebar-group-${groupId}`);
+            if (stored === '0') open = false;
+        } catch (_) { /* ignore */ }
+        setSidebarGroupOpen(groupId, open);
+    });
+    const route = window.currentAppRoute || (window.location.hash || '').replace('#', '').trim();
+    if (route) syncSidebarGroups(route);
+}
+
 (async () => {
     // On vérifie systématiquement la validité de la session avec le serveur au démarrage.
     // Cela évite de lancer des requêtes de données en parallèle si le jeton est expiré.
@@ -942,6 +989,7 @@ window.updateAppCompanyHeader = updateAppCompanyHeader;
 
     const ok = await fetchAllData();
     if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
+    if (typeof initSidebarGroups === 'function') initSidebarGroups();
     if (typeof applyDemoBanner === 'function') applyDemoBanner();
 
     const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
@@ -5396,6 +5444,7 @@ async function router(route) {
         const itemRoute = navRoute || onclickMatch?.[1];
         if (itemRoute === route) item.classList.add('active');
     });
+    if (typeof syncSidebarGroups === 'function') syncSidebarGroups(route);
 
     let content = '';
     let title = '';
@@ -5610,6 +5659,7 @@ async function router(route) {
 
     pageTitle.textContent = title;
     if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
+    if (typeof initSidebarGroups === 'function') initSidebarGroups();
     if (typeof applyDemoBanner === 'function') applyDemoBanner();
 }
 
