@@ -1861,7 +1861,12 @@ function renderDashboardKpiBody(stats = {}) {
     if (isCockpitSectionVisible('alerts')) {
         lowerCards.push(`<div class="dash-v2-card">
             <h4 class="dash-v2-card-title">Alertes</h4>
-            ${alerts.length ? alerts.map(a => `<div class="dash-v2-alert ${a.type}"><i class="fa-solid ${a.icon}"></i><span>${a.text}</span></div>`).join('') : '<p class="text-gray-400 italic text-sm py-2">Aucune alerte</p>'}
+            ${alerts.length ? alerts.map(a => {
+                const click = a.action === 'disputes'
+                    ? ` onclick="router('disputes')" role="button" style="cursor:pointer"`
+                    : '';
+                return `<div class="dash-v2-alert ${a.type}"${click}><i class="fa-solid ${a.icon}"></i><span>${a.text}</span></div>`;
+            }).join('') : '<p class="text-gray-400 italic text-sm py-2">Aucune alerte</p>'}
         </div>`);
     }
 
@@ -5426,6 +5431,11 @@ async function router(route) {
         case 'inprogress_transports':
             title = 'Transports En cours';
             content = typeof renderOrdersInProgress === 'function' ? renderOrdersInProgress() : renderInProgressTransports();
+            break;
+        case 'disputes':
+            title = 'Litiges transport';
+            content = typeof renderDisputesPage === 'function' ? renderDisputesPage() : '';
+            if (typeof refreshDisputesPage === 'function') setTimeout(() => refreshDisputesPage('open'), 0);
             break;
         case 'clients':
             title = 'Clients';

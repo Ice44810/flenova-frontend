@@ -440,7 +440,7 @@ window.applyPlanBasedNav = function () {
         const route = el.dataset.navRoute;
         if (el.style.display === 'none') return;
         if (!sub?.allowedRoutes) return;
-        if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback'].includes(route)) return;
+        if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback', 'disputes'].includes(route)) return;
         if (transportRoutes.has(route)) return;
         if (!sub.allowedRoutes.includes(route)) {
             el.style.display = 'none';
@@ -460,7 +460,7 @@ window.canAccessPlanRoute = function (routeName) {
     ];
     if (transportRoutes.includes(routeName)) return true;
     if (!sub?.allowedRoutes) return true;
-    if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback'].includes(routeName)) return true;
+    if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback', 'disputes'].includes(routeName)) return true;
     return sub.allowedRoutes.includes(routeName);
 };
 

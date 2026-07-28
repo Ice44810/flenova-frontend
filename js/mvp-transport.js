@@ -536,6 +536,11 @@ function renderTransportDetailModal(t) {
     document.getElementById('td-upload-section').style.display = (typeof canUploadDocument === 'function' && canUploadDocument()) ? 'block' : 'none';
     document.getElementById('td-comment-section').style.display = (typeof can === 'function' && can(PERM.MODULES.COMMENTS, PERM.ACTIONS.CREATE)) ? 'block' : 'none';
     document.getElementById('td-order-id').value = t.id;
+
+    const disputesMount = document.getElementById('td-disputes-mount');
+    if (disputesMount && typeof renderTransportDisputesSection === 'function') {
+        disputesMount.innerHTML = renderTransportDisputesSection(t.disputes, t.id);
+    }
 }
 
 function getNextStatuses(current) {

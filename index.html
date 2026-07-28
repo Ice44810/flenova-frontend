@@ -103,6 +103,12 @@
                             <span>Transports Réalisés</span>
                         </a>
                     </li>
+                    <li data-nav-route="disputes"><a href="#" onclick="router('disputes'); return false;"
+                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                            <i class="fa-solid fa-scale-balanced w-6"></i>
+                            <span>Litiges</span>
+                        </a>
+                    </li>
                     <li data-nav-route="clients"><a href="#" onclick="router('clients'); return false;"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-building-user w-6"></i>
@@ -1716,6 +1722,7 @@
                         <button onclick="submitTransportComment()" class="px-3 py-2 bg-gray-800 text-white rounded text-sm">Envoyer</button>
                     </div>
                 </div>
+                <div id="td-disputes-mount"></div>
             </div>
         </div>
     </div>
@@ -1748,6 +1755,7 @@
     <script src="js/api.js"></script>
     <script src="js/legal-pages.js"></script>
     <script src="js/commercial-pages.js"></script>
+    <script src="js/disputes.js"></script>
     <script src="js/permissions.js"></script>
     <script src="js/subscription.js"></script>
     <script src="js/live-map.js"></script>

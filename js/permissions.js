@@ -12,7 +12,7 @@ const PERM_ACTIONS = {
     GENERATE_INVOICE: 'generate_invoice',
     MANAGE_USERS: 'manage_users',
     VALIDATE_TRANSPORT: 'validate_transport',
-    EXPORT: 'export'
+    RESOLVE: 'resolve'
 };
 
 const PERM_MODULES = {
@@ -27,7 +27,7 @@ const PERM_MODULES = {
     BILLING: 'billing',
     REPORTS: 'reports',
     SETTINGS: 'settings',
-    USERS: 'users'
+    DISPUTES: 'disputes'
 };
 
 let cachedPermissions = null;
@@ -83,7 +83,7 @@ function fallbackCan(role, module, action) {
 }
 
 function canAccessRoute(routeName) {
-    const openRoutes = new Set(['pricing', 'solutions', 'contact', 'about', 'tracking', 'onboarding', 'feedback']);
+    const openRoutes = new Set(['pricing', 'solutions', 'contact', 'about', 'tracking', 'onboarding', 'feedback', 'disputes']);
     if (openRoutes.has(routeName)) return true;
 
     const rules = {
@@ -92,6 +92,7 @@ function canAccessRoute(routeName) {
         planning: ['planning', 'view'],
         inprogress_transports: ['transports', 'view'],
         completed_transports: ['transports', 'view'],
+        disputes: ['disputes', 'view'],
         clients: ['clients', 'view'],
         drivers: ['carriers', 'view'],
         fleet: ['carriers', 'view'],
