@@ -435,6 +435,141 @@
     border: 1px solid #bae6fd;
 }
 
+.dash-v2-map--live {
+    height: 320px;
+}
+
+.dash-v2-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.dash-v2-card-title-row .dash-v2-card-title {
+    margin-bottom: 0;
+}
+
+.dash-live-gps-count {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+}
+
+.dash-live-map-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.dash-live-map-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    text-align: center;
+    color: #b91c1c;
+    font-size: 0.8rem;
+    z-index: 2;
+    background: #fff;
+}
+
+.dash-live-follow-panel {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 3;
+    max-width: min(280px, 70%);
+    background: rgba(255,255,255,0.96);
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.65rem;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+    font-size: 0.72rem;
+    color: #334155;
+}
+
+.dash-live-follow-panel.hidden { display: none; }
+
+.dash-live-follow-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dash-live-unfollow {
+    border: none;
+    background: #f1f5f9;
+    border-radius: 0.25rem;
+    width: 1.4rem;
+    height: 1.4rem;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.dash-live-follow-meta,
+.dash-live-follow-route,
+.dash-live-follow-pos {
+    margin: 0.25rem 0 0;
+    color: #64748b;
+}
+
+.dash-live-public-link {
+    display: inline-block;
+    margin-top: 0.35rem;
+    color: #0d9488;
+    font-weight: 600;
+}
+
+.dash-live-popup-btn {
+    margin-top: 0.35rem;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 0.3rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.flenova-live-marker {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    border: 2px solid #fff;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+    cursor: pointer;
+    padding: 0;
+}
+
+.flenova-live-marker--follow {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.35), 0 2px 8px rgba(15, 23, 42, 0.35);
+}
+
+.public-live-map {
+    width: 100%;
+    height: 280px;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
 .dash-v2-map-fr {
     position: absolute;
     inset: 10% 15% 12% 10%;
@@ -474,6 +609,7 @@
     background: rgba(255,255,255,0.85);
     padding: 0.25rem 0.4rem;
     border-radius: 0.25rem;
+    z-index: 2;
 }
 
 .dash-v2-map-legend span::before {
@@ -695,7 +831,13 @@
     justify-content: center;
     font-size: 0.75rem;
     color: #94a3b8;
+    z-index: 2;
+    pointer-events: none;
+    padding: 1rem;
+    text-align: center;
 }
+
+.dash-v2-map-empty.hidden { display: none; }
 
 .dash-v2-map-legend .lg-available::before { background: #059669; }
 

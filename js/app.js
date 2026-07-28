@@ -802,7 +802,12 @@ function publicRouter(route) {
             break;
         case 'tracking':
             container.innerHTML = '<div class="py-16 text-center text-gray-500"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>';
-            renderPublicTrackingPage().then(html => { container.innerHTML = html; });
+            renderPublicTrackingPage().then(html => {
+                container.innerHTML = html;
+                if (typeof LiveMap !== 'undefined' && window._lastPublicTrackingData) {
+                    setTimeout(() => LiveMap.initPublicTrackingMap('public-live-map', window._lastPublicTrackingData), 40);
+                }
+            });
             break;
         default:
             container.innerHTML = renderPublicHome();
@@ -1725,16 +1730,9 @@ function renderDashboardKpiBody(stats = {}) {
     const counts = perf.counts || {};
     const today = stats.todayStats || {};
     const fleet = stats.fleetAvailability || { vehicles: {}, drivers: {} };
-    const mapMissions = stats.activeMissionsMap || [];
     const costCats = stats.costCategories || [];
     const fillRate = stats.fillRate ?? stats.avgLoadFactor ?? 0;
     const alertCount = (stats.alerts || []).length;
-
-    const mapDots = mapMissions.map((m, i) => {
-        const pos = dashMapPosition(m.dest || m.origin, i);
-        const cls = dashMapStatusClass(m.status);
-        return `<div class="dash-v2-map-dot ${cls}" style="left:${pos.left};top:${pos.top}" title="${m.ref || ''} ${m.origin || ''} → ${m.dest || ''}"><i class="fa-solid fa-truck"></i></div>`;
-    }).join('');
 
     const topDrivers = stats.topDrivers || [];
     const topVehicles = stats.topVehicles || [];
@@ -1805,15 +1803,19 @@ function renderDashboardKpiBody(stats = {}) {
             ${renderDashboardMissionCounts(counts)}
         </div>
         <div class="dash-v2-card dash-v2-card--map">
-            <h4 class="dash-v2-card-title">Carte opérationnelle</h4>
-            <div class="dash-v2-map">
-                <div class="dash-v2-map-fr"></div>
-                ${mapDots || '<p class="dash-v2-map-empty">Aucune mission active sur la période</p>'}
+            <div class="dash-v2-card-title-row">
+                <h4 class="dash-v2-card-title">Carte opérationnelle · suivi live</h4>
+                <span id="dash-live-gps-count" class="dash-live-gps-count">—</span>
+            </div>
+            <div class="dash-v2-map dash-v2-map--live">
+                <div id="dash-live-map" class="dash-live-map-canvas"></div>
+                <p id="dash-live-map-empty" class="dash-v2-map-empty">Chargement de la carte…</p>
+                <div id="dash-live-follow-panel" class="dash-live-follow-panel hidden"></div>
                 <div class="dash-v2-map-legend">
                     <span class="lg-available">🟢 Camions dispo (${fleet.vehicles?.available ?? 0})</span>
-                    <span class="lg-progress">🔵 Missions en cours</span>
-                    <span class="lg-wait">🟠 Chargements</span>
-                    <span class="lg-late">🔴 Retards</span>
+                    <span class="lg-progress">🔵 En cours</span>
+                    <span class="lg-wait">🟠 Planifié</span>
+                    <span class="lg-late">🔴 Retard / annulé</span>
                 </div>
             </div>
         </div>
@@ -5046,6 +5048,7 @@ async function renderPublicTrackingPage() {
         const res = await fetch(`/api/public/tracking/${encodeURIComponent(code)}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Transport introuvable');
+        window._lastPublicTrackingData = data;
 
         const timeline = (data.timeline || []).map(h => `
             <div class="flex gap-3 text-sm border-b pb-2 mb-2">
@@ -5055,15 +5058,18 @@ async function renderPublicTrackingPage() {
             </div>`).join('') || '<p class="text-gray-400 italic">Aucun événement</p>';
 
         const pos = data.lastPosition;
-        const mapLink = pos
-            ? `https://www.google.com/maps?q=${pos.latitude},${pos.longitude}`
-            : null;
+        const hasGps = pos && pos.latitude != null && pos.longitude != null;
 
-        return `<div class="max-w-2xl mx-auto py-12 px-6 fade-in">
+        return `<div class="max-w-3xl mx-auto py-12 px-6 fade-in">
             <div class="bg-white rounded-2xl shadow-lg border p-8">
-                <p class="text-xs uppercase text-gray-400 font-bold">Suivi donneur d'ordre</p>
-                <h1 class="text-2xl font-black text-gray-900 mt-1">${data.ref || 'Transport'}</h1>
-                <p class="font-mono text-teal-700 mt-2">${data.trackingCode}</p>
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-xs uppercase text-gray-400 font-bold">Suivi donneur d'ordre · live</p>
+                        <h1 class="text-2xl font-black text-gray-900 mt-1">${data.ref || 'Transport'}</h1>
+                        <p class="font-mono text-teal-700 mt-2">${data.trackingCode}</p>
+                    </div>
+                    <span id="public-live-stamp" class="text-xs text-gray-400 whitespace-nowrap">${hasGps && pos.recorded_at ? `MAJ ${new Date(pos.recorded_at).toLocaleTimeString('fr-FR')}` : ''}</span>
+                </div>
                 <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
                     <div><span class="text-gray-400 text-xs uppercase">Statut</span><p class="font-bold">${data.status}</p></div>
                     <div><span class="text-gray-400 text-xs uppercase">Mode</span><p>${data.transportMode || '—'}</p></div>
@@ -5073,7 +5079,10 @@ async function renderPublicTrackingPage() {
                     <div><span class="text-gray-400 text-xs uppercase">Chauffeur</span><p>${data.driverName || '—'}</p></div>
                     <div><span class="text-gray-400 text-xs uppercase">Véhicule</span><p>${data.vehiclePlate || '—'}</p></div>
                 </div>
-                ${mapLink ? `<a href="${mapLink}" target="_blank" rel="noopener" class="mt-6 inline-flex items-center gap-2 text-blue-600 font-semibold text-sm"><i class="fa-solid fa-location-dot"></i> Dernière position véhicule</a>` : ''}
+                <div class="mt-6">
+                    <div id="public-live-map" class="public-live-map"></div>
+                    ${!hasGps ? '<p class="text-xs text-gray-400 mt-2">Position GPS non encore reçue — le chauffeur doit être en mission sur l\'app mobile.</p>' : ''}
+                </div>
                 <div class="mt-8">
                     <h2 class="text-xs uppercase text-gray-500 font-bold mb-3">Historique</h2>
                     ${timeline}
@@ -5082,6 +5091,7 @@ async function renderPublicTrackingPage() {
             </div>
         </div>`;
     } catch (e) {
+        window._lastPublicTrackingData = null;
         return `<div class="max-w-xl mx-auto py-20 px-6 text-center">
             <p class="text-red-600 font-semibold mb-4">${e.message}</p>
             <button type="button" onclick="publicRouter('tracking')" class="text-blue-600">Réessayer</button>
@@ -5522,7 +5532,12 @@ async function router(route) {
             content = '<div class="fade-in p-8 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i></div>';
             renderPublicTrackingPage().then(html => {
                 const el = document.getElementById('app-content');
-                if (el && window.currentAppRoute === 'tracking') el.innerHTML = html;
+                if (el && window.currentAppRoute === 'tracking') {
+                    el.innerHTML = html;
+                    if (typeof LiveMap !== 'undefined' && window._lastPublicTrackingData) {
+                        setTimeout(() => LiveMap.initPublicTrackingMap('public-live-map', window._lastPublicTrackingData), 40);
+                    }
+                }
             });
             break;
         case 'pricing':
@@ -5714,6 +5729,10 @@ function initDashboardCharts(stats = {}) { // Now accepts stats object
                 },
                 options: { ...chartOpts, cutout: '75%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
             });
+        }
+
+        if (typeof LiveMap !== 'undefined' && document.getElementById('dash-live-map')) {
+            setTimeout(() => LiveMap.initOperationalMap('dash-live-map'), 50);
         }
 
         // Legacy charts (autres vues / compat)
