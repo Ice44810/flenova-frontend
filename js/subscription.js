@@ -145,7 +145,7 @@ function renderPublicPlansSection() {
         <div class="public-section-inner">
             <p class="public-page-eyebrow">Tarifs transparents</p>
             <h2 class="public-section-title" id="public-plans-title">Trois forfaits, une couverture complète</h2>
-            <p class="public-section-lead">Du transporteur solo à la PME multi-agences : choisissez le forfait adapté à votre volume. Essai Premium 30 jours offert à l'inscription.</p>
+            <p class="public-section-lead">Du transporteur solo à la PME multi-agences : choisissez le forfait adapté à votre volume. Essai Premium 30 jours offert · <strong>Sans engagement de durée</strong>.</p>
             ${renderPublicPlansComparison()}
             <div class="public-plans-cards mt-12">
                 ${renderPricingCards({ mode: 'public' })}
@@ -202,8 +202,8 @@ function renderPricingCards(options = {}) {
     }).join('');
 
     return `<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">${cards}</div>
-        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>1 mois d'essai Premium offert</strong> à l'inscription.<br>
-        <span class="text-sm text-gray-500">Prélèvement SEPA via <strong>GoCardless</strong> · Suppléments : +29 €/utilisateur PC · +19 €/chauffeur mobile / mois · +1,50 €/confirmation affrètement au-delà du quota (Indépendant & PME).</span></p>`;
+        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>1 mois d'essai Premium offert</strong> à l'inscription · <strong>Sans engagement de durée</strong>.<br>
+        <span class="text-sm text-gray-500">Facturation mensuelle · Prélèvement SEPA via <strong>GoCardless</strong> · Résiliation possible à tout moment · Suppléments : +29 €/utilisateur PC · +19 €/chauffeur mobile / mois · +1,50 €/confirmation affrètement au-delà du quota (Indépendant & PME).</span></p>`;
 }
 
 async function renderPublicPricingAsync() {
@@ -212,7 +212,7 @@ async function renderPublicPricingAsync() {
         <div class="public-page-header py-12">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
                 <h1 class="text-4xl font-extrabold text-blue-900 mb-4">Tarifs Flenova</h1>
-                <p class="text-lg text-gray-600">Des solutions adaptées à vos besoins, sans frais cachés.</p>
+                <p class="text-lg text-gray-600">Des solutions adaptées à vos besoins, sans frais cachés — <strong>sans engagement de durée</strong>.</p>
             </div>
         </div>
         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">${renderPricingCards({ mode: 'public' })}</div>
@@ -302,25 +302,24 @@ function renderAppPricingPage() {
     const companyName = (typeof getCurrentUser === 'function' ? getCurrentUser()?.company_name : null) || '';
     const safeCompany = typeof escapeHtml === 'function' ? escapeHtml(companyName) : companyName;
 
-    return `<div class="max-w-6xl mx-auto fade-in py-10">
-        <div class="text-center mb-12">
-            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Tarifs Flenova</h1>
+    return `<div class="max-w-3xl mx-auto fade-in py-10">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-4">Mon abonnement</h1>
             <p class="text-sm text-gray-500 mb-2">Entreprise : <strong>${safeCompany || '—'}</strong></p>
             <p class="text-lg text-gray-600">Forfait actuel : <strong>${sub.planName || '—'}</strong>${sub.isDemo ? ` — essai Premium (${sub.demoDaysRemaining ?? '—'} j. restants)` : ''}</p>
             ${sub.isDemo && sub.targetPlanName ? `<p class="text-sm text-purple-700 mt-2">Après l'essai : forfait ${sub.targetPlanName}</p>` : ''}
-            ${renderBillingSummary(sub)}
-            <div class="max-w-md mx-auto mt-4 text-left bg-gray-50 rounded-xl p-4">
+            <div class="max-w-md mx-auto mt-6 text-left bg-gray-50 rounded-xl p-4">
                 ${renderUsageBar('Utilisateurs PC', usage.users || 0, limits.maxUsers)}
                 ${renderUsageBar('Chauffeurs mobile', usage.mobileDrivers || 0, limits.maxMobileDrivers)}
                 ${affretement.limit != null ? renderUsageBar('Confirmations affrètement (mois)', affretement.sendsThisMonth || 0, affretement.limit) : ''}
             </div>
-            ${affretement.billableSendsThisMonth > 0 ? `<p class="text-sm text-amber-700 mt-2">Affrètements hors quota ce mois : ${affretement.billableSendsThisMonth} × ${String(affretement.unitPrice).replace('.', ',')} € = ${affretement.overageTotalThisMonth.toFixed(2).replace('.', ',')} € HT</p>` : ''}
+            ${affretement.billableSendsThisMonth > 0 ? `<p class="text-sm text-amber-700 mt-2">Affrètements hors quota ce mois : ${affretement.billableSendsThisMonth}</p>` : ''}
             ${warnings}
-            <p class="text-sm text-gray-500 mt-3">Abonnement et prélèvement SEPA gérés par <strong>GoCardless</strong>. Les suppléments mettent à jour le montant mensuel automatiquement.</p>
+            <p class="text-sm text-gray-500 mt-4">Abonnement <strong>sans engagement de durée</strong> · Facturation mensuelle · Prélèvement SEPA via <strong>GoCardless</strong>.</p>
+            <p class="text-sm mt-3"><a href="/index.html#tarifs" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">Consulter les tarifs et comparatif des forfaits →</a></p>
             ${sub.needsPayment && !sub.isDemo ? `<button type="button" onclick="subscribeToPlan('${sub.targetPlan || sub.plan}')" class="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">Activer mon abonnement</button>` : ''}
         </div>
         ${renderAddonsPanel(sub)}
-        <div class="mt-10">${renderPricingCards({ mode: 'app', selectedPlan: sub.plan })}</div>
     </div>`;
 }
 
@@ -441,7 +440,7 @@ window.applyPlanBasedNav = function () {
         const route = el.dataset.navRoute;
         if (el.style.display === 'none') return;
         if (!sub?.allowedRoutes) return;
-        if (['pricing', 'contact', 'about', 'solutions'].includes(route)) return;
+        if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback'].includes(route)) return;
         if (transportRoutes.has(route)) return;
         if (!sub.allowedRoutes.includes(route)) {
             el.style.display = 'none';
@@ -461,7 +460,7 @@ window.canAccessPlanRoute = function (routeName) {
     ];
     if (transportRoutes.includes(routeName)) return true;
     if (!sub?.allowedRoutes) return true;
-    if (['pricing', 'contact', 'about', 'solutions'].includes(routeName)) return true;
+    if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback'].includes(routeName)) return true;
     return sub.allowedRoutes.includes(routeName);
 };
 

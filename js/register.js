@@ -4,9 +4,9 @@
 
 const VALID_PLANS = ['independant', 'pme', 'premium'];
 const PLAN_LABELS = {
-    independant: 'Indépendant — 129 €/mois HT (après essai)',
-    pme: 'PME — 269 €/mois HT (après essai)',
-    premium: 'Premium — 449 €/mois HT (après essai)'
+    independant: 'Indépendant — transporteur solo (voir tarifs sur le site)',
+    pme: 'PME — équipe et sous-traitance (voir tarifs sur le site)',
+    premium: 'Premium — multi-agences et volume (voir tarifs sur le site)'
 };
 
 function showToast(message, type = 'info') {

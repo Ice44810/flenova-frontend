@@ -2532,3 +2532,10 @@ body.public-site-active {
     margin-left: 1rem;
 }
 
+/* Questionnaire retours clients */
+.feedback-rating-label input:checked + span {
+    border-color: #2563eb;
+    background-color: #eff6ff;
+    color: #1d4ed8;
+}
+

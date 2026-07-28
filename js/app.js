@@ -181,7 +181,7 @@ function makeElementDraggable(el) {
 }
 
 // --- SITE PUBLIC ---
-const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact', 'privacy', 'legal', 'terms', 'cookies', 'tracking'];
+const PUBLIC_ROUTES = ['home', 'fonctionnalites', 'tarifs', 'contact', 'privacy', 'legal', 'terms', 'cgv', 'cookies', 'tracking'];
 let isAuthenticated = false;
 let publicReviewsTimer = null;
 
@@ -362,7 +362,11 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'Comment fonctionne l\'essai gratuit ?',
-        a: 'À l\'inscription, vous bénéficiez de 30 jours d\'essai Premium avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait (à partir de 129 €/mois HT) et payez par virement bancaire.'
+        a: 'À l\'inscription, vous bénéficiez de 30 jours d\'essai Premium avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait et activez le prélèvement SEPA mensuel via GoCardless. <strong>Sans engagement de durée</strong> : résiliation possible à tout moment, effective en fin de mois en cours.'
+    },
+    {
+        q: 'Y a-t-il un engagement de durée ?',
+        a: 'Non. Flenova est un abonnement mensuel sans engagement : vous pouvez résilier à tout moment, sans durée minimale ni pénalité. La résiliation prend effet à la fin de la période mensuelle déjà facturée.'
     },
     {
         q: 'Flenova remplace-t-il GedMouv pour les documents sous-traitants ?',
@@ -613,7 +617,7 @@ function renderPublicHome() {
                         <a href="register.html" class="public-btn-primary">Essai gratuit 30 jours</a>
                         <button type="button" class="public-btn-secondary" onclick="publicRouter('contact')">Demander une démo</button>
                     </div>
-                    <p class="public-hero-note">À partir de <strong>129 €/mois HT</strong> · Sans engagement · Premium offert à l'inscription</p>
+                    <p class="public-hero-note">À partir de <strong>129 €/mois HT</strong> · <strong>Sans engagement de durée</strong> · Premium offert à l'inscription</p>
                 </div>
                 <div class="public-hero-image-wrap">
                     <img src="assets/public-hero-illustration.png" alt="Tableau de bord TMS Flenova — cartes, statistiques et flotte" class="public-hero-image" width="1024" height="622">
@@ -795,6 +799,7 @@ function publicRouter(route) {
         case 'privacy':
         case 'legal':
         case 'terms':
+        case 'cgv':
         case 'cookies':
             container.innerHTML = typeof renderLegalPage === 'function'
                 ? renderLegalPage(route === 'legal' ? 'legal' : route)
@@ -4950,6 +4955,9 @@ function renderAbout() {
             <p>Flenova est une application de gestion de transport (TMS) complète conçue pour simplifier la planification, 
             le suivi et la facturation de vos opérations de Transports.</p>
             
+            <h3 class="text-xl font-bold text-gray-800">Premiers pas</h3>
+            <p>Consultez le <a href="#" onclick="router('onboarding'); return false;" class="text-blue-600 hover:underline">guide de prise en main</a> pour configurer votre entreprise en quelques minutes.</p>
+            
             <h3 class="text-xl font-bold text-gray-800">Nos Services</h3>
             <ul class="space-y-2">
                 <li><i class="fa-solid fa-check text-green-500 mr-2"></i>Gestion des Commandes & Suivi de livraison</li>
@@ -5541,9 +5549,17 @@ async function router(route) {
             });
             break;
         case 'pricing':
-            title = 'Tarifs';
+            title = 'Mon abonnement';
             if (typeof loadPublicPlans === 'function') await loadPublicPlans();
             content = typeof renderAppPricingPage === 'function' ? renderAppPricingPage() : '';
+            break;
+        case 'onboarding':
+            title = 'Prise en main';
+            content = typeof renderOnboardingGuidePage === 'function' ? renderOnboardingGuidePage() : '';
+            break;
+        case 'feedback':
+            title = 'Vos retours';
+            content = typeof renderFeedbackQuestionnairePage === 'function' ? renderFeedbackQuestionnairePage() : '';
             break;
         case 'solutions':
             title = 'Nos Solutions';

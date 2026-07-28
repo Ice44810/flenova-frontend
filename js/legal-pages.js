@@ -9,7 +9,7 @@ const FLENOVA_LEGAL = {
     email: 'support@flenova.fr',
     dpo: 'support@flenova.fr',
     host: 'Hébergeur à documenter dans le registre des traitements',
-    updatedAt: '16 juillet 2026'
+    updatedAt: '28 juillet 2026'
 };
 
 function legalEsc(value) {
@@ -28,6 +28,8 @@ function renderLegalFooterLinks(extraClass = '') {
         <a href="#" onclick="openLegalPage('legal'); return false;">Mentions légales</a>
         <span aria-hidden="true">·</span>
         <a href="#" onclick="openLegalPage('terms'); return false;">CGU</a>
+        <span aria-hidden="true">·</span>
+        <a href="#" onclick="openLegalPage('cgv'); return false;">CGV</a>
         <span aria-hidden="true">·</span>
         <a href="#" onclick="openLegalPage('cookies'); return false;">Cookies</a>
     </nav>`;
@@ -59,7 +61,7 @@ function getPrivacyPolicyHtml() {
             <li><strong>Entreprise :</strong> raison sociale, adresse, SIRET, TVA, IBAN/BIC, logo.</li>
             <li><strong>Exploitation TMS :</strong> clients, chauffeurs, véhicules, transports, factures, documents (POD, CMR).</li>
             <li><strong>Application mobile chauffeur :</strong> position GPS (arrivée chargement/livraison), photos, signatures électroniques.</li>
-            <li><strong>Abonnement :</strong> identifiants Stripe, historique de facturation.</li>
+            <li><strong>Abonnement :</strong> identifiants GoCardless (mandat SEPA), historique de facturation.</li>
             <li><strong>Contact :</strong> nom, email, message via le formulaire public ou connecté.</li>
         </ul>
 
@@ -72,7 +74,7 @@ function getPrivacyPolicyHtml() {
         </ul>
 
         <h2 class="text-lg font-bold text-gray-800 mt-6">4. Destinataires et sous-traitants</h2>
-        <p>Les données peuvent être traitées par des prestataires agissant pour notre compte : hébergeur, Stripe (paiement), service email (SMTP), Google Maps (géocodage des adresses de transport), prestataires CDN pour les ressources statiques. Des contrats de sous-traitance (DPA) doivent être signés avec chaque prestataire.</p>
+        <p>Les données peuvent être traitées par des prestataires agissant pour notre compte : hébergeur, GoCardless (prélèvement SEPA), service email (SMTP), TomTom / Google Maps (cartographie et distances), prestataires CDN pour les ressources statiques. Des contrats de sous-traitance (DPA) doivent être signés avec chaque prestataire.</p>
 
         <h2 class="text-lg font-bold text-gray-800 mt-6">5. Durées de conservation</h2>
         <ul class="list-disc pl-5 space-y-1">
@@ -114,22 +116,101 @@ function getLegalMentionsHtml() {
 }
 
 function getTermsHtml() {
+    const L = FLENOVA_LEGAL;
     return `
-        <p>Les présentes Conditions Générales d'Utilisation (CGU) régissent l'accès à la plateforme Flenova TMS.</p>
-        <h2 class="text-lg font-bold text-gray-800 mt-6">1. Objet</h2>
-        <p>Flenova fournit un logiciel en ligne de gestion des transports (planning, documents, facturation). L'utilisateur agit en qualité de professionnel.</p>
-        <h2 class="text-lg font-bold text-gray-800 mt-6">2. Compte et essai</h2>
-        <p>L'inscription crée un espace entreprise. Un essai Premium peut être proposé ; le forfait payant choisi s'applique ensuite selon les tarifs en vigueur.</p>
-        <h2 class="text-lg font-bold text-gray-800 mt-6">3. Obligations de l'utilisateur</h2>
+        <p>Les présentes Conditions Générales d'Utilisation (« <strong>CGU</strong> ») régissent l'accès et l'utilisation de la plateforme SaaS <strong>Flenova TMS</strong>, éditée par ${legalEsc(L.company)}. L'utilisateur agit exclusivement en qualité de <strong>professionnel</strong> (transporteur, commissionnaire, PME).</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">1. Objet et description du service</h2>
+        <p>Flenova fournit un logiciel en ligne (TMS) permettant la gestion des ordres de transport, du planning, de la flotte, des chauffeurs, de l'affrètement, de la facturation (Factur-X), du suivi client et des indicateurs d'activité. Le service est accessible via navigateur web et application mobile chauffeur.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">2. Création de compte et essai</h2>
         <ul class="list-disc pl-5 space-y-1">
-            <li>Fournir des informations exactes et les maintenir à jour.</li>
-            <li>Préserver la confidentialité de ses identifiants.</li>
-            <li>Respecter le RGPD vis-à-vis de ses propres clients, chauffeurs et destinataires dont il traite les données via Flenova.</li>
+            <li>L'inscription crée un espace entreprise isolé (multi-tenant).</li>
+            <li>Un essai Premium peut être proposé à l'inscription ; à l'issue de l'essai, le forfait choisi s'applique selon les <a href="#" onclick="openLegalPage('cgv'); return false;" class="text-blue-600 hover:underline">CGV</a>. L'abonnement payant est <strong>sans engagement de durée</strong> (résiliation mensuelle possible).</li>
+            <li>L'utilisateur garantit l'exactitude des informations fournies et les met à jour sans délai.</li>
         </ul>
-        <h2 class="text-lg font-bold text-gray-800 mt-6">4. Responsabilité</h2>
-        <p>Flenova est un outil d'aide à l'exploitation. L'utilisateur reste responsable de ses opérations de transport et de la conformité réglementaire de ses documents (CMR, factures, etc.).</p>
-        <h2 class="text-lg font-bold text-gray-800 mt-6">5. Résiliation</h2>
-        <p>L'utilisateur peut supprimer son compte depuis l'espace « Mes données personnelles ». Flenova peut suspendre un compte en cas de violation des CGU ou impayé.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">3. Engagements de disponibilité (SLA)</h2>
+        <p>Flenova s'efforce d'assurer une <strong>disponibilité mensuelle de 99,5&nbsp;%</strong> du service, hors :</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>maintenance planifiée (notifiée au minimum 48 h à l'avance lorsque possible) ;</li>
+            <li>interruptions imputables à l'hébergeur, au réseau Internet, à un cas de force majeure ou à un usage non conforme du Client ;</li>
+            <li>indisponibilité des services tiers (GoCardless, cartographie, PA facturation électronique).</li>
+        </ul>
+        <p>En cas de non-respect avéré et documenté du SLA sur un mois calendaire, le Client administrateur peut demander un <strong>avoir au prorata</strong> du temps d'indisponibilité excédentaire, plafonné à <strong>un mois d'abonnement HT</strong> du forfait en cours. Aucun autre indemnité n'est due au titre du SLA.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">4. Propriété des données</h2>
+        <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Données métier du Client</strong> (clients, transports, documents, factures, chauffeurs, etc.) : le Client en reste <strong>propriétaire</strong>. Flenova n'en acquiert aucun droit de propriété, hors licence limitée nécessaire à l'hébergement et à l'exécution du service.</li>
+            <li><strong>Logiciel, marque, interface et documentation Flenova</strong> : propriété exclusive de Flenova. Aucune cession de droits de propriété intellectuelle n'est consentie.</li>
+            <li>Le Client peut <strong>exporter</strong> ses données (export JSON depuis l'espace « Mes données personnelles », exports CSV comptables) tant que le compte est actif.</li>
+            <li>À la résiliation, Flenova conserve les données le temps des obligations légales (notamment comptables, 10 ans pour les factures), puis les supprime ou anonymise selon la politique de conservation.</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">5. Obligations du Client</h2>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>Utiliser le service conformément à sa destination et à la réglementation transport / RGPD applicable à ses propres traitements.</li>
+            <li>Préserver la confidentialité des identifiants et gérer les droits de ses utilisateurs internes.</li>
+            <li>Ne pas tenter d'accéder aux données d'autres entreprises, ni de contourner les mesures de sécurité.</li>
+            <li>Disposer des autorisations nécessaires pour traiter les données de ses clients, chauffeurs et destinataires via Flenova.</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">6. Limitation de responsabilité</h2>
+        <p>Flenova est un <strong>outil d'aide à l'exploitation</strong>. Le Client reste seul responsable de ses opérations de transport, de la conformité de ses documents (CMR, factures, déclarations) et des décisions prises sur la base des informations affichées.</p>
+        <p>Dans les limites autorisées par la loi, la responsabilité totale de Flenova au titre du service, sur une période de <strong>12 mois glissants</strong>, est plafonnée au montant des sommes effectivement versées par le Client au titre de l'abonnement sur cette période.</p>
+        <p>Flenova ne pourra être tenue responsable des dommages indirects (perte de chiffre d'affaires, perte de clientèle, perte de données non imputable à une faute prouvée de Flenova, préjudice commercial).</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">7. Support et évolutions</h2>
+        <p>Flenova peut faire évoluer le service (corrections, améliorations, nouvelles fonctionnalités) sans modifier substantiellement les engagements essentiels. Le support est accessible via l'espace Contact & Aide et ${legalEsc(L.email)}.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">8. Suspension et résiliation</h2>
+        <p>Flenova peut suspendre l'accès en cas de violation des CGU/CGV, de risque de sécurité ou d'impayé persistant. Le Client peut résilier selon les CGV. La suppression du compte utilisateur est possible depuis « Mes données personnelles ».</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">9. Droit applicable</h2>
+        <p>Les CGU sont soumises au <strong>droit français</strong>. Compétence exclusive des tribunaux du ressort du siège social de Flenova, sauf dispositions impératives contraires.</p>
+    `;
+}
+
+function getCgvHtml() {
+    const L = FLENOVA_LEGAL;
+    return `
+        <p>Les présentes Conditions Générales de Vente (« <strong>CGV</strong> ») s'appliquent à toute souscription au service SaaS <strong>Flenova</strong> par un client professionnel. Elles complètent les <a href="#" onclick="openLegalPage('terms'); return false;" class="text-blue-600 hover:underline">CGU</a>.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">1. Offres et tarifs</h2>
+        <p>Les forfaits (Indépendant, PME, Premium) et suppléments (utilisateurs PC, chauffeurs mobile, confirmations affrètement hors quota) sont décrits sur la page Tarifs du site public Flenova. Les prix sont indiqués <strong>hors taxes (HT)</strong> en euros, <strong>sans engagement de durée</strong> (abonnement mensuel résiliable). Flenova se réserve le droit de modifier ses tarifs pour les périodes futures ; le Client en est informé avant renouvellement.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">2. Commande et essai gratuit</h2>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>La souscription s'effectue en ligne (inscription + choix de forfait) ou sur devis accepté par le Client.</li>
+            <li>Un essai Premium peut être offert à l'inscription ; à son terme, le forfait choisi devient facturable sauf résiliation préalable. L'abonnement est ensuite <strong>sans engagement de durée</strong>.</li>
+            <li>L'activation du mandat de prélèvement SEPA via GoCardless vaut acceptation des CGV.</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">3. Facturation et paiement</h2>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>Facturation <strong>mensuelle</strong>, payable par prélèvement SEPA (GoCardless) ou tout autre moyen accepté par Flenova.</li>
+            <li>Les suppléments et dépassements de quota sont facturés sur la période en cours ou la suivante selon les règles affichées dans l'application.</li>
+            <li>Tout impayé peut entraîner la suspension de l'accès après mise en demeure restée sans effet sous 8 jours.</li>
+        </ul>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">4. Durée et résiliation — sans engagement</h2>
+        <p>L'abonnement est conclu <strong>sans engagement de durée</strong> : facturation mensuelle, reconduction tacite mois par mois, <strong>sans durée minimale</strong> ni pénalité de résiliation anticipée.</p>
+        <p>Le Client peut résilier <strong>à tout moment</strong> depuis son espace (Mon abonnement), par email à ${legalEsc(L.email)} ou en révoquant son mandat SEPA via GoCardless. La résiliation prend effet à la fin de la période mensuelle en cours déjà facturée. Aucun remboursement au prorata n'est dû pour la période entamée, sauf disposition légale impérative ou accord écrit de Flenova.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">5. Engagements de service</h2>
+        <p>Les engagements de disponibilité (SLA 99,5&nbsp;%) et les modalités de crédit éventuel sont détaillés dans les CGU. Flenova fournit le service « en l'état » avec obligation de moyens renforcée pour un SaaS professionnel.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">6. Propriété des données et réversibilité</h2>
+        <p>Le Client conserve la propriété de ses données métier. En cas de résiliation, il dispose d'un délai de <strong>30 jours</strong> pour exporter ses données via les fonctionnalités d'export disponibles. Passé ce délai, Flenova pourra supprimer les données non soumises à obligation légale de conservation.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">7. Limitation de responsabilité</h2>
+        <p>La responsabilité de Flenova est limitée conformément aux CGU. En cas de manquement prouvé imputable à Flenova, seuls les dommages directs et prévisibles sont indemnisables, dans la limite du plafond contractuel (montant des abonnements versés sur 12 mois).</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">8. Réclamations</h2>
+        <p>Toute réclamation commerciale ou facturation doit être adressée à ${legalEsc(L.email)} dans un délai de 30 jours suivant la facture ou l'événement concerné.</p>
+
+        <h2 class="text-lg font-bold text-gray-800 mt-6">9. Droit applicable — litiges</h2>
+        <p>Les CGV sont régies par le droit français. En cas de litige, les parties recherchent une solution amiable. À défaut, compétence exclusive des tribunaux du ressort du siège social de ${legalEsc(L.company)}.</p>
     `;
 }
 
@@ -151,6 +232,7 @@ function renderLegalPage(type) {
         privacy: ['Politique de confidentialité', getPrivacyPolicyHtml()],
         legal: ['Mentions légales', getLegalMentionsHtml()],
         terms: ['Conditions générales d\'utilisation', getTermsHtml()],
+        cgv: ['Conditions générales de vente', getCgvHtml()],
         cookies: ['Politique cookies', getCookiesPolicyHtml()]
     };
     const [title, body] = pages[type] || pages.privacy;
@@ -191,7 +273,7 @@ function renderPrivacySettingsPage() {
 
 function openLegalPage(type) {
     window._legalPageType = type;
-    const publicRouteMap = { privacy: 'privacy', legal: 'legal', terms: 'terms', cookies: 'cookies' };
+    const publicRouteMap = { privacy: 'privacy', legal: 'legal', terms: 'terms', cgv: 'cgv', cookies: 'cookies' };
     const publicRoute = publicRouteMap[type] || 'privacy';
 
     if (typeof isAuthenticated !== 'undefined' && isAuthenticated && typeof router === 'function') {
