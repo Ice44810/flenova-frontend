@@ -6,6 +6,7 @@
 let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], users: [], sales_invoices: [], purchase_invoices: [], subcontractors: [] };
 let subcontractorFilters = { search: '', status: '', compliance: '' };
 let subcontractorSelectedIds = new Set();
+let clientSelectedIds = new Set();
 let purchaseInvoiceFilter = { subcontractor_id: '', type: '' };
 let affretementConfirmationOrderId = null;
 let cmrPreviewOrderId = null;
@@ -64,6 +65,31 @@ function formatDisplayDate(value) {
         return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : s.split('T')[0];
     }
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatNameInitials(name, max = 2) {
+    return String(name || '?')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join('')
+        .substring(0, max)
+        .toUpperCase() || '?';
+}
+
+function renderNameBadge(name, tone = 'gray') {
+    const tones = {
+        gray: 'bg-gray-200 text-gray-600',
+        blue: 'bg-blue-100 text-blue-700',
+        teal: 'bg-teal-100 text-teal-700',
+    };
+    const cls = tones[tone] || tones.gray;
+    const label = name || '—';
+    const initials = formatNameInitials(label);
+    return `<div class="flex items-center gap-2 min-w-0">
+        <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${cls} text-xs font-bold">${initials}</span>
+        <span class="truncate">${label}</span>
+    </div>`;
 }
 
 window.formatDisplayDate = formatDisplayDate;
@@ -138,6 +164,13 @@ function hideAllModals() {
         }
     });
     document.body.classList.remove('invoice-modal-open');
+}
+
+function showAppModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add('flex');
 }
 
 // Fonction pour rendre un élément déplaçable (Draggable)
@@ -1788,18 +1821,24 @@ function renderDashboardMissionCounts(counts = {}) {
 
 function formatDashboardCity(label) {
     if (!label || typeof label !== 'string') return '—';
-    let s = label.trim();
-    const parts = s.split(',').map((p) => p.trim()).filter(Boolean);
+    const raw = label.trim();
+    if (!raw) return '—';
+
+    const cpCityEnd = raw.match(/\b(\d{5})\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'-]*)\s*$/i);
+    if (cpCityEnd) return cpCityEnd[2].trim();
+
     const countries = new Set(['france', 'belgique', 'espagne', 'allemagne', 'italie', 'pays-bas', 'portugal', 'suisse', 'luxembourg']);
-    let city = parts.length > 1 ? parts[parts.length - 1] : parts[0];
-    city = city.replace(/^\d{4,5}\s+/, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
-    if (countries.has(city.toLowerCase()) && parts.length > 1) {
-        city = parts[parts.length - 2].replace(/^\d{4,5}\s+/, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+    let segment = parts.length > 1 ? parts[parts.length - 1] : raw;
+    segment = segment.replace(/^\d{4,5}\s+/, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    if (countries.has(segment.toLowerCase()) && parts.length > 1) {
+        segment = parts[parts.length - 2].trim();
     }
-    if (/^\d/.test(city) && parts.length > 1) {
-        city = parts[parts.length - 2].replace(/^\d{4,5}\s+/, '').trim();
-    }
-    return city || parts[0] || s;
+    const cpInSegment = segment.match(/\b(\d{5})\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'-]*)\s*$/i);
+    if (cpInSegment) return cpInSegment[2].trim();
+    if (segment.length <= 48 && !/\d{5}/.test(segment)) return segment;
+    const lastWord = raw.match(/([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'-]{1,})\s*$/);
+    return lastWord ? lastWord[1].trim() : segment || raw;
 }
 
 function renderDashboardTopDestinations(geoPerformance = []) {
@@ -2483,32 +2522,53 @@ function renderPlanning() {
 
 // --- RENDER: Clients & sous-traitants ---
 function renderClients() {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
-    const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    const clients = Array.isArray(db.clients) ? db.clients : [];
+    const canDelete = typeof canDeleteClients === 'function' && canDeleteClients();
+    const selectedCount = clientSelectedIds.size;
+    const allSelected = clients.length > 0 && clients.every((c) => clientSelectedIds.has(c.id));
 
     return `<div class="h-full flex flex-col fade-in">
-        <div class="flex justify-between items-center mb-4">
-        <div class="flex items-center gap-4">
-        <h3 class="font-bold text-lg mb-4 text-gray-800">Gestion des Clients</h3>
-        </div>
-            <button onclick="openAddClientModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouveau Client</button>
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <h3 class="font-bold text-lg text-gray-800">Gestion des Clients</h3>
+            <div class="flex flex-wrap items-center gap-2">
+                ${canDelete ? `<button type="button" onclick="deleteSelectedClients()" ${selectedCount ? '' : 'disabled'}
+                    class="px-3 py-1.5 rounded text-sm border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-trash mr-1"></i>Supprimer la sélection${selectedCount ? ` (${selectedCount})` : ''}
+                </button>` : ''}
+                <button onclick="openAddClientModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouveau Client</button>
+            </div>
         </div>
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                        <tr><th class="px-4 py-3">Client</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Téléphone</th><th class="px-4 py-3">Adresse</th><th class="px-4 py-3">Actions</th></tr>
+                        <tr>
+                            ${canDelete ? `<th class="px-3 py-3 w-10">
+                                <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleAllClientsSelection(this.checked)" title="Tout sélectionner">
+                            </th>` : ''}
+                            <th class="px-4 py-3">Client</th>
+                            <th class="px-4 py-3">Email</th>
+                            <th class="px-4 py-3">Téléphone</th>
+                            <th class="px-4 py-3">Adresse</th>
+                            <th class="px-4 py-3">Actions</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        ${db.clients.map(c => `<tr class="bg-white border-b hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium text-gray-900">${c.name}</td>
-                            <td class="px-4 py-3">${c.email}</td>
-                            <td class="px-4 py-3">${c.phone}</td>
-                            <td class="px-4 py-3">${c.address}</td>
-                            <td class="px-4 py-3"><button onclick="openEditClientModal(${c.id})" class="text-blue-600 hover:underline">Éditer</button></td>
-                        </tr>`).join('')}
+                        ${clients.length ? clients.map(c => {
+        const checked = clientSelectedIds.has(c.id) ? 'checked' : '';
+        return `<tr class="bg-white border-b hover:bg-gray-50 ${checked ? 'bg-blue-50/40' : ''}">
+                            ${canDelete ? `<td class="px-3 py-3">
+                                <input type="checkbox" ${checked} onchange="toggleClientSelection(${c.id}, this.checked)">
+                            </td>` : ''}
+                            <td class="px-4 py-3 font-medium text-gray-900">${renderNameBadge(c.name, 'blue')}</td>
+                            <td class="px-4 py-3">${c.email || ''}</td>
+                            <td class="px-4 py-3">${c.phone || ''}</td>
+                            <td class="px-4 py-3">${c.address || ''}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <button onclick="openEditClientModal(${c.id})" class="text-blue-600 hover:underline"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
+                            </td>
+                        </tr>`;
+    }).join('') : `<tr><td colspan="${canDelete ? 6 : 5}" class="px-4 py-8 text-center text-gray-400">Aucun client</td></tr>`}
                     </tbody>
                 </table>
             </div>
@@ -2660,7 +2720,7 @@ function renderSubcontractors() {
                             <td class="px-3 py-3">
                                 <input type="checkbox" ${checked} onchange="toggleSubcontractorSelection(${s.id}, this.checked)">
                             </td>
-                            <td class="px-4 py-3 font-medium text-gray-900">${s.name}</td>
+                            <td class="px-4 py-3 font-medium text-gray-900">${renderNameBadge(s.name, 'teal')}</td>
                             <td class="px-4 py-3 font-mono text-xs">${s.siret || '-'}</td>
                             <td class="px-4 py-3">
                                 <span class="${complianceBadgeClass(rc.status)} px-2 py-1 rounded text-xs font-semibold block mb-1">${rc.text}</span>
@@ -3025,11 +3085,13 @@ function renderDrivers() {
         const fleetLabel = [d.default_vehicle_plate, d.default_trailer_plate].filter(Boolean).join(' + ')
             || '<span class="text-gray-400 text-xs">—</span>';
         return `<tr class="bg-white border-b hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium text-gray-900 flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                                    ${d.name ? d.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?'}
-                                </div>
-                                ${d.name || 'N/A'}
+                            <td class="px-4 py-3 font-medium text-gray-900">
+                                <button type="button" onclick="openDriverCardModal(${d.id})" class="flex items-center gap-2 text-left hover:text-blue-600 transition w-full">
+                                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">
+                                        ${d.name ? d.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?'}
+                                    </div>
+                                    ${d.name || 'N/A'}
+                                </button>
                             </td>
                             <td class="px-4 py-3">${d.phone}</td>
                             <td class="px-4 py-3 text-xs font-mono text-gray-700">${fleetLabel}</td>
@@ -6537,36 +6599,138 @@ async function submitAddClient() {
     }
 }
 
+async function deleteClientById(id, options = {}) {
+    if (!canDeleteClients()) {
+        showToast("Vous n'avez pas l'autorisation de supprimer des clients.", 'error');
+        return { ok: false };
+    }
+    const client = (db.clients || []).find((c) => c.id === id);
+    const label = client?.name ? ` « ${client.name} »` : '';
+    if (!id) return { ok: false };
+    if (options.skipConfirm !== true && !confirm(`Supprimer le client${label} ?`)) return { ok: false };
+
+    try {
+        const res = await apiFetch(`clients/${id}`, { method: 'DELETE' });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            clientSelectedIds.delete(id);
+            if (options.skipConfirm !== true) {
+                showToast('Client supprimé', 'success');
+                await fetchAllData();
+                closeAddClientModal();
+                router('clients');
+            }
+            return { ok: true };
+        }
+        if (options.skipConfirm !== true) {
+            showToast(data.error || 'Erreur lors de la suppression', data.blocked ? 'info' : 'error');
+        }
+        return { ok: false, blocked: !!data.blocked, error: data.error };
+    } catch (error) {
+        if (options.skipConfirm !== true) showToast('Erreur réseau', 'error');
+        return { ok: false };
+    }
+}
+
+window.toggleClientSelection = function (id, checked) {
+    if (checked) clientSelectedIds.add(id);
+    else clientSelectedIds.delete(id);
+    router('clients');
+};
+
+window.toggleAllClientsSelection = function (checked) {
+    const clients = Array.isArray(db.clients) ? db.clients : [];
+    if (checked) clients.forEach((c) => clientSelectedIds.add(c.id));
+    else clients.forEach((c) => clientSelectedIds.delete(c.id));
+    router('clients');
+};
+
+window.deleteSelectedClients = async function () {
+    if (!canDeleteClients()) {
+        showToast("Vous n'avez pas l'autorisation de supprimer des clients.", 'error');
+        return;
+    }
+    const ids = [...clientSelectedIds];
+    if (!ids.length) {
+        showToast('Sélectionnez au moins un client', 'error');
+        return;
+    }
+    const names = ids.map((id) => (db.clients.find((c) => c.id === id) || {}).name).filter(Boolean);
+    const preview = names.slice(0, 3).join(', ');
+    const suffix = names.length > 3 ? ` et ${names.length - 3} autre(s)` : '';
+    if (!confirm(`Supprimer ${ids.length} client(s) ?\n\n${preview}${suffix}`)) return;
+
+    try {
+        const res = await apiFetch('clients/bulk-delete', { method: 'POST', body: { ids } });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            const deleted = data.deletedCount || 0;
+            const blocked = Array.isArray(data.blocked) ? data.blocked.length : 0;
+            ids.forEach((id) => clientSelectedIds.delete(id));
+            await fetchAllData();
+            closeAddClientModal();
+            router('clients');
+            if (blocked) {
+                showToast(`${deleted} supprimé(s) — ${blocked} bloqué(s) (transports/factures liés)`, 'info');
+            } else {
+                showToast(`${deleted} client(s) supprimé(s)`, 'success');
+            }
+        } else {
+            showToast(data.error || 'Échec de la suppression', 'error');
+        }
+    } catch (error) {
+        showToast('Erreur réseau', 'error');
+    }
+};
+
+window.deleteClientById = deleteClientById;
+
 // --- DRIVER MODAL ---
 function openDriverCardModal(driverId) {
     hideAllModals();
-    const driver = db.drivers.find(d => d.id === driverId);
-    if (!driver) return;
+    const driver = (db.drivers || []).find(d => d.id == driverId);
+    if (!driver) {
+        showToast('Chauffeur introuvable', 'error');
+        return;
+    }
+
+    const initials = (driver.name || '?')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase() || '?';
+    const statusTone = driver.status === 'Disponible' ? 'green' : 'blue';
 
     const content = document.getElementById('driver-card-content');
+    if (!content) return;
+
     content.innerHTML = `
         <div class="text-center mb-4">
             <div class="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-500 mx-auto mb-3">
-                ${driver.name.charAt(0)}${driver.name.split(' ')[1].charAt(0)}
+                ${initials}
             </div>
-            <h3 class="font-bold text-xl text-gray-800">${driver.name}</h3>
-            <span class="bg-${driver.status === 'Disponible' ? 'green' : 'blue'}-100 text-${driver.status === 'Disponible' ? 'green' : 'blue'}-800 px-3 py-1 rounded-full text-sm">${driver.status}</span>
+            <h3 class="font-bold text-xl text-gray-800">${driver.name || '—'}</h3>
+            <span class="bg-${statusTone}-100 text-${statusTone}-800 px-3 py-1 rounded-full text-sm">${driver.status || '—'}</span>
         </div>
         <div class="space-y-3">
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Téléphone</span><span class="font-medium">${driver.phone}</span></div>
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Permis</span><span class="font-medium">${driver.license}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Téléphone</span><span class="font-medium">${driver.phone || '—'}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Permis</span><span class="font-medium">${driver.license || '—'}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Expiration permis</span><span class="font-medium">${formatDisplayDate(driver.license_expiry) || '—'}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Camion</span><span class="font-medium font-mono">${driver.default_vehicle_plate || '—'}</span></div>
             <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Remorque</span><span class="font-medium font-mono">${driver.default_trailer_plate || '—'}</span></div>
             ${driver.invite_code ? `<div class="flex justify-between border-b pb-2"><span class="text-gray-500">Code mobile</span><span class="font-mono font-bold text-teal-700">${driver.invite_code}</span></div>` : ''}
             ${driver.user_account_id ? '<div class="text-green-700 text-sm mt-2"><i class="fa-solid fa-circle-check mr-1"></i>Compte TMS Mobile activé</div>' : (driver.invite_code ? '<div class="text-teal-700 text-sm mt-2">Code à transmettre au chauffeur pour l\'inscription mobile</div>' : '')}
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Adresse</span><span class="font-medium">${driver.address}</span></div>
-            <div class="flex justify-between"><span class="text-gray-500">Notes</span><span class="font-medium">${driver.notes || '-'}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Adresse</span><span class="font-medium">${driver.address || '—'}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Notes</span><span class="font-medium">${driver.notes || '—'}</span></div>
         </div>
     `;
 
-    document.getElementById('driver-card-modal').classList.remove('hidden');
+    showAppModal('driver-card-modal');
 }
+
+window.openDriverCardModal = openDriverCardModal;
 
 function syncDriverMobileSection({ mode, driver } = {}) {
     const optionEl = document.getElementById('driver-mobile-option');
@@ -6883,6 +7047,8 @@ async function deleteDriver() {
 function closeDriverCardModal() {
     hideAllModals();
 }
+
+window.closeDriverCardModal = closeDriverCardModal;
 
 // --- SUBCONTRACTOR MODALS ---
 function openAddSubcontractorModal() {
@@ -7335,7 +7501,9 @@ function openAddVehicleModal() {
     document.getElementById('add-vehicle-mileage').value = '';
     document.getElementById('add-vehicle-maintenance').value = '';
     syncVehicleTypeFields('add');
-    document.getElementById('add-vehicle-modal').classList.remove('hidden');
+    const deleteBtn = document.getElementById('btn-delete-vehicle');
+    if (deleteBtn) deleteBtn.classList.add('hidden');
+    showAppModal('add-vehicle-modal');
 }
 
 
@@ -7382,8 +7550,11 @@ async function submitAddVehicle() {
 function openEditVehicleModal(vehicleId) {
     hideAllModals();
 
-    const vehicle = db.vehicles.find(v => v.id === vehicleId);
-    if (!vehicle) return;
+    const vehicle = (db.vehicles || []).find(v => v.id == vehicleId);
+    if (!vehicle) {
+        showToast('Véhicule introuvable', 'error');
+        return;
+    }
 
     document.getElementById('edit-vehicle-id').value = vehicleId;
     document.getElementById('edit-vehicle-plate').value = vehicle.plate;
@@ -7403,8 +7574,14 @@ function openEditVehicleModal(vehicleId) {
     }
 
     syncVehicleTypeFields('edit');
-    document.getElementById('edit-vehicle-modal').classList.remove('hidden');
+    const deleteBtn = document.getElementById('btn-delete-vehicle');
+    if (deleteBtn) {
+        deleteBtn.classList.toggle('hidden', !(typeof canDeleteCarriers === 'function' && canDeleteCarriers()));
+    }
+    showAppModal('edit-vehicle-modal');
 }
+
+window.openEditVehicleModal = openEditVehicleModal;
 
 function closeEditVehicleModal() {
     hideAllModals();
@@ -7412,7 +7589,7 @@ function closeEditVehicleModal() {
 
 async function submitEditVehicle() {
     const vehicleId = parseInt(document.getElementById('edit-vehicle-id').value, 10);
-    const vehicle = db.vehicles.find(v => v.id === vehicleId);
+    const vehicle = (db.vehicles || []).find(v => v.id == vehicleId);
 
     if (!vehicle) {
         showToast('Véhicule non trouvé', 'error');
@@ -7440,6 +7617,40 @@ async function submitEditVehicle() {
         showToast('Erreur réseau - Vérifiez le serveur Backend', 'error');
     }
 }
+
+async function deleteVehicle() {
+    if (typeof canDeleteCarriers === 'function' && !canDeleteCarriers()) {
+        showToast("Vous n'avez pas l'autorisation de supprimer des véhicules.", 'error');
+        return;
+    }
+
+    const vehicleId = parseInt(document.getElementById('edit-vehicle-id').value, 10);
+    const vehicle = (db.vehicles || []).find(v => v.id == vehicleId);
+    if (!vehicleId || !vehicle) {
+        showToast('Véhicule introuvable', 'error');
+        return;
+    }
+
+    const label = vehicle.plate ? ` « ${vehicle.plate} »` : '';
+    if (!confirm(`Supprimer le véhicule${label} ?`)) return;
+
+    try {
+        const res = await apiFetch(`vehicles/${vehicleId}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Véhicule supprimé', 'success');
+            await fetchAllData();
+            closeEditVehicleModal();
+            router('fleet');
+        } else {
+            const data = await res.json().catch(() => ({}));
+            showToast(data.error || 'Erreur lors de la suppression', 'error');
+        }
+    } catch (error) {
+        showToast('Erreur réseau', 'error');
+    }
+}
+
+window.deleteVehicle = deleteVehicle;
 
 // --- SALE INVOICE MODAL ---
 function openSaleInvoiceModal(orderId) {
