@@ -2,7 +2,8 @@
  * Flenova API Wrapper
  * Global fetch interceptor with automatic 401 handling
  */
-const API_URL = '/api';
+/** Override en dev statique : window.FLENOVA_API_URL = 'http://localhost:3000/api' */
+const API_URL = (typeof window !== 'undefined' && window.FLENOVA_API_URL) || '/api';
 
 async function apiFetch(url, options = {}) {
     const fullUrl = url.startsWith('http') ? url : `${API_URL}/${url}`;

@@ -918,8 +918,10 @@
             <div class="p-6 space-y-4" id="driver-card-content">
                 <!-- Content populated by JS -->
             </div>
-            <div class="p-4 border-t bg-gray-50 flex justify-end rounded-b-lg">
-                <button onclick="closeDriverCardModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Fermer</button>
+            <div class="p-4 border-t bg-gray-50 flex justify-between rounded-b-lg">
+                <input type="hidden" id="driver-card-id">
+                <button type="button" id="btn-delete-driver-card" onclick="deleteDriverFromCard()" class="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 hidden">Supprimer</button>
+                <button onclick="closeDriverCardModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 ml-auto">Fermer</button>
             </div>
         </div>
     </div>

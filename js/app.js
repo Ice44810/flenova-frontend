@@ -7,6 +7,7 @@ let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], use
 let subcontractorFilters = { search: '', status: '', compliance: '' };
 let subcontractorSelectedIds = new Set();
 let clientSelectedIds = new Set();
+let driverSelectedIds = new Set();
 let purchaseInvoiceFilter = { subcontractor_id: '', type: '' };
 let affretementConfirmationOrderId = null;
 let cmrPreviewOrderId = null;
@@ -3063,18 +3064,34 @@ window.generateTransportCmr = generateTransportCmr;
 
 // --- RENDER: Flotte ---
 function renderDrivers() {
+    const drivers = Array.isArray(db.drivers) ? db.drivers : [];
+    const canDelete = typeof canDeleteCarriers === 'function' && canDeleteCarriers();
+    const selectedCount = driverSelectedIds.size;
+    const allSelected = drivers.length > 0 && drivers.every((d) => driverSelectedIds.has(d.id));
+
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
             <h3 class="font-bold text-lg text-gray-800">Gestion des Chauffeurs</h3>
-            <button onclick="openAddDriverModal()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"><i class="fa-solid fa-plus"></i> Nouveau</button>
+            <div class="flex flex-wrap items-center gap-2">
+                ${canDelete ? `<button type="button" onclick="deleteSelectedDrivers()" ${selectedCount ? '' : 'disabled'}
+                    class="px-3 py-1.5 rounded text-sm border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-trash mr-1"></i>Supprimer la sélection${selectedCount ? ` (${selectedCount})` : ''}
+                </button>` : ''}
+                <button onclick="openAddDriverModal()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"><i class="fa-solid fa-plus"></i> Nouveau</button>
+            </div>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">Chauffeur</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Flotte</th><th class="px-4 py-3">Permis</th><th class="px-4 py-3">Mobile</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Actions</th></tr>
+                    <tr>
+                        ${canDelete ? `<th class="px-3 py-3 w-10">
+                            <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleAllDriversSelection(this.checked)" title="Tout sélectionner">
+                        </th>` : ''}
+                        <th class="px-4 py-3">Chauffeur</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Flotte</th><th class="px-4 py-3">Permis</th><th class="px-4 py-3">Mobile</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Actions</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    ${(Array.isArray(db.drivers) ? db.drivers : []).map(d => {
+                    ${drivers.length ? drivers.map(d => {
         const statusColor = d.status === 'Disponible' ? 'text-green-600' : 'text-blue-600';
         const statusBg = d.status === 'Disponible' ? 'bg-green-100' : 'bg-blue-100';
         const mobileBadge = d.user_account_id
@@ -3084,26 +3101,26 @@ function renderDrivers() {
                 : '<span class="text-gray-400 text-xs">—</span>');
         const fleetLabel = [d.default_vehicle_plate, d.default_trailer_plate].filter(Boolean).join(' + ')
             || '<span class="text-gray-400 text-xs">—</span>';
-        return `<tr class="bg-white border-b hover:bg-gray-50">
+        const checked = driverSelectedIds.has(d.id) ? 'checked' : '';
+        return `<tr class="bg-white border-b hover:bg-gray-50 ${checked ? 'bg-blue-50/40' : ''}">
+                            ${canDelete ? `<td class="px-3 py-3">
+                                <input type="checkbox" ${checked} onchange="toggleDriverSelection(${d.id}, this.checked)">
+                            </td>` : ''}
                             <td class="px-4 py-3 font-medium text-gray-900">
-                                <button type="button" onclick="openDriverCardModal(${d.id})" class="flex items-center gap-2 text-left hover:text-blue-600 transition w-full">
-                                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">
-                                        ${d.name ? d.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?'}
-                                    </div>
-                                    ${d.name || 'N/A'}
+                                <button type="button" onclick="openDriverCardModal(${d.id})" class="flex items-center gap-2 text-left hover:text-blue-600 transition w-full min-w-0">
+                                    ${renderNameBadge(d.name, 'gray')}
                                 </button>
                             </td>
-                            <td class="px-4 py-3">${d.phone}</td>
+                            <td class="px-4 py-3">${d.phone || ''}</td>
                             <td class="px-4 py-3 text-xs font-mono text-gray-700">${fleetLabel}</td>
-                            <td class="px-4 py-3"><span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold">${d.license}</span></td>
+                            <td class="px-4 py-3"><span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold">${d.license || '—'}</span></td>
                             <td class="px-4 py-3">${mobileBadge}</td>
                             <td class="px-4 py-3"><span class="${statusBg} ${statusColor} px-2 py-1 rounded-full text-xs font-semibold">${d.status}</span></td>
-                            <td class="px-4 py-3">
-                                <button onclick="openEditDriverModal(${d.id})" class="text-blue-600 hover:underline mr-3"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
-                                <button onclick="openDriverCardModal(${d.id})" class="text-gray-400 hover:underline"><i class="fa-solid fa-id-card mr-1"></i>Fiche</button>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <button onclick="openEditDriverModal(${d.id})" class="text-blue-600 hover:underline"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
                             </td>
                         </tr>`;
-    }).join('')}
+    }).join('') : `<tr><td colspan="${canDelete ? 8 : 7}" class="px-4 py-8 text-center text-gray-400">Aucun chauffeur</td></tr>`}
                 </tbody>
             </table>
         </div>`;
@@ -6728,6 +6745,13 @@ function openDriverCardModal(driverId) {
     `;
 
     showAppModal('driver-card-modal');
+
+    const cardIdEl = document.getElementById('driver-card-id');
+    if (cardIdEl) cardIdEl.value = driver.id;
+    const cardDeleteBtn = document.getElementById('btn-delete-driver-card');
+    if (cardDeleteBtn) {
+        cardDeleteBtn.classList.toggle('hidden', !(typeof canDeleteCarriers === 'function' && canDeleteCarriers()));
+    }
 }
 
 window.openDriverCardModal = openDriverCardModal;
@@ -6931,13 +6955,16 @@ function openAddDriverModal() {
     const deleteBtn = document.getElementById('btn-delete-driver');
     if (deleteBtn) deleteBtn.classList.add('hidden');
 
-    document.getElementById('driver-modal').classList.remove('hidden');
+    showAppModal('driver-modal');
 }
 
 function openEditDriverModal(driverId) {
     hideAllModals();
-    const driver = db.drivers.find(d => d.id === driverId);
-    if (!driver) return;
+    const driver = (db.drivers || []).find(d => d.id == driverId);
+    if (!driver) {
+        showToast('Chauffeur introuvable', 'error');
+        return;
+    }
 
     document.getElementById('driver-modal-title').textContent = 'Modifier Chauffeur';
     document.getElementById('edit-driver-id').value = driverId;
@@ -6952,9 +6979,11 @@ function openEditDriverModal(driverId) {
     syncDriverMobileSection({ mode: 'edit', driver });
 
     const deleteBtn = document.getElementById('btn-delete-driver');
-    if (deleteBtn) deleteBtn.classList.remove('hidden');
+    if (deleteBtn) {
+        deleteBtn.classList.toggle('hidden', !(typeof canDeleteCarriers === 'function' && canDeleteCarriers()));
+    }
 
-    document.getElementById('driver-modal').classList.remove('hidden');
+    showAppModal('driver-modal');
 }
 
 function closeDriverModal() {
@@ -7013,7 +7042,9 @@ async function submitDriver(e) {
                     showToast('Chauffeur ajouté (sans accès mobile)', 'success');
                 }
                 const deleteBtn = document.getElementById('btn-delete-driver');
-                if (deleteBtn && result.id) deleteBtn.classList.remove('hidden');
+                if (deleteBtn && result.id && typeof canDeleteCarriers === 'function' && canDeleteCarriers()) {
+                    deleteBtn.classList.remove('hidden');
+                }
             }
         } else {
             const errorData = await response.json();
@@ -7024,25 +7055,110 @@ async function submitDriver(e) {
     }
 }
 
-async function deleteDriver() {
-    const id = document.getElementById('edit-driver-id').value;
-    if (!id || !confirm("Êtes-vous sûr de vouloir retirer ce chauffeur de l'entreprise ?")) return;
+async function deleteDriverById(id, options = {}) {
+    if (typeof canDeleteCarriers === 'function' && !canDeleteCarriers()) {
+        showToast("Vous n'avez pas l'autorisation de supprimer des chauffeurs.", 'error');
+        return { ok: false };
+    }
+
+    const driver = (db.drivers || []).find((d) => d.id == id);
+    const label = driver?.name ? ` « ${driver.name} »` : '';
+    if (!id) return { ok: false };
+    if (options.skipConfirm !== true && !confirm(`Supprimer le chauffeur${label} ?`)) return { ok: false };
 
     try {
         const res = await apiFetch(`drivers/${id}`, { method: 'DELETE' });
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
-            showToast("Chauffeur retiré avec succès", "success");
-            await fetchAllData();
-            closeDriverModal();
-            router('drivers');
-        } else {
-            const errorData = await res.json();
-            showToast(errorData.error || `Erreur ${res.status}`, "error");
+            driverSelectedIds.delete(Number(id));
+            driverSelectedIds.delete(String(id));
+            if (options.skipConfirm !== true) {
+                showToast('Chauffeur supprimé', 'success');
+                await fetchAllData();
+                closeDriverModal();
+                closeDriverCardModal();
+                router('drivers');
+            }
+            return { ok: true };
         }
+        if (options.skipConfirm !== true) {
+            showToast(data.error || 'Erreur lors de la suppression', data.blocked ? 'info' : 'error');
+        }
+        return { ok: false, blocked: !!data.blocked, error: data.error };
     } catch (error) {
-        showToast("Erreur réseau - Vérifiez le serveur Backend", "error");
+        if (options.skipConfirm !== true) showToast('Erreur réseau', 'error');
+        return { ok: false };
     }
 }
+
+async function deleteDriver() {
+    const id = document.getElementById('edit-driver-id').value;
+    await deleteDriverById(id);
+}
+
+window.deleteDriverFromCard = async function () {
+    const id = document.getElementById('driver-card-id')?.value;
+    await deleteDriverById(id);
+};
+
+window.toggleDriverSelection = function (id, checked) {
+    if (checked) driverSelectedIds.add(id);
+    else driverSelectedIds.delete(id);
+    router('drivers');
+};
+
+window.toggleAllDriversSelection = function (checked) {
+    const drivers = Array.isArray(db.drivers) ? db.drivers : [];
+    if (checked) drivers.forEach((d) => driverSelectedIds.add(d.id));
+    else drivers.forEach((d) => driverSelectedIds.delete(d.id));
+    router('drivers');
+};
+
+window.deleteSelectedDrivers = async function () {
+    if (typeof canDeleteCarriers === 'function' && !canDeleteCarriers()) {
+        showToast("Vous n'avez pas l'autorisation de supprimer des chauffeurs.", 'error');
+        return;
+    }
+
+    const ids = [...driverSelectedIds];
+    if (!ids.length) {
+        showToast('Sélectionnez au moins un chauffeur', 'error');
+        return;
+    }
+
+    const names = ids.map((id) => (db.drivers.find((d) => d.id == id) || {}).name).filter(Boolean);
+    const preview = names.slice(0, 3).join(', ');
+    const suffix = names.length > 3 ? ` et ${names.length - 3} autre(s)` : '';
+    if (!confirm(`Supprimer ${ids.length} chauffeur(s) ?\n\n${preview}${suffix}`)) return;
+
+    try {
+        const res = await apiFetch('drivers/bulk-delete', { method: 'POST', body: { ids } });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            const deleted = data.deletedCount || 0;
+            const blocked = Array.isArray(data.blocked) ? data.blocked.length : 0;
+            ids.forEach((id) => {
+                driverSelectedIds.delete(id);
+            });
+            await fetchAllData();
+            closeDriverModal();
+            closeDriverCardModal();
+            router('drivers');
+            if (blocked) {
+                showToast(`${deleted} supprimé(s) — ${blocked} bloqué(s) (transports/missions actifs)`, 'info');
+            } else {
+                showToast(`${deleted} chauffeur(s) supprimé(s)`, 'success');
+            }
+        } else {
+            showToast(data.error || 'Échec de la suppression', 'error');
+        }
+    } catch (error) {
+        showToast('Erreur réseau', 'error');
+    }
+};
+
+window.deleteDriver = deleteDriver;
+window.deleteDriverById = deleteDriverById;
 
 function closeDriverCardModal() {
     hideAllModals();

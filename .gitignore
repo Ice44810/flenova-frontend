@@ -1,0 +1,10 @@
+# Fichiers générés / dépendances
+node_modules/
+css/tailwind.css.map
+
+# OS
+.DS_Store
+
+# Env local (si proxy dev)
+.env
+.env.local
