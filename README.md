@@ -2,6 +2,11 @@
 
 Interface web TMS (HTML / CSS / JavaScript vanilla + Tailwind).
 
+```bash
+git clone git@github.com:Ice44810/flenova-frontend.git
+cd flenova-frontend
+```
+
 ## Prérequis
 
 - Node.js 18+ (build CSS uniquement)
