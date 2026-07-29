@@ -434,6 +434,7 @@ window.applyPlanBasedNav = function () {
     const sub = window.cachedSubscription;
     const transportRoutes = new Set(sub?.transportRoutes || [
         'transports', 'planning', 'inprogress_transports', 'completed_transports',
+        'closed_transports', 'cancelled_transports', 'chartered_transports',
         'create_order', 'cmr_preview'
     ]);
     document.querySelectorAll('[data-nav-route]').forEach((el) => {
@@ -456,9 +457,12 @@ window.canAccessPlanRoute = function (routeName) {
     const sub = window.cachedSubscription;
     const transportRoutes = sub?.transportRoutes || [
         'transports', 'planning', 'inprogress_transports', 'completed_transports',
+        'closed_transports', 'cancelled_transports', 'chartered_transports',
         'create_order', 'cmr_preview'
     ];
     if (transportRoutes.includes(routeName)) return true;
+    const salesInvoiceSubRoutes = ['sales_invoices_validated', 'sales_invoices_draft'];
+    if (salesInvoiceSubRoutes.includes(routeName) && sub?.allowedRoutes?.includes('sales_invoices')) return true;
     if (!sub?.allowedRoutes) return true;
     if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback', 'disputes'].includes(routeName)) return true;
     return sub.allowedRoutes.includes(routeName);

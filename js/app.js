@@ -5,6 +5,7 @@
 // --- MOCK DATABASE ---
 let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], users: [], sales_invoices: [], purchase_invoices: [], subcontractors: [] };
 let subcontractorFilters = { search: '', status: '', compliance: '' };
+let subcontractorSelectedIds = new Set();
 let purchaseInvoiceFilter = { subcontractor_id: '', type: '' };
 let affretementConfirmationOrderId = null;
 let cmrPreviewOrderId = null;
@@ -904,7 +905,15 @@ function updateAppCompanyHeader(user) {
 window.updateAppCompanyHeader = updateAppCompanyHeader;
 
 const SIDEBAR_GROUP_ROUTES = {
-    transports: new Set(['transports', 'planning', 'inprogress_transports', 'completed_transports', 'disputes', 'create_order']),
+    transports: new Set([
+        'transports', 'planning', 'inprogress_transports', 'closed_transports',
+        'cancelled_transports', 'chartered_transports', 'completed_transports',
+        'disputes', 'create_order',
+    ]),
+    sales_invoices: new Set([
+        'sales_invoices', 'sales_invoices_validated', 'sales_invoices_draft',
+        'create_invoice', 'invoice_settings',
+    ]),
     support: new Set(['onboarding', 'feedback', 'solutions', 'contact', 'about']),
 };
 
@@ -1468,7 +1477,7 @@ async function deleteSelectedInvoices() {
         await apiFetch('sales-invoices/bulk-delete', { method: 'POST', body: { ids: selectedIds } });
         await fetchAllData();
         showToast(`${selectedIds.length} facture(s) supprimée(s).`, "success");
-        router('sales_invoices');
+        router(window.currentAppRoute === 'sales_invoices_draft' ? 'sales_invoices_draft' : 'sales_invoices_validated');
     }
 }
 
@@ -2361,7 +2370,8 @@ function getSubcontractorComplianceInfo(s) {
 
     return {
         rc: checkDate(s.rc_pro_expiry, 'RC Pro'),
-        urssaf: checkDate(s.urssaf_expiry, 'URSSAF')
+        urssaf: checkDate(s.urssaf_expiry, 'URSSAF'),
+        kbis: checkDate(s.kbis_expiry, 'Kbis'),
     };
 }
 
@@ -2376,11 +2386,11 @@ function filterSubcontractors(list) {
         if (subcontractorFilters.compliance) {
             const info = getSubcontractorComplianceInfo(s);
             if (subcontractorFilters.compliance === 'expired') {
-                if (info.rc.status !== 'expired' && info.urssaf.status !== 'expired') return false;
+                if (info.rc.status !== 'expired' && info.urssaf.status !== 'expired' && info.kbis.status !== 'expired') return false;
             } else if (subcontractorFilters.compliance === 'expiring') {
-                if (info.rc.status !== 'expiring' && info.urssaf.status !== 'expiring') return false;
+                if (info.rc.status !== 'expiring' && info.urssaf.status !== 'expiring' && info.kbis.status !== 'expiring') return false;
             } else if (subcontractorFilters.compliance === 'valid') {
-                if (info.rc.status === 'expired' || info.urssaf.status === 'expired') return false;
+                if (info.rc.status === 'expired' || info.urssaf.status === 'expired' || info.kbis.status === 'expired') return false;
             }
         }
         return true;
@@ -2391,7 +2401,8 @@ function countSubcontractorsNeedingAttention() {
     return (db.subcontractors || []).filter(s => {
         const info = getSubcontractorComplianceInfo(s);
         return info.rc.status === 'expired' || info.rc.status === 'expiring'
-            || info.urssaf.status === 'expired' || info.urssaf.status === 'expiring';
+            || info.urssaf.status === 'expired' || info.urssaf.status === 'expiring'
+            || info.kbis.status === 'expired' || info.kbis.status === 'expiring';
     }).length;
 }
 
@@ -2424,11 +2435,19 @@ function renderSubcontractors() {
     const all = Array.isArray(db.subcontractors) ? db.subcontractors : [];
     const filtered = filterSubcontractors(all);
     const attentionCount = countSubcontractorsNeedingAttention();
+    const selectedCount = subcontractorSelectedIds.size;
+    const allFilteredSelected = filtered.length > 0 && filtered.every((s) => subcontractorSelectedIds.has(s.id));
 
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
             <h3 class="font-bold text-lg text-gray-800">Gestion des Sous-traitants</h3>
-            <button onclick="openAddSubcontractorModal()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"><i class="fa-solid fa-plus"></i> Nouveau</button>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="deleteSelectedSubcontractors()" ${selectedCount ? '' : 'disabled'}
+                    class="px-3 py-1.5 rounded text-sm border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-trash mr-1"></i>Supprimer la sélection${selectedCount ? ` (${selectedCount})` : ''}
+                </button>
+                <button onclick="openAddSubcontractorModal()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"><i class="fa-solid fa-plus"></i> Nouveau</button>
+            </div>
         </div>
         ${attentionCount > 0 ? `<div class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center gap-2 text-sm text-orange-800">
             <i class="fa-solid fa-triangle-exclamation"></i>
@@ -2454,28 +2473,50 @@ function renderSubcontractors() {
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">Sous-traitant</th><th class="px-4 py-3">SIRET</th><th class="px-4 py-3">RC Pro</th><th class="px-4 py-3">URSSAF</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Actions</th></tr>
+                    <tr>
+                        <th class="px-3 py-3 w-10">
+                            <input type="checkbox" ${allFilteredSelected ? 'checked' : ''} onchange="toggleAllSubcontractorsSelection(this.checked)" title="Tout sélectionner">
+                        </th>
+                        <th class="px-4 py-3">Sous-traitant</th>
+                        <th class="px-4 py-3">SIRET</th>
+                        <th class="px-4 py-3">RC Pro</th>
+                        <th class="px-4 py-3">URSSAF</th>
+                        <th class="px-4 py-3">Kbis</th>
+                        <th class="px-4 py-3">Statut</th>
+                        <th class="px-4 py-3">Actions</th>
+                    </tr>
                 </thead>
                 <tbody>
                     ${filtered.length ? filtered.map(s => {
         const rc = getSubcontractorComplianceInfo(s).rc;
         const urssaf = getSubcontractorComplianceInfo(s).urssaf;
+        const kbis = getSubcontractorComplianceInfo(s).kbis;
         const statusClass = s.status === 'ACTIF' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-        return `<tr class="bg-white border-b hover:bg-gray-50">
+        const checked = subcontractorSelectedIds.has(s.id) ? 'checked' : '';
+        return `<tr class="bg-white border-b hover:bg-gray-50 ${checked ? 'bg-blue-50/40' : ''}">
+                            <td class="px-3 py-3">
+                                <input type="checkbox" ${checked} onchange="toggleSubcontractorSelection(${s.id}, this.checked)">
+                            </td>
                             <td class="px-4 py-3 font-medium text-gray-900">${s.name}</td>
                             <td class="px-4 py-3 font-mono text-xs">${s.siret || '-'}</td>
                             <td class="px-4 py-3">
                                 <span class="${complianceBadgeClass(rc.status)} px-2 py-1 rounded text-xs font-semibold block mb-1">${rc.text}</span>
                                 ${s.insurance_doc_url ? `<a href="${normalizeUploadUrl(s.insurance_doc_url)}" target="_blank" class="text-blue-500 text-[10px] hover:underline flex items-center gap-1"><i class="fa-solid fa-file-pdf"></i> Voir document</a>` : ''}
                             </td>
-                            <td class="px-4 py-3"><span class="${complianceBadgeClass(urssaf.status)} px-2 py-1 rounded text-xs font-semibold">${urssaf.text}</span></td>
+                            <td class="px-4 py-3">
+                                <span class="${complianceBadgeClass(urssaf.status)} px-2 py-1 rounded text-xs font-semibold block mb-1">${urssaf.text}</span>
+                                ${s.urssaf_doc_url ? `<a href="${normalizeUploadUrl(s.urssaf_doc_url)}" target="_blank" class="text-blue-500 text-[10px] hover:underline"><i class="fa-solid fa-file-pdf"></i> Voir</a>` : ''}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="${complianceBadgeClass(kbis.status)} px-2 py-1 rounded text-xs font-semibold block mb-1">${kbis.text}</span>
+                                ${s.kbis_doc_url ? `<a href="${normalizeUploadUrl(s.kbis_doc_url)}" target="_blank" class="text-blue-500 text-[10px] hover:underline"><i class="fa-solid fa-file-pdf"></i> Voir</a>` : ''}
+                            </td>
                             <td class="px-4 py-3"><span class="${statusClass} px-2 py-1 rounded text-xs font-semibold">${s.status}</span></td>
                             <td class="px-4 py-3 whitespace-nowrap">
-                                <button onclick="openEditSubcontractorModal(${s.id})" class="text-blue-600 hover:underline mr-3"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
-                                <button onclick="deleteSubcontractorById(${s.id}, '${(s.name || '').replace(/'/g, "\\'")}')" class="text-red-600 hover:underline"><i class="fa-solid fa-trash mr-1"></i>Supprimer</button>
+                                <button onclick="openEditSubcontractorModal(${s.id})" class="text-blue-600 hover:underline"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
                             </td>
                         </tr>`;
-    }).join('') : `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Aucun sous-traitant${all.length ? ' pour ces filtres' : ''}</td></tr>`}
+    }).join('') : `<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">Aucun sous-traitant${all.length ? ' pour ces filtres' : ''}</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -2959,6 +3000,15 @@ function isCreditNoteType(inv) {
     return type.includes('credit') || type.includes('avoir');
 }
 
+function isSalesInvoiceDraft(inv) {
+    const s = (inv?.status || '').toString().trim().toLowerCase();
+    return s === 'brouillon' || s === 'draft' || s === 'en attente';
+}
+
+function isSalesInvoiceValidated(inv) {
+    return inv && !isSalesInvoiceDraft(inv);
+}
+
 function isCreditNoteEligibleInvoice(inv) {
     if (!inv || isCreditNoteType(inv)) return false;
     const status = (inv.status || '').toString().trim().toLowerCase();
@@ -3098,12 +3148,24 @@ function updateInvoiceModalPaUi(inv) {
     }
 }
 
-function renderSalesInvoices() {
+function renderSalesInvoices(view = 'validated') {
     const canManage = canManageInvoices();
+    const allInvoices = Array.isArray(db.sales_invoices) ? db.sales_invoices : [];
+    const invoices = view === 'draft'
+        ? allInvoices.filter(isSalesInvoiceDraft)
+        : allInvoices.filter(isSalesInvoiceValidated);
+    const title = view === 'draft' ? 'Factures — Brouillon' : 'Factures validées';
+    const subtitle = view === 'draft'
+        ? 'Factures en cours de rédaction, non encore validées'
+        : 'Factures validées, payées ou avoirs émis';
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
         <div class="flex justify-between items-center mb-6">
-            <h3 class="font-bold text-lg text-gray-800">Factures de Ventes</h3>
-            <div class="flex gap-2">
+            <div>
+                <h3 class="font-bold text-lg text-gray-800">${title}</h3>
+                <p class="text-xs text-gray-500">${subtitle}</p>
+            </div>
+            <div class="flex gap-2 items-center">
+                <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">${invoices.length}</span>
                 ${canManage ? `
                 <button onclick="deleteSelectedInvoices()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
                     <i class="fa-solid fa-trash mr-1"></i> Supprimer sélection
@@ -3116,7 +3178,7 @@ function renderSalesInvoices() {
                 </button>` : ''}
             </div>
         </div>
-        ${canExportAccounting() ? `<div class="mb-4"><a href="#" onclick="router('accounting_export')" class="text-sm text-emerald-700 hover:underline"><i class="fa-solid fa-file-csv mr-1"></i>Export comptable CSV</a></div>` : ''}
+        ${canExportAccounting() && view !== 'draft' ? `<div class="mb-4"><a href="#" onclick="router('accounting_export')" class="text-sm text-emerald-700 hover:underline"><i class="fa-solid fa-file-csv mr-1"></i>Export comptable CSV</a></div>` : ''}
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
@@ -3127,13 +3189,13 @@ function renderSalesInvoices() {
                         <th class="px-4 py-3">Date</th>
                         <th class="px-4 py-3">Montant TTC</th>
                         <th class="px-4 py-3">Statut</th>
-                        <th class="px-4 py-3">PA</th>
+                        ${view === 'draft' ? '' : '<th class="px-4 py-3">PA</th>'}
                         <th class="px-4 py-3">Actions</th>
-                        <th class="px-4 py-3">Relances</th>
+                        ${view === 'draft' ? '' : '<th class="px-4 py-3">Relances</th>'}
                     </tr>
                 </thead>
                 <tbody>
-                    ${db.sales_invoices.map(inv => {
+                    ${invoices.length ? invoices.map(inv => {
         const client = db.clients.find(c => Number(c.id) === Number(inv.client_id));
         const reminderLabel = inv.reminder_date
             ? formatDisplayDate(inv.reminder_date)
@@ -3159,19 +3221,19 @@ function renderSalesInvoices() {
                 inv.status === 'Brouillon' ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800'
             }">${inv.status}</span>
                             </td>
-                            <td class="px-4 py-3">${renderPaStatusBadge(inv)}</td>
+                            ${view === 'draft' ? '' : `<td class="px-4 py-3">${renderPaStatusBadge(inv)}</td>`}
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <button onclick="openInvoiceModal('${inv.id}')" class="text-blue-600 hover:underline mr-2">Voir</button>
-                                ${canSubmitToPA(inv) ? `<button onclick="submitEinvoiceToPA('${inv.id}')" class="text-emerald-600 hover:underline mr-2" title="Transmettre à la PA Iopole"><i class="fa-solid fa-paper-plane mr-1"></i>PA</button>` : ''}
+                                ${view !== 'draft' && canSubmitToPA(inv) ? `<button onclick="submitEinvoiceToPA('${inv.id}')" class="text-emerald-600 hover:underline mr-2" title="Transmettre à la PA Iopole"><i class="fa-solid fa-paper-plane mr-1"></i>PA</button>` : ''}
                                 ${canCredit ? `
                                     <button onclick="createCreditNote('${inv.id}', false)" class="text-purple-600 hover:underline mr-2" title="Annuler la facture en totalité">Avoir total</button>
                                     <button onclick="openPartialCreditNoteModal('${inv.id}')" class="text-purple-600 hover:underline mr-2" title="Créditer une partie">Avoir partiel</button>
                                 ` : ''}
-                                ${!isCreditNote && inv.status !== 'Payée' && canManage ? `<button onclick="relanceFacture('${inv.id}')" class="text-orange-600 hover:underline">Relancer</button>` : ''}
+                                ${view !== 'draft' && !isCreditNote && inv.status !== 'Payée' && canManage ? `<button onclick="relanceFacture('${inv.id}')" class="text-orange-600 hover:underline">Relancer</button>` : ''}
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">${reminderLabel}</td>
+                            ${view === 'draft' ? '' : `<td class="px-4 py-3 text-sm text-gray-600">${reminderLabel}</td>`}
                         </tr>`;
-    }).join('')}
+    }).join('') : `<tr><td colspan="${view === 'draft' ? 7 : 9}" class="px-4 py-10 text-center text-gray-400 italic">${view === 'draft' ? 'Aucun brouillon' : 'Aucune facture validée'}</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -3497,7 +3559,7 @@ function renderSettingInvoices() {
                 <h2 class="text-2xl font-bold text-gray-800">Configuration du document</h2>
                 <p class="text-sm text-gray-500">Personnalisez l'apparence et les données légales de vos factures</p>
             </div>
-            <button type="button" onclick="router('sales_invoices')" class="text-gray-400 hover:text-gray-600 transition-colors">
+            <button type="button" onclick="router('sales_invoices_validated')" class="text-gray-400 hover:text-gray-600 transition-colors">
                 <i class="fa-solid fa-xmark text-xl"></i>
             </button>
         </div>
@@ -3569,7 +3631,7 @@ function renderSettingInvoices() {
                 </div>
 
                 <div class="flex justify-end pt-6 gap-4 border-t">
-                    <button type="button" onclick="router('sales_invoices')" class="px-6 py-2.5 text-gray-500 font-medium hover:bg-gray-100 rounded-xl transition-all">Annuler</button>
+                    <button type="button" onclick="router('sales_invoices_validated')" class="px-6 py-2.5 text-gray-500 font-medium hover:bg-gray-100 rounded-xl transition-all">Annuler</button>
                     <button type="submit" class="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-lg shadow-blue-100 transition-all transform hover:-translate-y-0.5">
                         Enregistrer les modifications
                     </button>
@@ -3735,7 +3797,7 @@ window.saveInvoiceSettings = async function (e) {
             const result = await response.json();
             window.cachedBankSettings = result.data || null;
             showToast("Paramètres bancaires mis à jour avec succès", "success");
-            router('sales_invoices');
+            router('sales_invoices_validated');
         } else {
             const err = await response.json().catch(() => ({}));
             showToast(err.error || "Échec de la sauvegarde", "error");
@@ -3779,7 +3841,7 @@ function renderCreateInvoice() {
                 <p class="text-xs text-gray-500 font-medium"><span id="invoice-editor-number">${displayNumber}</span> • <span id="invoice-editor-subtitle" class="text-blue-600">${isEdit ? 'Reprise du brouillon' : 'Nouveau document'}</span></p>
             </div>
             <div class="flex gap-3">
-                <button onclick="router('sales_invoices')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all font-medium">Annuler</button>
+                <button onclick="router('sales_invoices_validated')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all font-medium">Annuler</button>
                 <div class="h-10 w-[1px] bg-gray-200 mx-2"></div>
                  <button onclick="saveDraft()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 font-medium flex items-center">
                     <i class="fa-regular fa-floppy-disk mr-2"></i> Prévisualiser
@@ -4053,7 +4115,7 @@ async function validateInvoice() {
             await fetchAllData();
             editingInvoiceId = null;
             showToast("Facture validée et enregistrée !", "success");
-            router('sales_invoices');
+            router('sales_invoices_validated');
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || "Erreur lors de la validation de la facture", "error");
@@ -4255,7 +4317,7 @@ window.submitPartialCreditNote = async function () {
             showToast(`Avoir ${payload.number || ''} créé avec succès`.trim(), 'success');
             closeCreditNoteModal();
             await fetchAllData();
-            router('sales_invoices');
+            router('sales_invoices_validated');
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || 'Erreur de création d\'avoir', 'error');
@@ -5481,6 +5543,18 @@ async function router(route) {
             title = 'Transports En cours';
             content = typeof renderOrdersInProgress === 'function' ? renderOrdersInProgress() : renderInProgressTransports();
             break;
+        case 'closed_transports':
+            title = 'Transports clôturés';
+            content = typeof renderOrdersClosed === 'function' ? renderOrdersClosed() : renderTransportList();
+            break;
+        case 'cancelled_transports':
+            title = 'Transports annulés';
+            content = typeof renderOrdersCancelled === 'function' ? renderOrdersCancelled() : renderTransportList();
+            break;
+        case 'chartered_transports':
+            title = 'Transports affrétés';
+            content = typeof renderOrdersChartered === 'function' ? renderOrdersChartered() : renderTransportList();
+            break;
         case 'disputes':
             title = 'Litiges transport';
             content = typeof renderDisputesPage === 'function' ? renderDisputesPage() : '';
@@ -5543,8 +5617,13 @@ async function router(route) {
             setTimeout(() => loadCmrPreviewPage(), 0);
             break;
         case 'sales_invoices':
-            title = 'Factures Ventes';
-            content = renderSalesInvoices();
+        case 'sales_invoices_validated':
+            title = 'Factures validées';
+            content = renderSalesInvoices('validated');
+            break;
+        case 'sales_invoices_draft':
+            title = 'Factures — Brouillon';
+            content = renderSalesInvoices('draft');
             break;
         case 'purchase_invoices':
             title = 'Factures Achats';
@@ -6447,6 +6526,12 @@ document.addEventListener('DOMContentLoaded', () => {
             void handleDocumentOcrUpload(urssafFile, 'add-subcontractor-urssaf-expiry', 'URSSAF', 'subcontractor-urssaf-ocr-hint');
         });
     }
+    const kbisFile = document.getElementById('add-subcontractor-kbis-file');
+    if (kbisFile) {
+        kbisFile.addEventListener('change', () => {
+            void handleDocumentOcrUpload(kbisFile, 'add-subcontractor-kbis-expiry', 'KBIS', 'subcontractor-kbis-ocr-hint');
+        });
+    }
     const licenseFile = document.getElementById('driver-license-file');
     if (licenseFile) {
         licenseFile.addEventListener('change', () => {
@@ -6606,18 +6691,21 @@ function openAddSubcontractorModal() {
     document.getElementById('add-subcontractor-address').value = '';
     document.getElementById('add-subcontractor-rc-expiry').value = '';
     document.getElementById('add-subcontractor-urssaf-expiry').value = '';
+    document.getElementById('add-subcontractor-kbis-expiry').value = '';
     document.getElementById('add-subcontractor-insurance-file').value = '';
     document.getElementById('add-subcontractor-urssaf-file').value = '';
+    document.getElementById('add-subcontractor-kbis-file').value = '';
     document.getElementById('subcontractor-insurance-view').classList.add('hidden');
     const urssafView = document.getElementById('subcontractor-urssaf-view');
     if (urssafView) urssafView.classList.add('hidden');
-    ['subcontractor-rc-ocr-hint', 'subcontractor-urssaf-ocr-hint'].forEach((id) => {
+    const kbisView = document.getElementById('subcontractor-kbis-view');
+    if (kbisView) kbisView.classList.add('hidden');
+    ['subcontractor-rc-ocr-hint', 'subcontractor-urssaf-ocr-hint', 'subcontractor-kbis-ocr-hint'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = '';
     });
     document.getElementById('add-subcontractor-status').value = 'ACTIF';
     document.getElementById('subcontractor-rc-warning').classList.add('hidden');
-    document.getElementById('btn-delete-subcontractor').classList.add('hidden');
     document.getElementById('add-subcontractor-modal').classList.remove('hidden');
 }
 
@@ -6637,6 +6725,7 @@ function openEditSubcontractorModal(subcontractorId) {
     document.getElementById('add-subcontractor-address').value = subcontractor.address || '';
     document.getElementById('add-subcontractor-rc-expiry').value = subcontractor.rc_pro_expiry || '';
     document.getElementById('add-subcontractor-urssaf-expiry').value = subcontractor.urssaf_expiry || '';
+    document.getElementById('add-subcontractor-kbis-expiry').value = subcontractor.kbis_expiry || '';
     document.getElementById('add-subcontractor-insurance-file').value = '';
 
     const viewLink = document.getElementById('subcontractor-insurance-view');
@@ -6659,6 +6748,18 @@ function openEditSubcontractorModal(subcontractorId) {
     const urssafFileInput = document.getElementById('add-subcontractor-urssaf-file');
     if (urssafFileInput) urssafFileInput.value = '';
 
+    const kbisView = document.getElementById('subcontractor-kbis-view');
+    if (kbisView) {
+        if (subcontractor.kbis_doc_url) {
+            kbisView.href = normalizeUploadUrl(subcontractor.kbis_doc_url);
+            kbisView.classList.remove('hidden');
+        } else {
+            kbisView.classList.add('hidden');
+        }
+    }
+    const kbisFileInput = document.getElementById('add-subcontractor-kbis-file');
+    if (kbisFileInput) kbisFileInput.value = '';
+
     document.getElementById('add-subcontractor-status').value = subcontractor.status || 'ACTIF';
 
     // Check expiry
@@ -6669,7 +6770,6 @@ function openEditSubcontractorModal(subcontractorId) {
     } else {
         document.getElementById('subcontractor-rc-warning').classList.add('hidden');
     }
-    document.getElementById('btn-delete-subcontractor').classList.remove('hidden');
     document.getElementById('add-subcontractor-modal').classList.remove('hidden');
 }
 
@@ -6687,6 +6787,7 @@ async function submitAddSubcontractor() {
     formData.append('address', document.getElementById('add-subcontractor-address').value);
     formData.append('rc_pro_expiry', document.getElementById('add-subcontractor-rc-expiry').value);
     formData.append('urssaf_expiry', document.getElementById('add-subcontractor-urssaf-expiry').value);
+    formData.append('kbis_expiry', document.getElementById('add-subcontractor-kbis-expiry').value);
     formData.append('status', document.getElementById('add-subcontractor-status').value);
 
     const fileInput = document.getElementById('add-subcontractor-insurance-file');
@@ -6696,6 +6797,10 @@ async function submitAddSubcontractor() {
     const urssafInput = document.getElementById('add-subcontractor-urssaf-file');
     if (urssafInput && urssafInput.files[0]) {
         formData.append('urssaf_doc', urssafInput.files[0]);
+    }
+    const kbisInput = document.getElementById('add-subcontractor-kbis-file');
+    if (kbisInput && kbisInput.files[0]) {
+        formData.append('kbis_doc', kbisInput.files[0]);
     }
 
     if (!document.getElementById('add-subcontractor-name').value || !document.getElementById('add-subcontractor-rc-expiry').value) {
@@ -6723,31 +6828,76 @@ async function submitAddSubcontractor() {
     }
 }
 
-async function deleteSubcontractor() {
-    const id = document.getElementById('edit-subcontractor-id').value;
-    if (!id) return;
-    await deleteSubcontractorById(id);
-}
-
-async function deleteSubcontractorById(id, name) {
+async function deleteSubcontractorById(id, name, options = {}) {
     const label = name ? ` « ${name} »` : '';
-    if (!id || !confirm(`Êtes-vous sûr de vouloir supprimer ce sous-traitant${label} ?`)) return;
+    if (!id) return false;
+    if (options.skipConfirm !== true && !confirm(`Êtes-vous sûr de vouloir supprimer ce sous-traitant${label} ?`)) return false;
 
     try {
         const res = await apiFetch(`subcontractors/${id}`, { method: 'DELETE' });
         if (res.ok) {
             const data = await res.json().catch(() => ({}));
-            showToast(data.message || 'Sous-traitant supprimé', 'success');
-            await fetchAllData();
-            closeAddSubcontractorModal();
-            router('subcontractors');
-        } else {
-            showToast('Erreur lors de la suppression', 'error');
+            subcontractorSelectedIds.delete(id);
+            if (options.skipConfirm !== true) {
+                showToast(data.message || 'Sous-traitant supprimé', 'success');
+                await fetchAllData();
+                closeAddSubcontractorModal();
+                router('subcontractors');
+            }
+            return { ok: true, message: data.message };
         }
+        if (options.skipConfirm !== true) showToast('Erreur lors de la suppression', 'error');
+        return { ok: false };
     } catch (error) {
-        showToast('Erreur réseau', 'error');
+        if (options.skipConfirm !== true) showToast('Erreur réseau', 'error');
+        return { ok: false };
     }
 }
+
+window.toggleSubcontractorSelection = function (id, checked) {
+    if (checked) subcontractorSelectedIds.add(id);
+    else subcontractorSelectedIds.delete(id);
+    router('subcontractors');
+};
+
+window.toggleAllSubcontractorsSelection = function (checked) {
+    const filtered = filterSubcontractors(db.subcontractors || []);
+    if (checked) filtered.forEach((s) => subcontractorSelectedIds.add(s.id));
+    else filtered.forEach((s) => subcontractorSelectedIds.delete(s.id));
+    router('subcontractors');
+};
+
+window.deleteSelectedSubcontractors = async function () {
+    const ids = [...subcontractorSelectedIds];
+    if (!ids.length) {
+        showToast('Sélectionnez au moins un sous-traitant', 'error');
+        return;
+    }
+    const names = ids.map((id) => (db.subcontractors.find((s) => s.id === id) || {}).name).filter(Boolean);
+    const preview = names.slice(0, 3).join(', ');
+    const suffix = names.length > 3 ? ` et ${names.length - 3} autre(s)` : '';
+    if (!confirm(`Supprimer ${ids.length} sous-traitant(s) ?\n\n${preview}${suffix}`)) return;
+
+    let ok = 0;
+    let blocked = 0;
+    for (const id of ids) {
+        const sub = db.subcontractors.find((s) => s.id === id);
+        const result = await deleteSubcontractorById(id, sub?.name, { skipConfirm: true });
+        if (result?.ok) {
+            ok += 1;
+            if (result.message && result.message.includes('bloqué')) blocked += 1;
+        }
+    }
+    await fetchAllData();
+    subcontractorSelectedIds.clear();
+    closeAddSubcontractorModal();
+    router('subcontractors');
+    if (blocked) {
+        showToast(`${ok} traité(s) — certains ont été bloqués (commandes liées)`, 'info');
+    } else {
+        showToast(`${ok} sous-traitant(s) supprimé(s)`, 'success');
+    }
+};
 
 window.deleteSubcontractorById = deleteSubcontractorById;
 
@@ -7359,7 +7509,7 @@ window.validateDraft = async function (invoiceId) {
             showToast("Facture validée avec succès !", "success");
             await fetchAllData();
             closeModal();
-            router('sales_invoices');
+            router('sales_invoices_validated');
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || "Erreur de validation", "error");
@@ -7402,7 +7552,7 @@ window.createCreditNote = async function (invoiceId, isPartial) {
             await fetchAllData();
             closeInvoiceModal();
             closeCreditNoteModal();
-            router('sales_invoices');
+            router('sales_invoices_validated');
         } else {
             const err = await res.json().catch(() => ({}));
             showToast(err.error || 'Erreur de création d\'avoir', 'error');
@@ -7441,11 +7591,11 @@ function sendInvoice(invoiceId) {
         showToast('Facture envoyée par email à: ' + client.email, 'success');
 
         // Refresh the invoice list
-        router('sales_invoices');
+        router('sales_invoices_validated');
     } else if (invoice) {
         invoice.sent_date = new Date().toISOString().split('T')[0];
         showToast('Facture marquée comme envoyée', 'success');
-        router('sales_invoices');
+        router('sales_invoices_validated');
     }
     closeModal();
 }
@@ -7468,7 +7618,7 @@ function relanceFacture(invoiceId) {
             if (res.ok) {
                 showToast('Relance enregistrée pour la facture ' + invoiceId, 'success');
                 await fetchAllData();
-                router('sales_invoices');
+                router('sales_invoices_validated');
             } else {
                 const err = await res.json().catch(() => ({}));
                 showToast(err.error || 'Échec de la relance', 'error');

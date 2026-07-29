@@ -126,9 +126,11 @@ function routeForMvpStep(step, status) {
     };
     if (step && byStep[step]) return byStep[step];
     if (['Brouillon', 'À planifier', 'Planifié'].includes(status)) return 'transports';
-    if (['Pris en charge', 'Affrété', 'En cours'].includes(status)) return 'inprogress_transports';
+    if (status === 'Annulé') return 'cancelled_transports';
+    if (status === 'Clôturé') return 'closed_transports';
+    if (status === 'Affrété') return 'chartered_transports';
+    if (['Pris en charge', 'En cours'].includes(status)) return 'inprogress_transports';
     if (['Livré', 'Validé'].includes(status)) return 'completed_transports';
-    if (status === 'Clôturé') return 'preinvoicing';
     return window.currentAppRoute || 'transports';
 }
 
@@ -1087,16 +1089,37 @@ window.bulkInvoiceTransports = async function () {
 
 /** Vues en cours / réalisés basées sur orders (MVP) */
 window.renderOrdersInProgress = function() {
-    const statuses = ['Pris en charge', 'En cours', 'En cours', 'Planifié'];
-    let orders = (db.orders || []).filter(o => ['Pris en charge', 'En cours', 'Planifié', 'Affrété'].includes(o.status));
+    let orders = (db.orders || []).filter(o =>
+        ['Pris en charge', 'En cours', 'Planifié'].includes(o.status)
+        && o.status !== 'Affrété'
+        && o.assignment_type !== 'SUBCONTRACTED'
+    );
     if (getUserRole() === 'chauffeur' && currentUser?.driver_id) {
         orders = orders.filter(o => o.driver_id === currentUser.driver_id);
     }
     return renderOrdersTable(orders, 'Transports en cours', true);
 };
 
+window.renderOrdersChartered = function() {
+    const orders = (db.orders || []).filter(o =>
+        o.status !== 'Annulé'
+        && (o.status === 'Affrété' || o.assignment_type === 'SUBCONTRACTED')
+    );
+    return renderOrdersCharteredTable(orders);
+};
+
+window.renderOrdersClosed = function() {
+    const orders = (db.orders || []).filter(o => o.status === 'Clôturé');
+    return renderOrdersTable(orders, 'Transports clôturés', false);
+};
+
+window.renderOrdersCancelled = function() {
+    const orders = (db.orders || []).filter(o => o.status === 'Annulé');
+    return renderOrdersTable(orders, 'Transports annulés', false);
+};
+
 window.renderOrdersCompleted = function() {
-    const orders = (db.orders || []).filter(o => ['Livré', 'Validé', 'Clôturé', 'Terminé'].includes(o.status));
+    const orders = (db.orders || []).filter(o => ['Livré', 'Validé', 'Terminé'].includes(o.status));
     const preinvoiceCandidates = orders.filter(o => o.status === 'Validé' && !o.invoice_draft_id);
     const selectedCount = preinvoiceCandidates.filter(o => completedTransportSelection.has(o.id)).length;
     const allCandidatesSelected = preinvoiceCandidates.length > 0
@@ -1227,6 +1250,50 @@ window.bulkPreinvoiceCompletedTransports = async function () {
         reopenDetail: false
     });
 };
+
+function subcontractorLabel(order) {
+    if (!order) return '-';
+    return order.subcontractor_name
+        || (db.subcontractors || []).find((s) => s.id === order.subcontractor_id)?.name
+        || '-';
+}
+
+function renderOrdersCharteredTable(orders) {
+    return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h3 class="font-bold text-lg text-gray-800">Transports affrétés</h3>
+                <p class="text-xs text-gray-500">Commandes confiées à un sous-traitant</p>
+            </div>
+            <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">${orders.length}</span>
+        </div>
+        <table class="w-full text-sm text-left text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3">Réf.</th>
+                    <th class="px-4 py-3">Client</th>
+                    <th class="px-4 py-3">Sous-traitant</th>
+                    <th class="px-4 py-3">Trajet</th>
+                    <th class="px-4 py-3">Statut</th>
+                    <th class="px-4 py-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${orders.length ? orders.map((o) => `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium">${o.ref || o.id}</td>
+                        <td class="px-4 py-3">${o.client_name || '-'}</td>
+                        <td class="px-4 py-3 text-purple-700 font-medium">${subcontractorLabel(o)}</td>
+                        <td class="px-4 py-3 text-xs">${o.origin} → ${o.dest}</td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(o.status)}">${o.status}</span></td>
+                        <td class="px-4 py-3">
+                            <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs">Détail</button>
+                        </td>
+                    </tr>`).join('') : '<tr><td colspan="6" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport affrété</td></tr>'}
+            </tbody>
+        </table>
+    </div>`;
+}
 
 function renderOrdersTable(orders, title, showActions) {
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
