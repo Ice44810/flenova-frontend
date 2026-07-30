@@ -437,16 +437,6 @@ const PUBLIC_MVP_STEPS = [
     { n: 5, title: 'Préfacturer', desc: 'Brouillon facture et export comptable' }
 ];
 
-function renderPublicAnnouncement() {
-    return `<div class="public-announcement" role="note">
-        <div class="public-announcement-inner">
-            <i class="fa-solid fa-bolt" aria-hidden="true"></i>
-            <span><strong>2026 :</strong> Factur-X &amp; export comptable intégrés — anticipez la facturation électronique</span>
-            <button type="button" class="public-announcement-link" onclick="publicRouter('fonctionnalites')">Découvrir</button>
-        </div>
-    </div>`;
-}
-
 function renderPublicSocialProof() {
     const logos = ['LogiTrans Ouest', 'Transports MD', 'Routage Express', 'KB Fret', 'PME Routière'];
     return `<section class="public-social-proof" aria-label="Transporteurs qui nous font confiance">
@@ -639,7 +629,6 @@ function renderPublicModuleDetail(module) {
 
 function renderPublicHome() {
     return `<div class="public-landing fade-in">
-        ${renderPublicAnnouncement()}
         <section class="public-hero">
             <div class="public-hero-bg-shape public-hero-bg-shape-1" aria-hidden="true"></div>
             <div class="public-hero-bg-shape public-hero-bg-shape-2" aria-hidden="true"></div>
@@ -962,25 +951,35 @@ function initPublicSite() {
         legalFooter.innerHTML = renderLegalFooterLinks('justify-center text-xs');
     }
 
-    const hash = (window.location.hash || '').replace('#', '').trim();
-    const trackingCode = new URLSearchParams(window.location.search).get('code');
-    const initialRoute = (hash && PUBLIC_ROUTES.includes(hash))
-        ? hash
-        : (trackingCode ? 'tracking' : 'home');
-    const qs = new URLSearchParams(window.location.search);
-    const trialPlan = qs.get('plan');
-    if (qs.get('trial') === '1') {
-        window.__publicContactPrefill = buildTrialContactPrefill(trialPlan);
-        publicRouter('contact');
-        try {
-            history.replaceState(null, '', `${window.location.pathname}#contact`);
-        } catch (_) { /* ignore */ }
-    } else {
-        publicRouter(initialRoute);
-    }
+    const bootPublic = async () => {
+        if (typeof hydratePublicPlatformUi === 'function') {
+            await hydratePublicPlatformUi();
+        }
+        if (window.cachedPlatformStatus?.maintenance?.enabled) return;
+
+        const hash = (window.location.hash || '').replace('#', '').trim();
+        const trackingCode = new URLSearchParams(window.location.search).get('code');
+        const initialRoute = (hash && PUBLIC_ROUTES.includes(hash))
+            ? hash
+            : (trackingCode ? 'tracking' : 'home');
+        const qs = new URLSearchParams(window.location.search);
+        const trialPlan = qs.get('plan');
+        if (qs.get('trial') === '1') {
+            window.__publicContactPrefill = buildTrialContactPrefill(trialPlan);
+            publicRouter('contact');
+            try {
+                history.replaceState(null, '', `${window.location.pathname}#contact`);
+            } catch (_) { /* ignore */ }
+        } else {
+            publicRouter(initialRoute);
+        }
+    };
+
+    void bootPublic();
 
     window.addEventListener('hashchange', () => {
         if (isAuthenticated) return;
+        if (window.cachedPlatformStatus?.maintenance?.enabled) return;
         const next = (window.location.hash || '').replace('#', '').trim();
         publicRouter(PUBLIC_ROUTES.includes(next) ? next : 'home');
     });
@@ -988,6 +987,10 @@ function initPublicSite() {
 
 // --- BOOTSTRAP ---
 function updateAppCompanyHeader(user) {
+    if (user?.isPlatformAdmin) {
+        if (typeof applyPlatformOperatorShell === 'function') applyPlatformOperatorShell(user);
+        return;
+    }
     const el = document.getElementById('header-company-name');
     if (!el) return;
     const name = user?.company_name || currentUser?.company_name;
@@ -1070,7 +1073,18 @@ function initSidebarGroups() {
             }
             if (typeof hydrateSubscription === 'function') hydrateSubscription(data);
             if (typeof updateAppCompanyHeader === 'function') updateAppCompanyHeader(data.user);
+            if (typeof applyPlatformAdminNav === 'function') applyPlatformAdminNav(data.user);
             isAuthenticated = true;
+            if (typeof fetchPlatformStatus === 'function') await fetchPlatformStatus(true);
+            if (typeof showAppMaintenanceIfNeeded === 'function' && showAppMaintenanceIfNeeded(window.cachedPlatformStatus)) {
+                document.getElementById('public-screen')?.classList.add('hidden');
+                document.body.classList.remove('public-site-active');
+                document.body.classList.add('h-screen', 'overflow-hidden');
+                const appScreen = document.getElementById('app-screen');
+                if (appScreen) appScreen.classList.remove('hidden');
+                setAppModalsVisible(true);
+                return;
+            }
         } else {
             throw new Error('Session expirée ou invalide');
         }
@@ -1091,26 +1105,35 @@ function initSidebarGroups() {
 
     hideAllModals();
 
-    if (typeof loadPermissions === 'function' && !cachedPermissions) await loadPermissions();
+    const isOperator = !!currentUser?.isPlatformAdmin;
+    if (typeof applyPlatformOperatorShell === 'function') applyPlatformOperatorShell(currentUser);
 
-    const ok = await fetchAllData();
-    if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
-    if (typeof initSidebarGroups === 'function') initSidebarGroups();
-    if (typeof applyDemoBanner === 'function') applyDemoBanner();
+    if (!isOperator) {
+        if (typeof loadPermissions === 'function' && !cachedPermissions) await loadPermissions();
 
-    const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
-    const initialRoute = hashRoute || 'dashboard';
-    if (ok) {
-        router(initialRoute);
+        const ok = await fetchAllData();
+        if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
+        if (typeof initSidebarGroups === 'function') initSidebarGroups();
+        if (typeof applyDemoBanner === 'function') applyDemoBanner();
+
+        const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
+        const initialRoute = hashRoute || 'dashboard';
+        if (ok) {
+            router(initialRoute);
+        }
+    } else {
+        if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
+        router('platform_ops');
     }
+
     window.addEventListener('hashchange', () => {
         if (!isAuthenticated) return;
         const next = (window.location.hash || '').replace('#', '').split('&')[0].trim();
         if (next && next !== window.currentAppRoute) {
-            router(next);
+            router(next || (currentUser?.isPlatformAdmin ? 'platform_ops' : 'dashboard'));
         }
     });
-    if (window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
+    if (!isOperator && window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
         showOverdueBillingModal(window.cachedSubscription.billingAlert);
     }
 
@@ -5778,6 +5801,9 @@ async function router(route) {
         publicRouter(PUBLIC_ROUTES.includes(route) ? route : 'home');
         return;
     }
+    if (currentUser?.isPlatformAdmin && route !== 'platform_ops') {
+        route = 'platform_ops';
+    }
     if (typeof canAccessRoute === 'function' && !canAccessRoute(route)) {
         showToast("Accès refusé pour votre rôle", "error");
         if (route !== 'dashboard' && canAccessRoute('dashboard')) {
@@ -5789,6 +5815,13 @@ async function router(route) {
     if (typeof canAccessPlanRoute === 'function' && !canAccessPlanRoute(route)) {
         showToast("Fonctionnalité non incluse dans votre forfait", "error");
         route = 'dashboard';
+    }
+    if (route === 'platform_ops' && !currentUser?.isPlatformAdmin) {
+        showToast("Accès réservé à l'équipe Flenova", "error");
+        return;
+    }
+    if (typeof showAppMaintenanceIfNeeded === 'function' && route !== 'platform_ops' && showAppMaintenanceIfNeeded(window.cachedPlatformStatus)) {
+        return;
     }
     window.currentAppRoute = route;
     const appContent = document.getElementById('app-content');
@@ -6000,6 +6033,10 @@ async function router(route) {
             title = 'Prise en main';
             content = typeof renderOnboardingGuidePage === 'function' ? renderOnboardingGuidePage() : '';
             break;
+        case 'platform_ops':
+            title = 'Console opérateur';
+            content = typeof renderPlatformOpsPage === 'function' ? await renderPlatformOpsPage() : '';
+            break;
         case 'feedback':
             title = 'Vos retours';
             content = typeof renderFeedbackQuestionnairePage === 'function' ? renderFeedbackQuestionnairePage() : '';
@@ -6039,6 +6076,10 @@ async function router(route) {
 
     if (content) {
         appContent.innerHTML = content;
+    }
+
+    if (route === 'platform_ops' && typeof hydratePlatformOpsPage === 'function') {
+        await hydratePlatformOpsPage();
     }
 
     pageTitle.textContent = title;

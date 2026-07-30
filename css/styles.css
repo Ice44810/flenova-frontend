@@ -1350,6 +1350,86 @@ body.public-site-active {
     background: rgba(255,255,255,0.25);
 }
 
+/* Console opérateur & maintenance */
+.platform-maintenance-page {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+.platform-maintenance-card {
+    max-width: 32rem;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+}
+.platform-maintenance-icon {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 1.25rem;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #d97706;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+.platform-maintenance-card h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.75rem;
+}
+.platform-maintenance-card p {
+    color: #475569;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+.platform-ops-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 1rem;
+}
+.platform-ops-metric {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+}
+.platform-ops-metric i {
+    font-size: 1.25rem;
+    margin-top: 0.125rem;
+}
+.platform-ops-metric--ok { border-color: #bbf7d0; background: #f0fdf4; }
+.platform-ops-metric--ok i { color: #16a34a; }
+.platform-ops-metric--bad { border-color: #fecaca; background: #fef2f2; }
+.platform-ops-metric--bad i { color: #dc2626; }
+.platform-ops-metric--warn { border-color: #fde68a; background: #fffbeb; }
+.platform-ops-metric--warn i { color: #d97706; }
+.platform-ops-metric--neutral i { color: #64748b; }
+.platform-ops-metric-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 0.125rem;
+}
+.platform-ops-metric-value {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+body.platform-operator-mode #demo-banner {
+    display: none !important;
+}
+
 /* Sections communes */
 .public-section-inner {
     max-width: var(--public-container);

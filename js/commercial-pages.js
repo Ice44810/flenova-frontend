@@ -79,6 +79,14 @@ const ONBOARDING_STEPS = [
 ];
 
 function renderOnboardingGuidePage() {
+    const welcomeMsg = window.cachedPlatformStatus?.welcomeMessage;
+    const welcomeBlock = welcomeMsg ? `
+        <div class="bg-teal-50 border border-teal-200 rounded-xl p-5 text-teal-900">
+            <h2 class="font-bold text-lg mb-2"><i class="fa-solid fa-handshake text-teal-600 mr-2"></i>Message de l'équipe Flenova</h2>
+            <p class="text-sm leading-relaxed whitespace-pre-line">${commercialEsc(welcomeMsg)}</p>
+        </div>
+    ` : '';
+
     const steps = ONBOARDING_STEPS.map((s) => `
         <article class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition">
             <div class="flex gap-4">
@@ -104,6 +112,8 @@ function renderOnboardingGuidePage() {
             <h1 class="text-3xl font-extrabold text-gray-900 mb-3">Guide de prise en main rapide</h1>
             <p class="text-gray-600 max-w-2xl mx-auto">Suivez ces 8 étapes pour être opérationnel en moins d'une heure. Chaque étape ouvre directement la section concernée.</p>
         </div>
+
+        ${welcomeBlock}
 
         <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>

@@ -83,6 +83,8 @@ function fallbackCan(role, module, action) {
 }
 
 function canAccessRoute(routeName) {
+    if (routeName === 'platform_ops') return !!currentUser?.isPlatformAdmin;
+    if (currentUser?.isPlatformAdmin) return false;
     const openRoutes = new Set(['pricing', 'solutions', 'contact', 'about', 'tracking', 'onboarding', 'feedback', 'disputes']);
     if (openRoutes.has(routeName)) return true;
 
@@ -160,7 +162,9 @@ window.isAdmin = () => getUserRole() === 'admin';
 window.getUserRole = getUserRole;
 
 window.applyRoleBasedNav = function() {
-    document.querySelectorAll('[data-nav-route]').forEach(el => {
+    if (typeof applyPlatformOperatorShell === 'function') applyPlatformOperatorShell(currentUser);
+    if (currentUser?.isPlatformAdmin) return;
+    document.querySelectorAll('#tenant-app-nav [data-nav-route]').forEach(el => {
         const route = el.dataset.navRoute;
         el.style.display = canAccessRoute(route) ? '' : 'none';
     });
