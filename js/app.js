@@ -397,11 +397,11 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'Comment fonctionne l\'essai gratuit ?',
-        a: 'À l\'inscription, vous bénéficiez de 30 jours d\'essai Premium avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait et activez le prélèvement SEPA mensuel via GoCardless. <strong>Sans engagement de durée</strong> : résiliation possible à tout moment, effective en fin de mois en cours.'
+        a: 'Contactez-nous via le formulaire : nous activons une période d\'essai Premium (30 jours) avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait et activez le prélèvement SEPA mensuel via GoCardless. <strong>Sans engagement de durée</strong> : résiliation possible à tout moment, effective en fin de mois en cours.'
     },
     {
         q: 'Y a-t-il un engagement de durée ?',
-        a: 'Non. Flenova est un abonnement mensuel sans engagement : vous pouvez résilier à tout moment, sans durée minimale ni pénalité. La résiliation prend effet à la fin de la période mensuelle déjà facturée.'
+        a: 'Non. Flenova est un abonnement mensuel sans engagement de durée minimale. La résiliation est possible moyennant un <strong>préavis d\'un mois</strong> (voir les CGV). <strong>Tout mois entamé est dû</strong>.'
     },
     {
         q: 'Flenova remplace-t-il GedMouv pour les documents sous-traitants ?',
@@ -606,7 +606,7 @@ function renderPublicCtaBand(title, subtitle) {
             <h2>${escapePublicHtml(title)}</h2>
             <p>${escapePublicHtml(subtitle)}</p>
             <div class="public-cta-band-actions">
-                <a href="register.html" class="public-btn-primary">Essai gratuit 30 jours</a>
+                <button type="button" class="public-btn-primary" onclick="publicRouterContactTrial()">Demander un essai gratuit</button>
                 <button type="button" class="public-btn-secondary" onclick="publicRouter('contact')">Demander une démo</button>
             </div>
         </div>
@@ -623,7 +623,7 @@ function renderPublicModuleDetail(module) {
                 <p class="public-module-lead">${escapePublicHtml(module.lead)}</p>
                 <ul class="public-module-bullets">${bullets}</ul>
                 <div class="public-module-actions">
-                    <a href="register.html" class="public-btn-primary public-btn-primary--sm">Essayer gratuitement</a>
+                    <button type="button" class="public-btn-primary public-btn-primary--sm" onclick="publicRouterContactTrial()">Demander un essai gratuit</button>
                     <button type="button" class="public-pillar-link" onclick="publicRouter('contact')">Planifier une démo</button>
                 </div>
             </div>
@@ -649,10 +649,10 @@ function renderPublicHome() {
                     <h1 class="public-hero-title">Le TMS pensé pour les transporteurs PME</h1>
                     <p class="public-hero-subtitle">Moins de ressaisie, plus de visibilité, plus de marge. Centralisez commandes, planning, mobile chauffeurs et facturation.</p>
                     <div class="public-hero-cta">
-                        <a href="register.html" class="public-btn-primary">Essai gratuit 30 jours</a>
+                        <button type="button" class="public-btn-primary" onclick="publicRouterContactTrial()">Demander un essai gratuit</button>
                         <button type="button" class="public-btn-secondary" onclick="publicRouter('contact')">Demander une démo</button>
                     </div>
-                    <p class="public-hero-note">À partir de <strong>129 €/mois HT</strong> · <strong>Sans engagement de durée</strong> · Premium offert à l'inscription</p>
+                    <p class="public-hero-note">À partir de <strong>129 €/mois HT</strong> · <strong>Sans engagement de durée</strong> · Essai Premium sur demande</p>
                 </div>
                 <div class="public-hero-image-wrap">
                     <img src="assets/public-hero-illustration.png" alt="Tableau de bord TMS Flenova — cartes, statistiques et flotte" class="public-hero-image" width="1024" height="622">
@@ -748,15 +748,62 @@ function renderPublicFeatures() {
 
         ${renderPublicMvpCycle(true)}
         ${renderPublicFaq()}
-        ${renderPublicCtaBand('Testez Flenova gratuitement pendant 30 jours', 'Premium offert à l\'inscription — toutes les fonctionnalités débloquées, sans carte bancaire.')}
+        ${renderPublicCtaBand('Testez Flenova gratuitement pendant 30 jours', 'Demandez votre essai Premium via le formulaire contact — toutes les fonctionnalités débloquées, sans carte bancaire.')}
     </div>`;
 }
 
+function getPublicPlanName(planId) {
+    if (!planId) return null;
+    const fromCache = window.cachedPlans?.find((p) => p.id === planId);
+    if (fromCache?.name) return fromCache.name;
+    const labels = { independant: 'Indépendant', pme: 'PME', premium: 'Premium' };
+    return labels[planId] || planId;
+}
+
+function buildTrialContactPrefill(planId) {
+    const planName = getPublicPlanName(planId);
+    if (planName) {
+        return {
+            subject: `Demande d'essai — forfait ${planName}`,
+            message: `Bonjour,\n\nJe souhaite bénéficier d'une période d'essai Premium (30 jours) et envisage le forfait ${planName} par la suite.\n\nMerci de me recontacter.\n`,
+            isTrial: true,
+        };
+    }
+    return {
+        subject: 'Demande de période d\'essai Premium',
+        message: 'Bonjour,\n\nJe souhaite bénéficier d\'une période d\'essai Premium (30 jours) avec toutes les fonctionnalités débloquées.\n\nMerci de me recontacter.\n',
+        isTrial: true,
+    };
+}
+
+function applyPublicContactPrefill() {
+    const prefill = window.__publicContactPrefill;
+    if (!prefill) return;
+    const subjectEl = document.getElementById('public-contact-subject');
+    const messageEl = document.getElementById('public-contact-message');
+    const leadEl = document.querySelector('.public-contact-lead');
+    if (subjectEl && prefill.subject) subjectEl.value = prefill.subject;
+    if (messageEl && prefill.message) messageEl.value = prefill.message;
+    if (leadEl && prefill.isTrial) {
+        leadEl.textContent = 'Demandez votre période d\'essai Premium : décrivez votre activité, nous vous répondons sous 24 h.';
+    }
+    window.__publicContactPrefill = null;
+}
+
+window.publicRouterContactTrial = function publicRouterContactTrial(planId) {
+    window.__publicContactPrefill = buildTrialContactPrefill(planId || null);
+    publicRouter('contact');
+};
+
 function renderPublicContact() {
+    const isTrial = window.__publicContactPrefill?.isTrial;
+    const lead = isTrial
+        ? 'Demandez votre période d\'essai Premium : décrivez votre activité, nous vous répondons sous 24&nbsp;h.'
+        : 'Une question ou une demande de démo ? Écrivez-nous, nous vous répondons sous 24&nbsp;h.';
     return `<div class="public-contact-page fade-in">
         <div class="public-contact-inner">
             <h1>Contact</h1>
-            <p class="public-contact-lead">Une question ou une demande de démo ? Écrivez-nous, nous vous répondons sous 24&nbsp;h.</p>
+            <p class="public-contact-lead">${lead}</p>
             <div class="public-contact-card">
                 <div class="public-contact-infos">
                     <div class="public-contact-info-box">
@@ -781,6 +828,10 @@ function renderPublicContact() {
                             <label for="public-contact-email">E-mail</label>
                             <input type="email" id="public-contact-email" required>
                         </div>
+                    </div>
+                    <div class="public-contact-form-field">
+                        <label for="public-contact-phone">Téléphone <span class="text-gray-400 font-normal">(facultatif)</span></label>
+                        <input type="tel" id="public-contact-phone" autocomplete="tel" placeholder="06 12 34 56 78">
                     </div>
                     <div class="public-contact-form-field">
                         <label for="public-contact-subject">Sujet</label>
@@ -821,6 +872,7 @@ function publicRouter(route) {
     switch (route) {
         case 'contact':
             container.innerHTML = renderPublicContact();
+            applyPublicContactPrefill();
             break;
         case 'fonctionnalites':
             container.innerHTML = renderPublicFeatures();
@@ -863,17 +915,18 @@ async function submitPublicContact(e) {
     e.preventDefault();
     const name = document.getElementById('public-contact-name')?.value?.trim();
     const email = document.getElementById('public-contact-email')?.value?.trim();
+    const phone = document.getElementById('public-contact-phone')?.value?.trim();
     const subject = document.getElementById('public-contact-subject')?.value?.trim();
     const message = document.getElementById('public-contact-message')?.value?.trim();
     if (!name || !email || !subject || !message) {
-        showToast('Veuillez remplir tous les champs', 'error');
+        showToast('Veuillez remplir tous les champs obligatoires', 'error');
         return;
     }
     try {
         const res = await fetch('/api/contact/public', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, subject, message })
+            body: JSON.stringify({ name, email, phone: phone || undefined, subject, message })
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
@@ -914,7 +967,17 @@ function initPublicSite() {
     const initialRoute = (hash && PUBLIC_ROUTES.includes(hash))
         ? hash
         : (trackingCode ? 'tracking' : 'home');
-    publicRouter(initialRoute);
+    const qs = new URLSearchParams(window.location.search);
+    const trialPlan = qs.get('plan');
+    if (qs.get('trial') === '1') {
+        window.__publicContactPrefill = buildTrialContactPrefill(trialPlan);
+        publicRouter('contact');
+        try {
+            history.replaceState(null, '', `${window.location.pathname}#contact`);
+        } catch (_) { /* ignore */ }
+    } else {
+        publicRouter(initialRoute);
+    }
 
     window.addEventListener('hashchange', () => {
         if (isAuthenticated) return;

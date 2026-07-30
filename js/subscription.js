@@ -145,7 +145,7 @@ function renderPublicPlansSection() {
         <div class="public-section-inner">
             <p class="public-page-eyebrow">Tarifs transparents</p>
             <h2 class="public-section-title" id="public-plans-title">Trois forfaits, une couverture complète</h2>
-            <p class="public-section-lead">Du transporteur solo à la PME multi-agences : choisissez le forfait adapté à votre volume. Essai Premium 30 jours offert · <strong>Sans engagement de durée</strong>.</p>
+            <p class="public-section-lead">Du transporteur solo à la PME multi-agences : choisissez le forfait adapté à votre volume. Essai Premium 30 jours sur demande · <strong>Sans engagement de durée</strong>.</p>
             ${renderPublicPlansComparison()}
             <div class="public-plans-cards mt-12">
                 ${renderPricingCards({ mode: 'public' })}
@@ -182,7 +182,7 @@ function renderPricingCards(options = {}) {
 
         let buttonHtml;
         if (mode === 'public') {
-            buttonHtml = `<a href="register.html?plan=${plan.id}" class="block w-full py-2.5 text-center ${plan.popular ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-blue-600 text-blue-600 hover:bg-blue-50'} rounded-lg font-semibold transition">Choisir ce forfait</a>`;
+            buttonHtml = `<button type="button" onclick="publicRouterContactTrial('${plan.id}')" class="block w-full py-2.5 text-center ${plan.popular ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-blue-600 text-blue-600 hover:bg-blue-50'} rounded-lg font-semibold transition">Demander un essai</button>`;
         } else if (selectedPlan === plan.id) {
             buttonHtml = `<div class="w-full py-2.5 text-center bg-green-50 border border-green-200 text-green-800 rounded-lg font-semibold">Votre forfait actuel</div>`;
         } else if (mode === 'app' && window.cachedSubscription?.needsPayment) {
@@ -202,7 +202,7 @@ function renderPricingCards(options = {}) {
     }).join('');
 
     return `<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">${cards}</div>
-        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>1 mois d'essai Premium offert</strong> à l'inscription · <strong>Sans engagement de durée</strong>.<br>
+        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>Essai Premium sur demande</strong> via le formulaire contact · <strong>Sans engagement de durée</strong>.<br>
         <span class="text-sm text-gray-500">Facturation mensuelle · Prélèvement SEPA via <strong>GoCardless</strong> · Résiliation possible à tout moment · Suppléments : +29 €/utilisateur PC · +19 €/chauffeur mobile / mois · +1,50 €/confirmation affrètement au-delà du quota (Indépendant & PME).</span></p>`;
 }
 
