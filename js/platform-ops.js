@@ -108,7 +108,12 @@ function applyPlatformOperatorShell(user) {
     const companyHeader = document.getElementById('header-company-name');
     if (companyHeader) {
         if (operator) {
-            companyHeader.textContent = 'Console opérateur — monitoring & maintenance';
+            const route = window.currentAppRoute || 'platform_ops';
+            const labels = {
+                platform_ops: 'Console opérateur — monitoring & maintenance',
+                platform_crm: 'CRM Clients — suivi de la clientèle',
+            };
+            companyHeader.textContent = labels[route] || labels.platform_ops;
             companyHeader.classList.remove('hidden');
         }
     }

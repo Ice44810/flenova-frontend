@@ -404,7 +404,7 @@ const PUBLIC_FAQ_ITEMS = [
         a: 'Non. Flenova est un abonnement mensuel sans engagement de durée minimale. La résiliation est possible moyennant un <strong>préavis d\'un mois</strong> (voir les CGV). <strong>Tout mois entamé est dû</strong>.'
     },
     {
-        q: 'Flenova remplace-t-il GedMouv pour les documents sous-traitants ?',
+        q: 'Flenova remplace-t-il Gedtrans pour les documents sous-traitants ?',
         a: 'Pour la conformité courante — assurance RC Pro, attestation URSSAF, alertes d\'expiration et blocage à l\'affrètement — oui, c\'est intégré dans Flenova. Vous évitez un abonnement séparé dédié à la gestion documentaire sous-traitants.'
     },
     {
@@ -603,6 +603,23 @@ function renderPublicCtaBand(title, subtitle) {
     </section>`;
 }
 
+function renderPublicModuleVisual(module) {
+    if (module.image) {
+        const alt = module.imageAlt || module.visualLabel || module.title.replace(/<[^>]+>/g, '');
+        return `<div class="public-module-visual">
+            <figure class="public-module-figure">
+                <img src="${module.image}" alt="${escapePublicHtml(alt)}" class="public-module-image" width="800" height="600" loading="lazy">
+            </figure>
+        </div>`;
+    }
+    return `<div class="public-module-visual" aria-hidden="true">
+        <div class="public-module-mock">
+            <i class="fa-solid ${module.icon}"></i>
+            <span>${escapePublicHtml(module.visualLabel)}</span>
+        </div>
+    </div>`;
+}
+
 function renderPublicModuleDetail(module) {
     const bullets = module.bullets.map((b) => `<li><i class="fa-solid fa-check" aria-hidden="true"></i>${escapePublicHtml(b)}</li>`).join('');
     return `<section class="public-module-section${module.reverse ? ' public-module-section--reverse' : ''}">
@@ -617,12 +634,7 @@ function renderPublicModuleDetail(module) {
                     <button type="button" class="public-pillar-link" onclick="publicRouter('contact')">Planifier une démo</button>
                 </div>
             </div>
-            <div class="public-module-visual" aria-hidden="true">
-                <div class="public-module-mock">
-                    <i class="fa-solid ${module.icon}"></i>
-                    <span>${escapePublicHtml(module.visualLabel)}</span>
-                </div>
-            </div>
+            ${renderPublicModuleVisual(module)}
         </div>
     </section>`;
 }
@@ -678,6 +690,8 @@ function renderPublicFeatures() {
             bullets: ['Ordres de transport et gestion des statuts', 'Planning visuel et affectation chauffeurs / véhicules', 'Affrètement sous-traitant avec confirmation PDF Factur-X', 'Documents sous-traitants : RC Pro, URSSAF et alertes d\'expiration', 'Tableau de bord CA, marges et indicateurs clés'],
             icon: 'fa-calendar-days',
             visualLabel: 'Planning & transports',
+            image: 'assets/feature-planning-transports.png',
+            imageAlt: 'Planning hebdomadaire et suivi des transports Flenova',
             reverse: false
         },
         {
@@ -687,6 +701,8 @@ function renderPublicFeatures() {
             bullets: ['Consultation des missions assignées', 'Confirmation d\'arrivée chargement / livraison', 'Signature électronique et POD', 'Documents scannés remontés instantanément'],
             icon: 'fa-mobile-screen-button',
             visualLabel: 'App mobile chauffeur',
+            image: 'assets/feature-mobile-chauffeur.png',
+            imageAlt: 'Application mobile chauffeur Flenova — missions et preuves de livraison',
             reverse: true
         },
         {
@@ -696,6 +712,8 @@ function renderPublicFeatures() {
             bullets: ['Préfacturation depuis les transports validés', 'Factures clients Factur-X et avoirs', 'Facture achat affrètement générée automatiquement', 'Export comptable CSV paramétrable'],
             icon: 'fa-file-invoice-dollar',
             visualLabel: 'Factur-X & export CSV',
+            image: 'assets/feature-facturx-export.png',
+            imageAlt: 'Facturation Factur-X et export comptable CSV Flenova',
             reverse: false
         }
     ];
@@ -705,7 +723,7 @@ function renderPublicFeatures() {
         { icon: 'fa-truck', title: 'Gestion de flotte', desc: 'Véhicules, maintenance, assurance et kilométrage.' },
         { icon: 'fa-building-user', title: 'Clients & CRM', desc: 'Fiches clients, contacts et historique des transports.' },
         { icon: 'fa-pallet', title: 'Palettes Europe', desc: 'Suivi des échanges et retours de palettes (forfaits PME+).' },
-        { icon: 'fa-handshake-angle', title: 'Sous-traitants', desc: 'Assurance, URSSAF, rappels d\'échéance — pas besoin de GedMouv en plus.' },
+        { icon: 'fa-handshake-angle', title: 'Sous-traitants', desc: 'Assurance, URSSAF, rappels d\'échéance — pas besoin de Gedtrans en plus.' },
         { icon: 'fa-users-gear', title: 'Multi-utilisateurs', desc: 'Rôles exploitant, manager, compta — droits par forfait.' }
     ];
 
@@ -5801,7 +5819,7 @@ async function router(route) {
         publicRouter(PUBLIC_ROUTES.includes(route) ? route : 'home');
         return;
     }
-    if (currentUser?.isPlatformAdmin && route !== 'platform_ops') {
+    if (currentUser?.isPlatformAdmin && route !== 'platform_ops' && route !== 'platform_crm') {
         route = 'platform_ops';
     }
     if (typeof canAccessRoute === 'function' && !canAccessRoute(route)) {
@@ -5816,11 +5834,11 @@ async function router(route) {
         showToast("Fonctionnalité non incluse dans votre forfait", "error");
         route = 'dashboard';
     }
-    if (route === 'platform_ops' && !currentUser?.isPlatformAdmin) {
+    if ((route === 'platform_ops' || route === 'platform_crm') && !currentUser?.isPlatformAdmin) {
         showToast("Accès réservé à l'équipe Flenova", "error");
         return;
     }
-    if (typeof showAppMaintenanceIfNeeded === 'function' && route !== 'platform_ops' && showAppMaintenanceIfNeeded(window.cachedPlatformStatus)) {
+    if (typeof showAppMaintenanceIfNeeded === 'function' && route !== 'platform_ops' && route !== 'platform_crm' && showAppMaintenanceIfNeeded(window.cachedPlatformStatus)) {
         return;
     }
     window.currentAppRoute = route;
@@ -6037,6 +6055,10 @@ async function router(route) {
             title = 'Console opérateur';
             content = typeof renderPlatformOpsPage === 'function' ? await renderPlatformOpsPage() : '';
             break;
+        case 'platform_crm':
+            title = 'CRM Clients';
+            content = typeof renderPlatformCrmPage === 'function' ? await renderPlatformCrmPage() : '';
+            break;
         case 'feedback':
             title = 'Vos retours';
             content = typeof renderFeedbackQuestionnairePage === 'function' ? renderFeedbackQuestionnairePage() : '';
@@ -6080,6 +6102,10 @@ async function router(route) {
 
     if (route === 'platform_ops' && typeof hydratePlatformOpsPage === 'function') {
         await hydratePlatformOpsPage();
+    }
+
+    if (route === 'platform_crm' && typeof hydratePlatformCrmPage === 'function') {
+        await hydratePlatformCrmPage();
     }
 
     pageTitle.textContent = title;
