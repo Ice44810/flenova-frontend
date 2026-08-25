@@ -160,9 +160,13 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     localStorage.removeItem('user');
 
     try {
+        const turnstile_token = typeof getTurnstileToken === 'function' ? getTurnstileToken() : undefined;
+        const body = { company_name: companyName, name, email, password, plan, privacy_accepted: true };
+        if (turnstile_token) body.turnstile_token = turnstile_token;
+
         const response = await apiFetch('auth/register', {
             method: 'POST',
-            body: { company_name: companyName, name, email, password, plan, privacy_accepted: true }
+            body
         });
 
         let result = {};
@@ -180,6 +184,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     } catch (err) {
         showToast('Impossible de contacter le serveur', 'error');
     } finally {
+        if (typeof resetTurnstileWidget === 'function') resetTurnstileWidget();
         btn.disabled = false;
         btn.innerHTML = originalText;
     }

@@ -16,9 +16,11 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dashboard-v2.css">
+    <link rel="stylesheet" href="css/a11y.css">
 </head>
 
 <body class="h-screen overflow-hidden text-gray-800">
+    <a href="#app-content" class="skip-link">Aller au contenu principal</a>
 
     <!-- SITE PUBLIC (visiteurs non authentifiés) -->
     <div id="public-screen" class="hidden h-screen flex flex-col overflow-hidden bg-white">
@@ -35,7 +37,7 @@
                         <button type="button" data-public-nav="tarifs" onclick="publicRouter('tarifs')" class="public-nav-btn">Tarifs</button>
                         <button type="button" data-public-nav="contact" onclick="publicRouter('contact')" class="public-nav-btn">Contact</button>
                     </nav>
-                    <a href="login.html" class="public-btn-connect">Se Connecter</a>
+                    <a href="login.html" class="public-btn-connect hidden lg:inline-flex">Se Connecter</a>
                 </div>
                 <a href="login.html" class="public-btn-connect public-btn-connect-mobile lg:hidden">Se Connecter</a>
             </div>
@@ -50,7 +52,7 @@
         <main id="public-content" class="public-content-area flex-1 min-h-0 overflow-y-auto"></main>
         <footer id="public-footer" class="public-footer py-6 text-center text-sm text-gray-500 border-t bg-gray-50">
             <p>© Flenova — TMS transport &amp; logistique</p>
-            <p class="mt-1 text-xs text-gray-400">support@flenova.fr · 02 99 00 00 00</p>
+            <p class="mt-1 text-xs text-gray-500">support@flenova.fr · 02 99 00 00 00</p>
             <div id="public-legal-footer" class="mt-3"></div>
         </footer>
     </div>
@@ -59,9 +61,9 @@
     <div id="app-screen" class="hidden flex h-full w-full">
 
         <!-- SIDEBAR -->
-        <aside class="w-64 bg-slate-900 text-white flex-col hidden md:flex shadow-xl z-20 h-full shrink-0">
+        <aside class="w-64 bg-slate-900 text-white flex-col hidden md:flex shadow-xl z-20 h-full shrink-0" aria-label="Navigation principale">
             <div class="h-16 flex items-center px-6 border-b border-slate-700 gap-2">
-        <img src="assets/flenova_icon_512.jpg" class="w-8 h-8">
+                <img src="assets/flenova_icon_512.jpg" alt="" class="w-8 h-8" aria-hidden="true">
                 <span class="text-xl font-bold tracking-wide">Flenova</span>
             </div>
 
@@ -70,24 +72,31 @@
                     <p class="px-6 text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2">Flenova — Opérations</p>
                     <ul class="space-y-1 mb-4">
                         <li id="nav-platform-ops" data-nav-route="platform_ops">
-                            <a href="#" onclick="router('platform_ops'); return false;"
+                            <button type="button" onclick="router('platform_ops')"
                                 class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-amber-300 border-r-4 border-transparent">
-                                <i class="fa-solid fa-tower-broadcast w-6"></i>
+                                <i class="fa-solid fa-tower-broadcast w-6" aria-hidden="true"></i>
                                 <span>Console opérateur</span>
-                            </a>
+                            </button>
+                        </li>
+                        <li id="nav-platform-crm" data-nav-route="platform_crm">
+                            <button type="button" onclick="router('platform_crm')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-amber-300 border-r-4 border-transparent">
+                                <i class="fa-solid fa-address-book w-6" aria-hidden="true"></i>
+                                <span>CRM Clients</span>
+                            </button>
                         </li>
                     </ul>
-                    <p class="px-6 text-xs text-slate-500 leading-relaxed">Monitoring plateforme, mode maintenance, bandeau public et accueil nouveaux clients.</p>
+                    <p class="px-6 text-xs text-slate-500 leading-relaxed">CRM clientèle & facturation Numelys, monitoring et maintenance plateforme.</p>
                 </div>
 
                 <div id="tenant-app-nav">
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Général</p>
+                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Général</p>
                 <ul class="space-y-1 mb-4">
-                    <li data-nav-route="dashboard"><a href="#" onclick="router('dashboard'); return false;"
+                    <li data-nav-route="dashboard"><button type="button" onclick="router('dashboard')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-chart-pie w-6"></i>
+                            <i class="fa-solid fa-chart-pie w-6" aria-hidden="true"></i>
                             <span>Tableau de bord</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
@@ -98,101 +107,101 @@
                         <i class="fa-solid fa-chevron-down sidebar-group-chevron ml-auto text-xs" aria-hidden="true"></i>
                     </button>
                     <ul id="sidebar-group-transports" class="sidebar-group-items space-y-0.5 mt-1">
-                        <li data-nav-route="transports"><a href="#" onclick="router('transports'); return false;"
+                        <li data-nav-route="transports"><button type="button" onclick="router('transports')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-list w-6"></i>
+                                <i class="fa-solid fa-list w-6" aria-hidden="true"></i>
                                 <span>Tous les transports</span>
-                            </a>
+                            </button>
                         </li>
-                        <li data-nav-route="planning"><a href="#" onclick="router('planning'); return false;"
+                        <li data-nav-route="planning"><button type="button" onclick="router('planning')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-calendar-days w-6"></i>
+                                <i class="fa-solid fa-calendar-days w-6" aria-hidden="true"></i>
                                 <span>Planning</span>
-                            </a>
+                            </button>
                         </li>
-                        <li data-nav-route="inprogress_transports"><a href="#" onclick="router('inprogress_transports'); return false;"
+                        <li data-nav-route="inprogress_transports"><button type="button" onclick="router('inprogress_transports')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-truck-moving w-6"></i>
+                                <i class="fa-solid fa-truck-moving w-6" aria-hidden="true"></i>
                                 <span>Transports En cours</span>
-                            </a>
+                            </button>
                         </li>
 
-                        <li data-nav-route="closed_transports"><a href="#" onclick="router('closed_transports'); return false;"
+                        <li data-nav-route="closed_transports"><button type="button" onclick="router('closed_transports')"
                             class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-lock w-6"></i>
+                            <i class="fa-solid fa-lock w-6" aria-hidden="true"></i>
                             <span>Transports clôturés</span>
-                            </a>
+                            </button>
                         </li>
 
-                        <li data-nav-route="cancelled_transports"><a href="#" onclick="router('cancelled_transports'); return false;"
+                        <li data-nav-route="cancelled_transports"><button type="button" onclick="router('cancelled_transports')"
                             class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-xmark w-6"></i>
+                            <i class="fa-solid fa-xmark w-6" aria-hidden="true"></i>
                             <span>Transports Annulés</span>
-                            </a>
+                            </button>
                         </li>
 
-                        <li data-nav-route="chartered_transports"><a href="#" onclick="router('chartered_transports'); return false;"
+                        <li data-nav-route="chartered_transports"><button type="button" onclick="router('chartered_transports')"
                             class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-cube w-6"></i>
+                            <i class="fa-solid fa-cube w-6" aria-hidden="true"></i>
                             <span>Transports affrétés</span>
-                            </a>
+                            </button>
                         </li>
 
-                        <li data-nav-route="completed_transports"><a href="#" onclick="router('completed_transports'); return false;"
+                        <li data-nav-route="completed_transports"><button type="button" onclick="router('completed_transports')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-circle-check w-6"></i>
+                                <i class="fa-solid fa-circle-check w-6" aria-hidden="true"></i>
                                 <span>Transports Réalisés</span>
-                            </a>
+                            </button>
                         </li>
-                        <li data-nav-route="disputes"><a href="#" onclick="router('disputes'); return false;"
+                        <li data-nav-route="disputes"><button type="button" onclick="router('disputes')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-scale-balanced w-6"></i>
+                                <i class="fa-solid fa-scale-balanced w-6" aria-hidden="true"></i>
                                 <span>Litiges</span>
-                            </a>
+                            </button>
                         </li>
                     </ul>
                 </div>
 
-<p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Ressources</p>
+<p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Ressources</p>
                 <ul class="space-y-1 mb-4">
-                    <li data-nav-route="drivers"><a href="#" onclick="router('drivers'); return false;"
+                    <li data-nav-route="drivers"><button type="button" onclick="router('drivers')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-id-card w-6"></i>
+                            <i class="fa-solid fa-id-card w-6" aria-hidden="true"></i>
                             <span>Chauffeurs</span>
-                        </a>
+                        </button>
                     </li>
-                    <li data-nav-route="fleet"><a href="#" onclick="router('fleet'); return false;"
+                    <li data-nav-route="fleet"><button type="button" onclick="router('fleet')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-truck w-6"></i>
+                            <i class="fa-solid fa-truck w-6" aria-hidden="true"></i>
                             <span>Flotte</span>
-                        </a>
+                        </button>
                     </li>
-                    <li data-nav-route="subcontractors"><a href="#" onclick="router('subcontractors'); return false;"
+                    <li data-nav-route="subcontractors"><button type="button" onclick="router('subcontractors')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-handshake w-6"></i>
+                            <i class="fa-solid fa-handshake w-6" aria-hidden="true"></i>
                             <span>Sous-traitants</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Clients</p>
+                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Clients</p>
                 <ul class="space-y-1 mb-4">
-                    <li data-nav-route="clients"><a href="#" onclick="router('clients'); return false;"
+                    <li data-nav-route="clients"><button type="button" onclick="router('clients')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-building-user w-6"></i>
+                            <i class="fa-solid fa-building-user w-6" aria-hidden="true"></i>
                             <span>Clients</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Finances & Admin</p>
+                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Finances & Admin</p>
                 <ul class="space-y-1 mb-4">
                     <li data-nav-route="preinvoicing">
-                        <a href="#" onclick="router('preinvoicing'); return false;"
+                        <button type="button" onclick="router('preinvoicing')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-file-circle-check w-6"></i>
+                            <i class="fa-solid fa-file-circle-check w-6" aria-hidden="true"></i>
                             <span>Préfacturation</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
@@ -203,91 +212,91 @@
                         <i class="fa-solid fa-chevron-down sidebar-group-chevron ml-auto text-xs" aria-hidden="true"></i>
                     </button>
                     <ul id="sidebar-group-sales-invoices" class="sidebar-group-items space-y-0.5 mt-1">
-                        <li data-nav-route="sales_invoices_validated"><a href="#" onclick="router('sales_invoices_validated'); return false;"
+                        <li data-nav-route="sales_invoices_validated"><button type="button" onclick="router('sales_invoices_validated')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-circle-check w-6"></i>
+                                <i class="fa-solid fa-circle-check w-6" aria-hidden="true"></i>
                                 <span>Factures validées</span>
-                            </a>
+                            </button>
                         </li>
-                        <li data-nav-route="sales_invoices_draft"><a href="#" onclick="router('sales_invoices_draft'); return false;"
+                        <li data-nav-route="sales_invoices_draft"><button type="button" onclick="router('sales_invoices_draft')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-file-pen w-6"></i>
+                                <i class="fa-solid fa-file-pen w-6" aria-hidden="true"></i>
                                 <span>Brouillon</span>
-                            </a>
+                            </button>
                         </li>
                     </ul>
                 </div>
 
                 <ul class="space-y-1 mb-4">
                     <li data-nav-route="purchase_invoices">
-                        <a href="#" onclick="router('purchase_invoices'); return false;"
+                        <button type="button" onclick="router('purchase_invoices')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-file-invoice w-6"></i>
+                            <i class="fa-solid fa-file-invoice w-6" aria-hidden="true"></i>
                             <span>Factures Achats</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Comptabilité</p>
+                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Comptabilité</p>
                 <ul class="space-y-1 mb-4">
                     <li data-nav-route="accounting_export">
-                        <a href="#" onclick="router('accounting_export'); return false;"
+                        <button type="button" onclick="router('accounting_export')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-file-csv w-6"></i>
+                            <i class="fa-solid fa-file-csv w-6" aria-hidden="true"></i>
                             <span>Export comptable</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Analyse</p>
+                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Analyse</p>
                 <ul class="space-y-1 mb-4">
-                    <li data-nav-route="margin_dashboard"><a href="#" onclick="router('margin_dashboard'); return false;"
+                    <li data-nav-route="margin_dashboard"><button type="button" onclick="router('margin_dashboard')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-chart-line w-6"></i>
+                            <i class="fa-solid fa-chart-line w-6" aria-hidden="true"></i>
                             <span>Marge</span>
-                        </a>
+                        </button>
                     </li>
-                    <li data-nav-route="quotation"><a href="#" onclick="router('quotation'); return false;"
+                    <li data-nav-route="quotation"><button type="button" onclick="router('quotation')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-calculator w-6"></i>
+                            <i class="fa-solid fa-calculator w-6" aria-hidden="true"></i>
                             <span>Calculateur</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Administration</p>
+                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Administration</p>
                 <ul class="space-y-1 mb-4">
                     <li data-nav-route="pricing" data-role="admin">
-                        <a href="#" onclick="router('pricing'); return false;"
+                        <button type="button" onclick="router('pricing')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-credit-card w-6"></i>
+                            <i class="fa-solid fa-credit-card w-6" aria-hidden="true"></i>
                             <span>Mon abonnement</span>
-                        </a>
+                        </button>
                     </li>
                     <li data-nav-route="admin">
-                        <a href="#" onclick="router('admin'); return false;"
+                        <button type="button" onclick="router('admin')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-lock w-6"></i>
+                            <i class="fa-solid fa-lock w-6" aria-hidden="true"></i>
                             <span>Administration</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Durabilité &amp; RSE</p>
+                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Durabilité &amp; RSE</p>
                 <ul class="space-y-1 mb-4">
                     <li data-nav-route="sustainability">
-                        <a href="#" onclick="router('sustainability'); return false;"
+                        <button type="button" onclick="router('sustainability')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-leaf w-6"></i>
+                            <i class="fa-solid fa-leaf w-6" aria-hidden="true"></i>
                             <span>Durabilité</span>
-                        </a>
+                        </button>
                     </li>
                     <li data-nav-route="rse_compliance">
-                        <a href="#" onclick="router('rse_compliance'); return false;"
+                        <button type="button" onclick="router('rse_compliance')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-scale-balanced w-6"></i>
+                            <i class="fa-solid fa-scale-balanced w-6" aria-hidden="true"></i>
                             <span>Conformité RSE</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
 
@@ -299,51 +308,51 @@
                     </button>
                     <ul id="sidebar-group-support" class="sidebar-group-items space-y-0.5 mt-1">
                         <li data-nav-route="onboarding">
-                            <a href="#" onclick="router('onboarding'); return false;"
+                            <button type="button" onclick="router('onboarding')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-rocket w-6"></i>
+                                <i class="fa-solid fa-rocket w-6" aria-hidden="true"></i>
                                 <span>Prise en main</span>
-                            </a>
+                            </button>
                         </li>
                         <li data-nav-route="feedback">
-                            <a href="#" onclick="router('feedback'); return false;"
+                            <button type="button" onclick="router('feedback')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-comment-dots w-6"></i>
+                                <i class="fa-solid fa-comment-dots w-6" aria-hidden="true"></i>
                                 <span>Vos retours</span>
-                            </a>
+                            </button>
                         </li>
                         <li data-nav-route="solutions">
-                            <a href="#" onclick="router('solutions'); return false;"
+                            <button type="button" onclick="router('solutions')"
                                 class="nav-item nav-item-sub nav-item-muted flex items-center py-2.5 transition-colors text-gray-500 opacity-60 border-r-4 border-transparent cursor-pointer"
                                 title="Présentation marketing — même contenu que le site public">
-                                <i class="fa-solid fa-lightbulb w-6"></i>
+                                <i class="fa-solid fa-lightbulb w-6" aria-hidden="true"></i>
                                 <span>Nos Solutions</span>
-                            </a>
+                            </button>
                         </li>
                         <li data-nav-route="contact">
-                            <a href="#" onclick="router('contact'); return false;"
+                            <button type="button" onclick="router('contact')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-headset w-6"></i>
+                                <i class="fa-solid fa-headset w-6" aria-hidden="true"></i>
                                 <span>Contact & Aide</span>
-                            </a>
+                            </button>
                         </li>
                         <li data-nav-route="about">
-                            <a href="#" onclick="router('about'); return false;"
+                            <button type="button" onclick="router('about')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-info-circle w-6"></i>
+                                <i class="fa-solid fa-info-circle w-6" aria-hidden="true"></i>
                                 <span>À propos</span>
-                            </a>
+                            </button>
                         </li>
                     </ul>
                 </div>
 
                 <ul class="space-y-1">
                     <li data-nav-route="privacy">
-                        <a href="#" onclick="router('privacy'); return false;"
+                        <button type="button" onclick="router('privacy')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-shield-halved w-6"></i>
+                            <i class="fa-solid fa-shield-halved w-6" aria-hidden="true"></i>
                             <span>Mes données</span>
-                        </a>
+                        </button>
                     </li>
                 </ul>
                 </div>
@@ -363,14 +372,13 @@
                         <i class="fa-solid fa-power-off"></i>
                         <span>Déconnexion</span>
                     </button>
-                    <img src="https://picsum.photos/seed/admin/40/40"
-                        class="w-10 h-10 rounded-full border border-gray-200">
+                    <img id="header-user-avatar" src="assets/flenova_icon_512.jpg" alt="" class="w-10 h-10 rounded-full border border-gray-200" width="40" height="40">
                 </div>
             </header>
             <div id="demo-banner" class="hidden shrink-0 bg-gradient-to-r from-purple-700 to-blue-600 text-white px-6 py-2.5 text-sm">
                 <span id="demo-banner-text"><i class="fa-solid fa-gift mr-2"></i>Essai Premium en cours</span>
             </div>
-            <div id="app-content" class="flex-1 overflow-auto p-6"></div>
+            <div id="app-content" class="flex-1 overflow-auto p-6" tabindex="-1"></div>
         </main>
     </div>
 
@@ -381,26 +389,26 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Modifier la Mission #<span id="edit-mission-id-display"></span></h3>
-                <button onclick="closeEditMissionModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeEditMissionModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4">
                 <input type="hidden" id="edit-mission-id">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>
+                    <label for="edit-mission-driver" class="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>
                     <select id="edit-mission-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Véhicule</label>
+                    <label for="edit-mission-vehicle" class="block text-sm font-medium text-gray-700 mb-1">Véhicule</label>
                     <select id="edit-mission-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                        <input type="date" id="edit-mission-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-mission-date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <input type="date" id="edit-mission-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Heure de livraison prévue</label>
-                        <input type="time" id="edit-mission-delivery-time" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-mission-delivery-time" class="block text-sm font-medium text-gray-700 mb-1">Heure de livraison prévue</label>
+                    <input type="time" id="edit-mission-delivery-time" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
             </div>
@@ -419,7 +427,7 @@
                     <h3 class="font-bold text-lg text-gray-800">Nouvelle Commande</h3>
                     <p class="text-xs text-gray-500 mt-0.5">Réf. auto : <span id="add-order-ref-display" class="font-mono font-semibold text-gray-700">…</span></p>
                 </div>
-                <button onclick="closeAddOrderModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeAddOrderModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="px-6 pt-4 pb-2 flex flex-wrap items-center gap-2 border-b border-gray-100 bg-gray-50/80">
                 <div class="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
@@ -436,39 +444,39 @@
             <div class="p-6 space-y-4 overflow-y-auto" id="add-order-form-body">
                 <input type="hidden" id="add-order-ref">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Client / Donneur d'ordre *</label>
+                    <label for="add-order-client" class="block text-sm font-medium text-gray-700 mb-1">Client / Donneur d'ordre *</label>
                     <select id="add-order-client" onchange="applyClientHintsToOrderForm()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de Chargement *</label>
-                        <input type="text" id="add-order-origin" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Adresse de chargement">
+                        <label for="add-order-origin" class="block text-sm font-medium text-gray-700 mb-1">Lieu de Chargement *</label>
+                    <input type="text" id="add-order-origin" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Adresse de chargement">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de Livraison *</label>
-                        <input type="text" id="add-order-dest" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Adresse de livraison">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de Chargement *</label>
-                        <input type="date" id="add-order-load-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de Livraison</label>
-                        <input type="date" id="add-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-order-dest" class="block text-sm font-medium text-gray-700 mb-1">Lieu de Livraison *</label>
+                    <input type="text" id="add-order-dest" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Adresse de livraison">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
-                        <input type="number" id="add-order-price" oninput="updateAddOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                        <label for="add-order-load-date" class="block text-sm font-medium text-gray-700 mb-1">Date de Chargement *</label>
+                    <input type="date" id="add-order-load-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="add-order-delivery-date" class="block text-sm font-medium text-gray-700 mb-1">Date de Livraison</label>
+                    <input type="date" id="add-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="add-order-price" class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
+                    <input type="number" id="add-order-price" oninput="updateAddOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                     </div>
                 </div>
 
                 <div id="add-order-assignment-block" class="border border-gray-200 rounded-lg p-4 bg-gray-50">
                     <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Affectation (optionnel)</h4>
-                    <div id="add-order-assignment-subcontractor-toggle" class="hidden flex flex-wrap gap-4 mb-4">
+                    <div id="add-order-assignment-subcontractor-toggle" class="hidden flex flex-wrap gap-4 mb-4" role="radiogroup" aria-label="Type d'affectation">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name="add-order-assignment" value="INTERNAL" checked onchange="toggleAddOrderAssignment()" class="text-blue-600 focus:ring-blue-500">
                             <span class="text-sm text-gray-700">Flotte interne</span>
@@ -480,40 +488,40 @@
                     </div>
                     <div id="add-order-internal-fields" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>
+                            <label for="add-order-driver" class="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>
                             <select id="add-order-driver" onchange="applyDriverFleetToOrder('add-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">— Plus tard —</option>
                             </select>
                         </div>
                         <div id="add-order-vehicle-wrap" class="hidden">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
-                            <select id="add-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="add-order-vehicle" class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
+                    <select id="add-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">-- Auto / manuel --</option>
                             </select>
                             <p class="text-xs text-gray-500 mt-1">Rempli depuis la fiche chauffeur si vide.</p>
                         </div>
                         <div id="add-order-trailer-wrap" class="hidden">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
-                            <select id="add-order-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="add-order-trailer" class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
+                    <select id="add-order-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">-- Auto / manuel --</option>
                             </select>
                         </div>
                     </div>
                     <div id="add-order-subcontractor-fields" class="hidden space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant</label>
-                            <select id="add-order-subcontractor" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="add-order-subcontractor" class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant</label>
+                    <select id="add-order-subcontractor" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">-- Sélectionner --</option>
                             </select>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€)</label>
-                                <input type="number" id="add-order-purchase-price" min="0" step="0.01" oninput="updateAddOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                <label for="add-order-purchase-price" class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€)</label>
+                    <input type="number" id="add-order-purchase-price" min="0" step="0.01" oninput="updateAddOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Marge estimée</label>
-                                <div id="add-order-margin-display" class="w-full border border-gray-200 rounded-md p-2 bg-white text-green-700 font-bold">0,00 €</div>
+                                <p id="add-order-margin-label" class="block text-sm font-medium text-gray-700 mb-1">Marge estimée</p>
+                                <div id="add-order-margin-display" class="w-full border border-gray-200 rounded-md p-2 bg-white text-green-700 font-bold" role="status" aria-labelledby="add-order-margin-label">0,00 €</div>
                             </div>
                         </div>
                     </div>
@@ -521,39 +529,39 @@
 
                 <div id="add-order-advanced-sections" class="hidden space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nature de la Marchandise</label>
+                    <label for="add-order-cargo" class="block text-sm font-medium text-gray-700 mb-1">Nature de la Marchandise</label>
                     <input type="text" id="add-order-cargo" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Marchandises générales, Palette, etc.">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Type de transport</label>
-                        <select id="add-order-transport-mode" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-order-transport-mode" class="block text-sm font-medium text-gray-700 mb-1">Type de transport</label>
+                    <select id="add-order-transport-mode" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="FTL">Lot complet (FTL)</option>
                             <option value="LTL">Demi-lot (LTL)</option>
                             <option value="GROUPAGE">Groupage / Messagerie</option>
                         </select>
                     </div>
                     <div id="add-order-agency-wrap">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Agence</label>
-                        <select id="add-order-agency" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-order-agency" class="block text-sm font-medium text-gray-700 mb-1">Agence</label>
+                    <select id="add-order-agency" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="">— Par défaut —</option>
                         </select>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Poids réel (kg)</label>
-                        <input type="number" id="add-order-weight" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                        <label for="add-order-weight" class="block text-sm font-medium text-gray-700 mb-1">Poids réel (kg)</label>
+                    <input type="number" id="add-order-weight" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Volume (m³)</label>
-                        <input type="number" id="add-order-volume" step="0.01" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                        <label for="add-order-volume" class="block text-sm font-medium text-gray-700 mb-1">Volume (m³)</label>
+                    <input type="number" id="add-order-volume" step="0.01" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
-                        <select id="add-order-pallet-type" onchange="toggleOrderPalletFields('add-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-order-pallet-type" class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
+                    <select id="add-order-pallet-type" onchange="toggleOrderPalletFields('add-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="palette_europe">Palette Europe</option>
                             <option value="palette_classique">Palette Classique</option>
                             <option value="caisse">Caisse</option>
@@ -565,8 +573,8 @@
                     <h4 class="text-sm font-bold text-teal-800"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre de palettes</label>
-                            <input type="number" id="add-order-pallet-count" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
+                            <label for="add-order-pallet-count" class="block text-sm font-medium text-gray-700 mb-1">Nombre de palettes</label>
+                    <input type="number" id="add-order-pallet-count" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
                         </div>
                         <div class="flex items-end pb-2">
                             <label class="flex items-center gap-2 cursor-pointer">
@@ -576,7 +584,7 @@
                         </div>
                     </div>
                     <div id="add-order-pallets-returned-wrap" class="hidden">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Palettes rendues</label>
+                        <label for="add-order-pallets-returned" class="block text-sm font-medium text-gray-700 mb-1">Palettes rendues</label>
                         <input type="number" id="add-order-pallets-returned" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
                     </div>
                 </div>
@@ -584,22 +592,22 @@
                     <h4 class="text-sm font-bold text-blue-800"><i class="fa-solid fa-file-contract mr-1"></i> Informations CMR</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Destinataire (nom CMR)</label>
-                            <input type="text" id="add-order-consignee" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Si différent du client">
+                            <label for="add-order-consignee" class="block text-sm font-medium text-gray-700 mb-1">Destinataire (nom CMR)</label>
+                    <input type="text" id="add-order-consignee" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Si différent du client">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Réf. expéditeur CMR</label>
-                            <input type="text" id="add-order-shipper-ref" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Identique à la référence commande si vide">
+                            <label for="add-order-shipper-ref" class="block text-sm font-medium text-gray-700 mb-1">Réf. expéditeur CMR</label>
+                    <input type="text" id="add-order-shipper-ref" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Identique à la référence commande si vide">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Pays de chargement</label>
-                            <input type="text" id="add-order-origin-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="add-order-origin-country" class="block text-sm font-medium text-gray-700 mb-1">Pays de chargement</label>
+                    <input type="text" id="add-order-origin-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Pays de livraison</label>
-                            <input type="text" id="add-order-dest-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="add-order-dest-country" class="block text-sm font-medium text-gray-700 mb-1">Pays de livraison</label>
+                    <input type="text" id="add-order-dest-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
@@ -618,21 +626,21 @@
                     </div>
                     <div id="add-order-adr-fields" class="hidden grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Classe ADR</label>
+                            <label for="add-order-adr-class" class="block text-sm font-medium text-gray-700 mb-1">Classe ADR</label>
                             <input type="text" id="add-order-adr-class" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="ex. 3">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">N° ONU</label>
-                            <input type="text" id="add-order-adr-un" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="ex. 1203">
+                            <label for="add-order-adr-un" class="block text-sm font-medium text-gray-700 mb-1">N° ONU</label>
+                    <input type="text" id="add-order-adr-un" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="ex. 1203">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Instructions expéditeur</label>
-                        <textarea id="add-order-notes" rows="2" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Consignes particulières pour le transport"></textarea>
+                        <label for="add-order-notes" class="block text-sm font-medium text-gray-700 mb-1">Instructions expéditeur</label>
+                    <textarea id="add-order-notes" rows="2" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Consignes particulières pour le transport"></textarea>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur au déchargement (optionnel)</label>
-                        <select id="add-order-unload-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-order-unload-driver" class="block text-sm font-medium text-gray-700 mb-1">Chauffeur au déchargement (optionnel)</label>
+                    <select id="add-order-unload-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="">-- Même chauffeur --</option>
                         </select>
                     </div>
@@ -654,49 +662,49 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Modifier la Commande #<span id="edit-order-ref-display"></span></h3>
-                <button onclick="closeEditOrderModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeEditOrderModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4 overflow-y-auto">
                 <input type="hidden" id="edit-order-id">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Référence Commande</label>
-                        <input type="text" id="edit-order-ref" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" readonly>
+                        <label for="edit-order-ref" class="block text-sm font-medium text-gray-700 mb-1">Référence Commande</label>
+                    <input type="text" id="edit-order-ref" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" readonly>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Client / Donneur d'ordre</label>
-                        <select id="edit-order-client" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                        <label for="edit-order-client" class="block text-sm font-medium text-gray-700 mb-1">Client / Donneur d'ordre</label>
+                    <select id="edit-order-client" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nature de la Marchandise</label>
+                    <label for="edit-order-cargo" class="block text-sm font-medium text-gray-700 mb-1">Nature de la Marchandise</label>
                     <input type="text" id="edit-order-cargo" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de Chargement</label>
-                        <input type="text" id="edit-order-origin" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-order-origin" class="block text-sm font-medium text-gray-700 mb-1">Lieu de Chargement</label>
+                    <input type="text" id="edit-order-origin" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Lieu de Livraison</label>
-                        <input type="text" id="edit-order-dest" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-order-dest" class="block text-sm font-medium text-gray-700 mb-1">Lieu de Livraison</label>
+                    <input type="text" id="edit-order-dest" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de Chargement</label>
-                        <input type="date" id="edit-order-load-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-order-load-date" class="block text-sm font-medium text-gray-700 mb-1">Date de Chargement</label>
+                    <input type="date" id="edit-order-load-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Date de Livraison</label>
-                        <input type="date" id="edit-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-order-delivery-date" class="block text-sm font-medium text-gray-700 mb-1">Date de Livraison</label>
+                    <input type="date" id="edit-order-delivery-date" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
                 <!-- Affectation transport -->
                 <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
                     <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Affectation transport</h4>
                     <p class="text-xs text-gray-500 mb-3">Réaffectez la commande à un autre sous-traitant ou à un chauffeur de votre flotte.</p>
-                    <div class="flex flex-wrap gap-4 mb-4">
+                    <div class="flex flex-wrap gap-4 mb-4" role="radiogroup" aria-label="Type d'affectation transport">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name="edit-order-assignment" value="INTERNAL" checked onchange="toggleEditOrderAssignment()" class="text-blue-600 focus:ring-blue-500">
                             <span class="text-sm text-gray-700">Flotte interne</span>
@@ -708,51 +716,51 @@
                     </div>
                     <div id="edit-order-internal-fields" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                            <label for="edit-order-driver" class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
                             <select id="edit-order-driver" onchange="applyDriverFleetToOrder('edit-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">-- Sélectionner un chauffeur --</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
-                            <select id="edit-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="edit-order-vehicle" class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
+                    <select id="edit-order-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">-- Auto / manuel --</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
-                            <select id="edit-order-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="edit-order-trailer" class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
+                    <select id="edit-order-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">-- Auto / manuel --</option>
                             </select>
                         </div>
                     </div>
                     <div id="edit-order-subcontractor-fields" class="hidden space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant</label>
-                            <select id="edit-order-subcontractor" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="edit-order-subcontractor" class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant</label>
+                    <select id="edit-order-subcontractor" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">-- Sélectionner --</option>
                             </select>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€)</label>
-                                <input type="number" id="edit-order-purchase-price" min="0" step="0.01" oninput="updateEditOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                                <label for="edit-order-purchase-price" class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€)</label>
+                    <input type="number" id="edit-order-purchase-price" min="0" step="0.01" oninput="updateEditOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Marge estimée</label>
-                                <div id="edit-order-margin-display" class="w-full border border-gray-200 rounded-md p-2 bg-white text-green-700 font-bold">0,00 €</div>
+                                <p id="edit-order-margin-label" class="block text-sm font-medium text-gray-700 mb-1">Marge estimée</p>
+                                <div id="edit-order-margin-display" class="w-full border border-gray-200 rounded-md p-2 bg-white text-green-700 font-bold" role="status" aria-labelledby="edit-order-margin-label">0,00 €</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Poids (kg)</label>
+                        <label for="edit-order-weight" class="block text-sm font-medium text-gray-700 mb-1">Poids (kg)</label>
                         <input type="number" id="edit-order-weight" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
-                        <select id="edit-order-pallet-type" onchange="toggleOrderPalletFields('edit-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-order-pallet-type" class="block text-sm font-medium text-gray-700 mb-1">Type Support</label>
+                    <select id="edit-order-pallet-type" onchange="toggleOrderPalletFields('edit-order')" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="palette_europe">Palette Europe</option>
                             <option value="palette_classique">Palette Classique</option>
                             <option value="caisse">Caisse</option>
@@ -760,16 +768,16 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
-                        <input type="number" id="edit-order-price" oninput="updateEditOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-order-price" class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
+                    <input type="number" id="edit-order-price" oninput="updateEditOrderMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
                 <div id="edit-order-pallet-fields" class="border border-teal-200 rounded-lg p-4 bg-teal-50 space-y-3">
                     <h4 class="text-sm font-bold text-teal-800"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre de palettes</label>
-                            <input type="number" id="edit-order-pallet-count" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
+                            <label for="edit-order-pallet-count" class="block text-sm font-medium text-gray-700 mb-1">Nombre de palettes</label>
+                    <input type="number" id="edit-order-pallet-count" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
                         </div>
                         <div class="flex items-end pb-2">
                             <label class="flex items-center gap-2 cursor-pointer">
@@ -779,7 +787,7 @@
                         </div>
                     </div>
                     <div id="edit-order-pallets-returned-wrap" class="hidden">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Palettes rendues</label>
+                        <label for="edit-order-pallets-returned" class="block text-sm font-medium text-gray-700 mb-1">Palettes rendues</label>
                         <input type="number" id="edit-order-pallets-returned" min="0" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" value="0">
                     </div>
                 </div>
@@ -787,28 +795,28 @@
                     <h4 class="text-sm font-bold text-blue-800"><i class="fa-solid fa-file-contract mr-1"></i> Informations CMR</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Destinataire (nom CMR)</label>
-                            <input type="text" id="edit-order-consignee" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Si différent du client">
+                            <label for="edit-order-consignee" class="block text-sm font-medium text-gray-700 mb-1">Destinataire (nom CMR)</label>
+                    <input type="text" id="edit-order-consignee" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Si différent du client">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Réf. expéditeur CMR</label>
-                            <input type="text" id="edit-order-shipper-ref" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Identique à la référence commande si vide">
+                            <label for="edit-order-shipper-ref" class="block text-sm font-medium text-gray-700 mb-1">Réf. expéditeur CMR</label>
+                    <input type="text" id="edit-order-shipper-ref" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Identique à la référence commande si vide">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Pays de chargement</label>
-                            <input type="text" id="edit-order-origin-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="edit-order-origin-country" class="block text-sm font-medium text-gray-700 mb-1">Pays de chargement</label>
+                    <input type="text" id="edit-order-origin-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Pays de livraison</label>
-                            <input type="text" id="edit-order-dest-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="edit-order-dest-country" class="block text-sm font-medium text-gray-700 mb-1">Pays de livraison</label>
+                    <input type="text" id="edit-order-dest-country" value="France" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Volume (m³)</label>
-                            <input type="number" id="edit-order-volume" min="0" step="0.001" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+                            <label for="edit-order-volume" class="block text-sm font-medium text-gray-700 mb-1">Volume (m³)</label>
+                    <input type="number" id="edit-order-volume" min="0" step="0.001" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                         </div>
                         <div class="flex items-end pb-2">
                             <label class="flex items-center gap-2 cursor-pointer">
@@ -825,27 +833,27 @@
                     </div>
                     <div id="edit-order-adr-fields" class="hidden grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Classe ADR</label>
+                            <label for="edit-order-adr-class" class="block text-sm font-medium text-gray-700 mb-1">Classe ADR</label>
                             <input type="text" id="edit-order-adr-class" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="ex. 3">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">N° ONU</label>
-                            <input type="text" id="edit-order-adr-un" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="ex. 1203">
+                            <label for="edit-order-adr-un" class="block text-sm font-medium text-gray-700 mb-1">N° ONU</label>
+                    <input type="text" id="edit-order-adr-un" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="ex. 1203">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Instructions expéditeur</label>
-                        <textarea id="edit-order-notes" rows="2" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Consignes particulières pour le transport"></textarea>
+                        <label for="edit-order-notes" class="block text-sm font-medium text-gray-700 mb-1">Instructions expéditeur</label>
+                    <textarea id="edit-order-notes" rows="2" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Consignes particulières pour le transport"></textarea>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur au déchargement (optionnel)</label>
-                        <select id="edit-order-unload-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="edit-order-unload-driver" class="block text-sm font-medium text-gray-700 mb-1">Chauffeur au déchargement (optionnel)</label>
+                    <select id="edit-order-unload-driver" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="">-- Même chauffeur --</option>
                         </select>
                     </div>
                 </div>
                 <div id="edit-order-status-wrap">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <label for="edit-order-status" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
                     <select id="edit-order-status" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></select>
                     <p id="edit-order-status-readonly" class="hidden text-sm text-gray-600 mt-1"></p>
                 </div>
@@ -868,48 +876,48 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="client-modal-title" class="font-bold text-lg text-gray-800">Nouveau Client</h3>
-                <button onclick="closeAddClientModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeAddClientModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4 overflow-y-auto">
                 <input type="hidden" id="edit-client-id">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nom du Client</label>
+                    <label for="add-client-name" class="block text-sm font-medium text-gray-700 mb-1">Nom du Client</label>
                     <input type="text" id="add-client-name" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">SIRET</label>
+                    <label for="add-client-siret" class="block text-sm font-medium text-gray-700 mb-1">SIRET</label>
                     <input type="text" id="add-client-siret" maxlength="14" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <input type="email" id="add-client-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-client-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="add-client-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Mail Comptabilité</label>
-                        <input type="email" id="add-client-accounting-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="compta@client.fr">
+                        <label for="add-client-accounting-email" class="block text-sm font-medium text-gray-700 mb-1">Mail Comptabilité</label>
+                    <input type="email" id="add-client-accounting-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="compta@client.fr">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                    <label for="add-client-phone" class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
                     <input type="tel" id="add-client-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                    <label for="add-client-address" class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
                     <input type="text" id="add-client-address" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Numéro TVA</label>
-                        <input type="text" id="add-client-tva" placeholder="FR12345678901" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-client-tva" class="block text-sm font-medium text-gray-700 mb-1">Numéro TVA</label>
+                    <input type="text" id="add-client-tva" placeholder="FR12345678901" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom du Contact</label>
-                        <input type="text" id="add-client-contact-name" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-client-contact-name" class="block text-sm font-medium text-gray-700 mb-1">Nom du Contact</label>
+                    <input type="text" id="add-client-contact-name" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Type de Contact</label>
+                    <label for="add-client-contact-type" class="block text-sm font-medium text-gray-700 mb-1">Type de Contact</label>
                     <select id="add-client-contact-type" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="Exploitant">Exploitant</option>
                         <option value="Comptabilité">Comptabilité</option>
@@ -930,7 +938,7 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Fiche Chauffeur</h3>
-                <button onclick="closeDriverCardModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeDriverCardModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4" id="driver-card-content">
                 <!-- Content populated by JS -->
@@ -948,33 +956,33 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="driver-modal-title" class="font-bold text-lg text-gray-800">Nouveau Chauffeur</h3>
-                <button onclick="closeDriverModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeDriverModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <form onsubmit="submitDriver(event)" class="flex-1 flex flex-col overflow-hidden">
                 <div class="p-6 space-y-4 overflow-y-auto">
                     <input type="hidden" id="edit-driver-id">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
-                        <input type="text" id="driver-name" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="driver-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+                    <input type="text" id="driver-name" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                            <input type="tel" id="driver-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="driver-phone" class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                    <input type="tel" id="driver-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Permis</label>
-                            <input type="text" id="driver-license" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="driver-license" class="block text-sm font-medium text-gray-700 mb-1">Permis</label>
+                    <input type="text" id="driver-license" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Expiration permis</label>
-                            <input type="date" id="driver-license-expiry" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="driver-license-expiry" class="block text-sm font-medium text-gray-700 mb-1">Expiration permis</label>
+                    <input type="date" id="driver-license-expiry" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                            <select id="driver-status" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                            <label for="driver-status" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <select id="driver-status" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="Disponible">Disponible</option>
                                 <option value="En mission">En mission</option>
                                 <option value="Repos">Repos</option>
@@ -983,35 +991,35 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Scan permis (PDF/Image)</label>
-                        <input type="file" id="driver-license-file" accept=".pdf,image/*" class="w-full border border-gray-300 rounded-md p-1.5 text-sm">
+                        <label for="driver-license-file" class="block text-sm font-medium text-gray-700 mb-1">Scan permis (PDF/Image)</label>
+                    <input type="file" id="driver-license-file" accept=".pdf,image/*" class="w-full border border-gray-300 rounded-md p-1.5 text-sm">
                         <div id="driver-license-ocr-hint"></div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                        <input type="text" id="driver-address" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="driver-address" class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                    <input type="text" id="driver-address" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div class="border border-blue-100 rounded-lg p-4 bg-blue-50/50">
                         <h4 class="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">Flotte habituelle</h4>
                         <p class="text-xs text-gray-500 mb-3">Ces véhicules seront proposés automatiquement sur les missions assignées à ce chauffeur.</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
-                                <select id="driver-default-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <label for="driver-default-vehicle" class="block text-sm font-medium text-gray-700 mb-1">Camion</label>
+                    <select id="driver-default-vehicle" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">— Aucun —</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
-                                <select id="driver-default-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                                <label for="driver-default-trailer" class="block text-sm font-medium text-gray-700 mb-1">Remorque</label>
+                    <select id="driver-default-trailer" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">— Aucune —</option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                        <textarea id="driver-notes" rows="3" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        <label for="driver-notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea id="driver-notes" rows="3" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
                     </div>
                     <div id="driver-mobile-section" class="bg-teal-50 border border-teal-200 rounded-lg p-4">
                         <div id="driver-mobile-option" class="flex items-start gap-3">
@@ -1027,7 +1035,7 @@
                             <i class="fa-solid fa-circle-info mr-1"></i>Un code unique sera créé à l'enregistrement.
                         </p>
                         <div id="driver-invite-display" class="hidden mt-3 ml-7">
-                            <label class="block text-xs font-semibold text-teal-900 mb-1">Code d'activation</label>
+                            <label for="driver-invite-code" class="block text-xs font-semibold text-teal-900 mb-1">Code d'activation</label>
                             <div class="flex gap-2 items-center flex-wrap">
                                 <input type="text" id="driver-invite-code" readonly class="flex-1 min-w-[180px] font-mono font-bold text-lg text-teal-900 bg-white border border-teal-300 rounded-md p-2">
                                 <button type="button" onclick="copyDriverInviteCode()" class="px-3 py-2 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 whitespace-nowrap">
@@ -1059,28 +1067,28 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="add-vehicle-modal-title" class="font-bold text-lg text-gray-800">Ajouter un véhicule</h3>
-                <button onclick="closeAddVehicleModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeAddVehicleModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <label for="add-vehicle-type" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
                     <select id="add-vehicle-type" onchange="syncVehicleTypeFields('add')" class="w-full border border-gray-300 rounded-md p-2">
                         <option value="TRUCK">Camion</option>
                         <option value="TRAILER">Remorque</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Immatriculation</label>
+                    <label for="add-vehicle-plate" class="block text-sm font-medium text-gray-700 mb-1">Immatriculation</label>
                     <input type="text" id="add-vehicle-plate" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="AA-123-BB">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Modèle</label>
+                    <label for="add-vehicle-model" class="block text-sm font-medium text-gray-700 mb-1">Modèle</label>
                     <input type="text" id="add-vehicle-model" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Volvo FH">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div id="add-vehicle-fuel-wrap">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Carburant</label>
-                        <select id="add-vehicle-fuel" class="w-full border border-gray-300 rounded-md p-2">
+                        <label for="add-vehicle-fuel" class="block text-sm font-medium text-gray-700 mb-1">Carburant</label>
+                    <select id="add-vehicle-fuel" class="w-full border border-gray-300 rounded-md p-2">
                             <option value="Diesel">Diesel</option>
                             <option value="Essence">B100</option>
                             <option value="Électrique">Électrique</option>
@@ -1088,12 +1096,12 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Kilométrage</label>
-                        <input type="number" id="add-vehicle-mileage" class="w-full border border-gray-300 rounded-md p-2" placeholder="0">
+                        <label for="add-vehicle-mileage" class="block text-sm font-medium text-gray-700 mb-1">Kilométrage</label>
+                    <input type="number" id="add-vehicle-mileage" class="w-full border border-gray-300 rounded-md p-2" placeholder="0">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Date prochaine maintenance</label>
+                    <label for="add-vehicle-maintenance" class="block text-sm font-medium text-gray-700 mb-1">Date prochaine maintenance</label>
                     <input type="date" id="add-vehicle-maintenance" class="w-full border border-gray-300 rounded-md p-2">
                 </div>
             </div>
@@ -1109,29 +1117,29 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Modifier le Véhicule</h3>
-                <button onclick="closeEditVehicleModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeEditVehicleModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4 overflow-y-auto">
                 <input type="hidden" id="edit-vehicle-id">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <label for="edit-vehicle-type" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
                     <select id="edit-vehicle-type" onchange="syncVehicleTypeFields('edit')" class="w-full border border-gray-300 rounded-md p-2">
                         <option value="TRUCK">Camion</option>
                         <option value="TRAILER">Remorque</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Immatriculation</label>
+                    <label for="edit-vehicle-plate" class="block text-sm font-medium text-gray-700 mb-1">Immatriculation</label>
                     <input type="text" id="edit-vehicle-plate" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Modèle</label>
+                    <label for="edit-vehicle-model" class="block text-sm font-medium text-gray-700 mb-1">Modèle</label>
                     <input type="text" id="edit-vehicle-model" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div id="edit-vehicle-fuel-wrap">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Carburant</label>
-                        <select id="edit-vehicle-fuel" class="w-full border border-gray-300 rounded-md p-2">
+                        <label for="edit-vehicle-fuel" class="block text-sm font-medium text-gray-700 mb-1">Carburant</label>
+                    <select id="edit-vehicle-fuel" class="w-full border border-gray-300 rounded-md p-2">
                             <option value="Diesel">Diesel</option>
                             <option value="B100">B100</option>
                             <option value="Électrique">Électrique</option>
@@ -1139,18 +1147,18 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Kilométrage</label>
-                        <input type="number" id="edit-vehicle-mileage" class="w-full border border-gray-300 rounded-md p-2">
+                        <label for="edit-vehicle-mileage" class="block text-sm font-medium text-gray-700 mb-1">Kilométrage</label>
+                    <input type="number" id="edit-vehicle-mileage" class="w-full border border-gray-300 rounded-md p-2">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Date prochaine maintenance</label>
-                        <input type="date" id="edit-vehicle-maintenance" class="w-full border border-gray-300 rounded-md p-2">
+                        <label for="edit-vehicle-maintenance" class="block text-sm font-medium text-gray-700 mb-1">Date prochaine maintenance</label>
+                    <input type="date" id="edit-vehicle-maintenance" class="w-full border border-gray-300 rounded-md p-2">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                        <select id="edit-vehicle-status" class="w-full border border-gray-300 rounded-md p-2">
+                        <label for="edit-vehicle-status" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <select id="edit-vehicle-status" class="w-full border border-gray-300 rounded-md p-2">
                             <option value="Disponible">Disponible</option>
                             <option value="En mission">En mission</option>
                             <option value="Garage">Garage</option>
@@ -1158,7 +1166,7 @@
                     </div>
                 </div>
                 <div id="edit-vehicle-driver-wrap">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
+                    <label for="edit-vehicle-driver" class="block text-sm font-medium text-gray-700 mb-1">Chauffeur assigné</label>
                     <select id="edit-vehicle-driver" class="w-full border border-gray-300 rounded-md p-2">
                         <option value="">-- Aucun --</option>
                     </select>
@@ -1180,39 +1188,39 @@
 
     <!-- Header actions -->
     <div class="flex shrink-0 items-center justify-between border-b bg-gray-50 px-5 py-2">
-      <div class="flex items-center gap-3">
-        <div class="flex items-center gap-2">
-          <button onclick="window.print()" class="rounded-lg p-2 text-gray-600 hover:bg-white hover:text-blue-600 transition" title="Imprimer / PDF">
-            <i class="fa-solid fa-print"></i>
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="window.print()" class="rounded-lg p-2 text-gray-600 hover:bg-white hover:text-blue-600 transition btn-icon" aria-label="Imprimer ou exporter en PDF">
+            <i class="fa-solid fa-print" aria-hidden="true"></i>
           </button>
-          <button id="download-btn" class="rounded-lg p-2 text-gray-600 hover:bg-white hover:text-green-600 transition" title="Télécharger XML Factur-X">
-            <i class="fa-solid fa-file-code"></i>
+          <button type="button" id="download-btn" class="rounded-lg p-2 text-gray-600 hover:bg-white hover:text-green-600 transition btn-icon" aria-label="Télécharger le XML Factur-X">
+            <i class="fa-solid fa-file-code" aria-hidden="true"></i>
           </button>
-          <button id="edit-draft-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-orange-600 transition" title="Modifier le brouillon">
-            <i class="fa-solid fa-pen-to-square"></i>
+          <button type="button" id="edit-draft-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-orange-600 transition btn-icon" aria-label="Modifier le brouillon">
+            <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
           </button>
-          <button id="credit-note-total-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-purple-600 transition" title="Générer un avoir total">
-            <i class="fa-solid fa-file-circle-minus"></i>
-          </button>
-          <button id="credit-note-partial-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-purple-600 transition" title="Générer un avoir partiel">
-            <i class="fa-solid fa-scissors"></i>
-          </button>
-          <button id="submit-einvoice-header-btn" class="hidden rounded-lg px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition" title="Transmettre à la Plateforme Agréée">
-            <i class="fa-solid fa-paper-plane mr-1"></i> PA
+          <button id="submit-einvoice-btn" type="button" onclick="submitEinvoiceToPA(currentInvoiceModalId)" class="hidden rounded-lg p-2 text-emerald-600 hover:bg-white hover:text-emerald-700 transition btn-icon" aria-label="Réessayer la transmission PA">
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
           </button>
         </div>
 
-        <div class="h-8 w-px bg-gray-200"></div>
+        <div class="h-8 w-px bg-gray-200 shrink-0"></div>
 
-        <div>
+        <div class="min-w-0">
           <p class="text-xs font-semibold uppercase tracking-widest text-gray-500">Aperçu facture</p>
-          <h2 class="text-lg font-bold text-gray-900">Facture électronique</h2>
+          <h2 class="text-lg font-bold text-gray-900 truncate">Facture électronique</h2>
         </div>
       </div>
 
-      <button onclick="closeInvoiceModal()" class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 transition">
-        <i class="fa-solid fa-xmark text-xl"></i>
-      </button>
+      <div class="flex items-center gap-2 shrink-0 ml-4">
+        <button id="credit-note-total-btn" type="button" class="hidden rounded-lg px-3 py-1.5 text-xs font-bold text-purple-700 border border-purple-200 bg-white hover:bg-purple-50 transition whitespace-nowrap" title="Générer un avoir total">
+          <i class="fa-solid fa-file-circle-minus mr-1"></i>Avoir total
+        </button>
+        <button id="credit-note-partial-btn" type="button" class="hidden rounded-lg px-3 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 transition whitespace-nowrap" title="Générer un avoir partiel">
+          <i class="fa-solid fa-scissors mr-1"></i>Avoir partiel
+        </button>
+        <button type="button" onclick="closeInvoiceModal()" class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 transition" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
+      </div>
     </div>
 
     <!-- Content -->
@@ -1251,17 +1259,6 @@
           <p class="text-xs uppercase tracking-widest text-gray-400">Référence TMS</p>
           <p class="mt-2 text-sm font-mono text-gray-700" id="modal-inv-reference"></p>
         </div>
-      </div>
-
-      <div id="einvoice-action-bar" class="hidden mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-emerald-800">Plateforme Agréée — Iopole</p>
-          <p class="mt-1 text-sm text-emerald-900" id="modal-einvoice-status-label">Non transmise</p>
-          <p class="mt-0.5 text-xs text-emerald-700 hidden" id="modal-einvoice-submitted-at"></p>
-        </div>
-        <button id="submit-einvoice-btn" type="button" onclick="submitEinvoiceToPA(currentInvoiceModalId)" class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition">
-          <i class="fa-solid fa-paper-plane mr-2"></i>Transmettre à la PA
-        </button>
       </div>
 
       <!-- Parties -->
@@ -1356,6 +1353,11 @@
               <p id="modal-iban" class="font-mono text-sm text-gray-800 break-all">—</p>
             </div>
           </div>
+          <div class="mt-4 pt-3 border-t border-blue-100 text-[11px] leading-relaxed text-gray-600 space-y-1">
+            <p><strong>Escompte pour règlement anticipé :</strong> 0&nbsp;%</p>
+            <p>En cas de retard de paiement, une pénalité égale à 3 fois le taux d'intérêt légal sera exigible (Décret 2009-138 du 9 février 2009).</p>
+            <p>Pour les professionnels, une indemnité minimum forfaitaire de 40&nbsp;€ pour frais de recouvrement sera exigible (Décret 2012-1115 du 9 octobre 2012).</p>
+          </div>
         </div>
         <p class="text-center text-[10px] uppercase tracking-[0.25em] text-gray-400">
           Facture émise électroniquement via la plateforme FLENOVA • Archivage légal 10 ans
@@ -1369,7 +1371,7 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Ajouter une Facture Achat</h3>
-                <button onclick="closeAddPurchaseInvoiceModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeAddPurchaseInvoiceModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4 overflow-y-auto">
                 <!-- Tabs for method selection -->
@@ -1383,16 +1385,16 @@
                 <div id="purchase-invoice-manual">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">N° Pièce / Référence</label>
-                            <input type="text" id="add-purchase-ref" class="w-full border border-gray-300 rounded-md p-2" placeholder="ex: FAC-2025-456">
+                            <label for="add-purchase-ref" class="block text-sm font-medium text-gray-700 mb-1">N° Pièce / Référence</label>
+                    <input type="text" id="add-purchase-ref" class="w-full border border-gray-300 rounded-md p-2" placeholder="ex: FAC-2025-456">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Fournisseur</label>
-                            <input type="text" id="add-purchase-supplier" class="w-full border border-gray-300 rounded-md p-2">
+                            <label for="add-purchase-supplier" class="block text-sm font-medium text-gray-700 mb-1">Fournisseur</label>
+                    <input type="text" id="add-purchase-supplier" class="w-full border border-gray-300 rounded-md p-2">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
-                            <select id="add-purchase-type" onchange="togglePurchaseSubcontractorFields()" class="w-full border border-gray-300 rounded-md p-2">
+                            <label for="add-purchase-type" class="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                    <select id="add-purchase-type" onchange="togglePurchaseSubcontractorFields()" class="w-full border border-gray-300 rounded-md p-2">
                                 <option value="Carburant">Carburant</option>
                                 <option value="Péage">Péage</option>
                                 <option value="Maintenance">Maintenance</option>
@@ -1404,24 +1406,24 @@
                     </div>
                     <div id="add-purchase-subcontractor-wrap" class="hidden grid grid-cols-2 gap-4 mt-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant lié</label>
-                            <select id="add-purchase-subcontractor" onchange="onPurchaseSubcontractorChange()" class="w-full border border-gray-300 rounded-md p-2">
+                            <label for="add-purchase-subcontractor" class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant lié</label>
+                    <select id="add-purchase-subcontractor" onchange="onPurchaseSubcontractorChange()" class="w-full border border-gray-300 rounded-md p-2">
                                 <option value="">-- Sélectionner --</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">N° commande (optionnel)</label>
-                            <input type="number" id="add-purchase-order-id" class="w-full border border-gray-300 rounded-md p-2" placeholder="ID commande">
+                            <label for="add-purchase-order-id" class="block text-sm font-medium text-gray-700 mb-1">N° commande (optionnel)</label>
+                    <input type="number" id="add-purchase-order-id" class="w-full border border-gray-300 rounded-md p-2" placeholder="ID commande">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4 mt-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Montant TTC (€)</label>
-                            <input type="number" id="add-purchase-amount" class="w-full border border-gray-300 rounded-md p-2">
+                            <label for="add-purchase-amount" class="block text-sm font-medium text-gray-700 mb-1">Montant TTC (€)</label>
+                    <input type="number" id="add-purchase-amount" class="w-full border border-gray-300 rounded-md p-2">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                            <input type="date" id="add-purchase-date" class="w-full border border-gray-300 rounded-md p-2">
+                            <label for="add-purchase-date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <input type="date" id="add-purchase-date" class="w-full border border-gray-300 rounded-md p-2">
                         </div>
                     </div>
                 </div>
@@ -1439,15 +1441,16 @@
 
                 <!-- File Upload Form -->
                 <div id="purchase-invoice-file" class="hidden">
-                    <div class="file-upload" onclick="document.getElementById('purchase-file-input').click()">
+                    <div class="file-upload" role="button" tabindex="0" onclick="document.getElementById('purchase-file-input').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('purchase-file-input').click();}" aria-label="Sélectionner un fichier PDF de facture">
                         <i class="fa-solid fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
                         <p class="text-sm text-gray-600">Cliquez pour sélectionner un fichier PDF</p>
                         <p class="text-xs text-gray-400 mt-1">ou glissez-déposez ici</p>
                     </div>
+                    <label for="purchase-file-input" class="sr-only">Fichier PDF de facture achat</label>
                     <input type="file" id="purchase-file-input" class="hidden" accept=".pdf" onchange="handlePurchaseFileUpload(this)">
 
                     <div class="mt-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                        <label for="add-purchase-type" class="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
                         <div class="flex flex-wrap gap-2">
                             <span class="category-tag category-carburant" onclick="selectPurchaseCategory(this, 'Carburant')">Carburant</span>
                             <span class="category-tag category-peage" onclick="selectPurchaseCategory(this, 'Péage')">Péage</span>
@@ -1470,76 +1473,76 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="subcontractor-modal-title" class="font-bold text-lg text-gray-800">Nouveau Sous-traitant</h3>
-                <button onclick="closeAddSubcontractorModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeAddSubcontractorModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4 overflow-y-auto">
                 <input type="hidden" id="edit-subcontractor-id">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nom du Sous-traitant *</label>
+                    <label for="add-subcontractor-name" class="block text-sm font-medium text-gray-700 mb-1">Nom du Sous-traitant *</label>
                     <input type="text" id="add-subcontractor-name" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">SIRET (14 chiffres)</label>
+                    <label for="add-subcontractor-siret" class="block text-sm font-medium text-gray-700 mb-1">SIRET (14 chiffres)</label>
                     <input type="text" id="add-subcontractor-siret" maxlength="14" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="12345678901234">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <input type="email" id="add-subcontractor-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-subcontractor-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="add-subcontractor-email" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                        <input type="tel" id="add-subcontractor-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-subcontractor-phone" class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                    <input type="tel" id="add-subcontractor-phone" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                    <label for="add-subcontractor-address" class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
                     <input type="text" id="add-subcontractor-address" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Expiration RC Pro *</label>
-                        <input type="date" id="add-subcontractor-rc-expiry" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-subcontractor-rc-expiry" class="block text-sm font-medium text-gray-700 mb-1">Expiration RC Pro *</label>
+                    <input type="date" id="add-subcontractor-rc-expiry" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         <p class="text-xs text-red-500 mt-1 hidden" id="subcontractor-rc-warning">⚠️ Assurance expirée!</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Expiration URSSAF</label>
-                        <input type="date" id="add-subcontractor-urssaf-expiry" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label for="add-subcontractor-urssaf-expiry" class="block text-sm font-medium text-gray-700 mb-1">Expiration URSSAF</label>
+                    <input type="date" id="add-subcontractor-urssaf-expiry" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="block text-sm font-medium text-gray-700">Attestation Assurance (PDF/Image) *</label>
-                        <a id="subcontractor-insurance-view" href="#" target="_blank" class="text-xs text-blue-600 hover:underline hidden"><i class="fa-solid fa-file-pdf"></i> Voir le document actuel</a>
+                        <label for="add-subcontractor-insurance-file" class="block text-sm font-medium text-gray-700">Attestation Assurance (PDF/Image) *</label>
+                        <button type="button" id="subcontractor-insurance-view" class="hidden text-xs text-blue-600 hover:underline bg-transparent border-0 p-0 cursor-pointer"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Voir le document actuel</button>
                     </div>
                     <input type="file" id="add-subcontractor-insurance-file" accept=".pdf,image/*" class="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     <div id="subcontractor-rc-ocr-hint"></div>
                 </div>
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="block text-sm font-medium text-gray-700">Attestation URSSAF (PDF/Image)</label>
-                        <a id="subcontractor-urssaf-view" href="#" target="_blank" class="text-xs text-blue-600 hover:underline hidden"><i class="fa-solid fa-file-pdf"></i> Voir le document actuel</a>
+                        <label for="add-subcontractor-urssaf-file" class="block text-sm font-medium text-gray-700">Attestation URSSAF (PDF/Image)</label>
+                        <button type="button" id="subcontractor-urssaf-view" class="hidden text-xs text-blue-600 hover:underline bg-transparent border-0 p-0 cursor-pointer"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Voir le document actuel</button>
                     </div>
                     <input type="file" id="add-subcontractor-urssaf-file" accept=".pdf,image/*" class="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     <div id="subcontractor-urssaf-ocr-hint"></div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Validité Kbis</label>
+                        <label for="add-subcontractor-kbis-expiry" class="block text-sm font-medium text-gray-700 mb-1">Validité Kbis</label>
                         <input type="date" id="add-subcontractor-kbis-expiry" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         <p class="text-xs text-gray-400 mt-1">Kbis de moins de 3 mois en général</p>
                     </div>
                 </div>
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="block text-sm font-medium text-gray-700">Extrait Kbis (PDF/Image)</label>
-                        <a id="subcontractor-kbis-view" href="#" target="_blank" class="text-xs text-blue-600 hover:underline hidden"><i class="fa-solid fa-file-pdf"></i> Voir le document actuel</a>
+                        <label for="add-subcontractor-kbis-file" class="block text-sm font-medium text-gray-700">Extrait Kbis (PDF/Image)</label>
+                        <button type="button" id="subcontractor-kbis-view" class="hidden text-xs text-blue-600 hover:underline bg-transparent border-0 p-0 cursor-pointer"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Voir le document actuel</button>
                     </div>
                     <input type="file" id="add-subcontractor-kbis-file" accept=".pdf,image/*" class="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     <div id="subcontractor-kbis-ocr-hint"></div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <label for="add-subcontractor-status" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
                     <select id="add-subcontractor-status" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="ACTIF">Actif</option>
                         <option value="BLOQUE">Bloqué</option>
@@ -1561,7 +1564,7 @@
                     <h3 class="font-bold text-lg text-gray-800">Affecter un chauffeur</h3>
                     <p id="assign-driver-subtitle" class="text-sm text-gray-500 mt-0.5">Triés par proximité du chargement</p>
                 </div>
-                <button type="button" onclick="closeAssignDriverModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeAssignDriverModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-2 min-h-[320px]">
                 <div id="assign-driver-map" class="min-h-[240px] bg-slate-100 border-b lg:border-b-0 lg:border-r border-gray-200"></div>
@@ -1580,7 +1583,7 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Affecter à un Sous-traitant</h3>
-                <button onclick="closeDispatchModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeDispatchModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4">
                 <input type="hidden" id="dispatch-order-id">
@@ -1590,14 +1593,14 @@
                 </div>
                 <p id="dispatch-already-affrete-banner" class="hidden text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3"></p>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant *</label>
+                    <label for="dispatch-subcontractor" class="block text-sm font-medium text-gray-700 mb-1">Sous-traitant *</label>
                     <select id="dispatch-subcontractor" onchange="checkSubcontractorValidity()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">-- Sélectionner --</option>
                     </select>
                     <p class="text-xs text-red-500 mt-1 hidden" id="dispatch-subcontractor-warning">⚠️ Ce sous-traitant a une assurance expirée</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€) *</label>
+                    <label for="dispatch-purchase-price" class="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (€) *</label>
                     <input type="number" id="dispatch-purchase-price" oninput="calculateDispatchMargin()" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
                 </div>
                 <div class="bg-gray-100 p-4 rounded-lg">
@@ -1629,19 +1632,19 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 class="font-bold text-lg text-gray-800">Ajouter un Nouvel Utilisateur</h3>
-                <button onclick="closeAddUserModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeAddUserModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                    <label for="add-user-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
                     <input type="text" id="add-user-name" class="w-full border border-gray-300 rounded-md p-2">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label for="add-user-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                     <input type="email" id="add-user-email" class="w-full border border-gray-300 rounded-md p-2">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
+                    <label for="add-user-role" class="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
                     <select id="add-user-role" class="w-full border border-gray-300 rounded-md p-2" onchange="toggleAddUserDriverField()">
                         <option value="admin">Administrateur</option>
                         <option value="exploitant">Exploitant</option>
@@ -1651,11 +1654,11 @@
                     </select>
                 </div>
                 <div id="add-user-driver-wrap" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Conducteur associé</label>
+                    <label for="add-user-driver" class="block text-sm font-medium text-gray-700 mb-1">Conducteur associé</label>
                     <select id="add-user-driver" class="w-full border border-gray-300 rounded-md p-2"></select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Mot de passe temporaire</label>
+                    <label for="add-user-password" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe temporaire</label>
                     <input type="password" id="add-user-password" class="w-full border border-gray-300 rounded-md p-2">
                 </div>
             </div>
@@ -1674,37 +1677,37 @@
                     <h3 id="dash-filter-title" class="font-bold text-lg text-gray-800"><i class="fa-solid fa-filter mr-2 text-cyan-600"></i>Filtre avancé — Tableau de bord</h3>
                     <p class="text-xs text-gray-500 mt-1">Choisissez vos filtres et les indicateurs à afficher.</p>
                 </div>
-                <button type="button" onclick="closeDashboardAdvancedFilter()" class="shrink-0 text-gray-400 hover:text-gray-600 p-1" aria-label="Fermer"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeDashboardAdvancedFilter()" class="shrink-0 text-gray-400 hover:text-gray-600 p-1" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="dash-filter-body space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Libellé de la vue (optionnel)</label>
+                    <label for="dash-filter-report-name" class="block text-sm font-medium text-gray-700 mb-1">Libellé de la vue (optionnel)</label>
                     <input type="text" id="dash-filter-report-name" placeholder="Ex. Suivi CA client Q1 2026" class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div class="dash-filter-grid-2">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Date début</label>
-                        <input type="date" id="dash-filter-start" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label for="dash-filter-start" class="block text-sm font-medium text-gray-700 mb-1">Date début</label>
+                    <input type="date" id="dash-filter-start" class="w-full border rounded-lg px-3 py-2 text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Date fin</label>
-                        <input type="date" id="dash-filter-end" class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
-                </div>
-                <div class="dash-filter-grid-2">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
-                        <select id="dash-filter-client" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">Tous</option></select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>
-                        <select id="dash-filter-driver" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">Tous</option></select>
+                        <label for="dash-filter-end" class="block text-sm font-medium text-gray-700 mb-1">Date fin</label>
+                    <input type="date" id="dash-filter-end" class="w-full border rounded-lg px-3 py-2 text-sm">
                     </div>
                 </div>
                 <div class="dash-filter-grid-2">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                        <select id="dash-filter-status" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label for="dash-filter-client" class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                    <select id="dash-filter-client" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">Tous</option></select>
+                    </div>
+                    <div>
+                        <label for="dash-filter-driver" class="block text-sm font-medium text-gray-700 mb-1">Chauffeur</label>
+                    <select id="dash-filter-driver" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="">Tous</option></select>
+                    </div>
+                </div>
+                <div class="dash-filter-grid-2">
+                    <div>
+                        <label for="dash-filter-status" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                    <select id="dash-filter-status" class="w-full border rounded-lg px-3 py-2 text-sm">
                             <option value="">Tous</option>
                             <option value="Brouillon">Brouillon</option>
                             <option value="À planifier">À planifier</option>
@@ -1719,18 +1722,18 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Type d'affectation</label>
-                        <select id="dash-filter-assignment" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label for="dash-filter-assignment" class="block text-sm font-medium text-gray-700 mb-1">Type d'affectation</label>
+                    <select id="dash-filter-assignment" class="w-full border rounded-lg px-3 py-2 text-sm">
                             <option value="">Tous</option>
                             <option value="INTERNAL">Flotte propre</option>
                             <option value="SUBCONTRACTED">Affrètement</option>
                         </select>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Indicateurs à afficher sur le tableau de bord</label>
+                <fieldset class="border-0 p-0 m-0">
+                    <legend class="block text-sm font-medium text-gray-700 mb-2">Indicateurs à afficher sur le tableau de bord</legend>
                     <div id="dash-filter-metrics" class="text-sm"></div>
-                </div>
+                </fieldset>
             </div>
             <div class="dash-filter-footer">
                 <button type="button" onclick="resetDashboardFilters()" class="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-white bg-white">Réinitialiser</button>
@@ -1744,7 +1747,7 @@
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[95vh] flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b bg-gray-50">
                 <h3 id="modal-title" class="font-bold text-lg text-gray-800">Aperçu Facture (A4)</h3>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button type="button" onclick="closeModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="flex-1 overflow-auto p-4 bg-gray-200 flex justify-center">
                 <div id="modal-content" class="bg-white shadow-lg"></div>
@@ -1776,7 +1779,7 @@
                     <h3 class="font-bold text-lg text-gray-800">Avoir partiel</h3>
                     <p id="cn-invoice-ref" class="text-sm text-gray-500 mt-1"></p>
                 </div>
-                <button onclick="closeCreditNoteModal()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button type="button" onclick="closeCreditNoteModal()" class="text-gray-400 hover:text-red-500" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-4 overflow-y-auto flex-1">
                 <input type="hidden" id="cn-invoice-id">
@@ -1812,7 +1815,7 @@
                     <div id="td-status" class="mt-1"></div>
                     <div id="td-mvp-cycle" class="mt-3"></div>
                 </div>
-                <button onclick="closeTransportDetail()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button type="button" onclick="closeTransportDetail()" class="text-gray-400 hover:text-red-500" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
             <div class="p-6 overflow-y-auto flex-1 space-y-6">
                 <input type="hidden" id="td-order-id">
@@ -1836,17 +1839,24 @@
                     <h4 class="font-bold text-xs uppercase text-gray-500 mb-2">Documents / POD</h4>
                     <div id="td-documents" class="mb-3"></div>
                     <div class="flex gap-2 items-end">
-                        <select id="td-doc-type" class="border rounded px-2 py-1 text-sm"><option value="POD">Preuve livraison (POD)</option><option value="CMR">CMR</option><option value="OTHER">Autre</option></select>
-                        <input type="file" id="td-doc-file" accept=".pdf,.jpg,.jpeg,.png" class="text-sm">
-                        <button onclick="uploadTransportDocument()" class="px-3 py-1 bg-blue-600 text-white rounded text-sm">Joindre</button>
+                        <label for="td-doc-type" class="sr-only">Type de document</label>
+                        <select id="td-doc-type" class="border rounded px-2 py-1 text-sm" aria-label="Type de document">
+                            <option value="POD">Preuve livraison (POD)</option>
+                            <option value="CMR">CMR</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                        <label for="td-doc-file" class="sr-only">Fichier à joindre</label>
+                        <input type="file" id="td-doc-file" accept=".pdf,.jpg,.jpeg,.png" class="text-sm" aria-label="Fichier à joindre">
+                        <button type="button" onclick="uploadTransportDocument()" class="px-3 py-1 bg-blue-600 text-white rounded text-sm">Joindre</button>
                     </div>
                 </div>
                 <div id="td-comment-section">
                     <h4 class="font-bold text-xs uppercase text-gray-500 mb-2">Commentaires</h4>
                     <div id="td-comments" class="mb-3 max-h-32 overflow-y-auto"></div>
                     <div class="flex gap-2">
-                        <input type="text" id="td-comment-input" placeholder="Ajouter un commentaire…" class="flex-1 border rounded px-3 py-2 text-sm">
-                        <button onclick="submitTransportComment()" class="px-3 py-2 bg-gray-800 text-white rounded text-sm">Envoyer</button>
+                        <label for="td-comment-input" class="sr-only">Ajouter un commentaire</label>
+                        <input type="text" id="td-comment-input" placeholder="Ajouter un commentaire…" class="flex-1 border rounded px-3 py-2 text-sm" aria-label="Ajouter un commentaire">
+                        <button type="button" onclick="submitTransportComment()" class="px-3 py-2 bg-gray-800 text-white rounded text-sm">Envoyer</button>
                     </div>
                 </div>
                 <div id="td-disputes-mount"></div>
@@ -1883,6 +1893,7 @@
     <script src="js/legal-pages.js"></script>
     <script src="js/commercial-pages.js"></script>
     <script src="js/platform-ops.js"></script>
+    <script src="js/platform-crm.js"></script>
     <script src="js/disputes.js"></script>
     <script src="js/permissions.js"></script>
     <script src="js/subscription.js"></script>

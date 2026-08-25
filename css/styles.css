@@ -524,21 +524,32 @@ body.invoice-modal-open {
 .toast.border-red-500 { border-left: 4px solid #ef4444; }
 
 /* Nav Items */
-.nav-item {
+.nav-item,
+button.nav-item {
     display: flex;
     align-items: center;
     padding: 0.75rem 1.5rem;
     transition: all 0.2s;
-    color: #9ca3af;
+    color: #cbd5e1;
     border-right: 4px solid transparent;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border-top: none;
+    border-bottom: none;
+    border-left: none;
+    cursor: pointer;
+    font: inherit;
 }
 
-.nav-item:hover {
+.nav-item:hover,
+button.nav-item:hover {
     background-color: #1e293b;
     color: #fff;
 }
 
-.nav-item.active {
+.nav-item.active,
+button.nav-item.active {
     color: #60a5fa;
     border-right-color: #3b82f6;
     background-color: #1e293b;
@@ -2222,6 +2233,13 @@ body.platform-operator-mode #demo-banner {
     border: 1px solid #bfdbfe;
     box-shadow: 0 12px 32px rgba(0, 60, 120, 0.12);
     display: block;
+}
+
+.purchase-inv-group-header td {
+    font-size: 0.8125rem;
+}
+.purchase-inv-row--detail td:first-child {
+    padding-left: 1.75rem;
 }
 
 /* Extras grille */

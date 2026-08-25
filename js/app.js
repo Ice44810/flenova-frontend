@@ -245,7 +245,6 @@ function optionHtml(value, label, selected) {
     return `<option value="${escAttr(value)}"${sel}>${esc(label)}</option>`;
 }
 
-
 function renderPublicReviewStars(rating) {
     const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
     return Array.from({ length: 5 }, (_, i) =>
@@ -1276,12 +1275,12 @@ function populateDriverFleetSelects(selectedVehicleId, selectedTrailerId) {
     const trailerSelect = document.getElementById('driver-default-trailer');
     if (vehicleSelect) {
         vehicleSelect.innerHTML = '<option value="">— Aucun —</option>' +
-            getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate}${v.model ? ` — ${v.model}` : ''}</option>`).join('');
+            getVehiclesByType('TRUCK').map(v => optionHtml(v.id, `${v.plate}${v.model ? ` — ${v.model}` : ''}`)).join('');
         if (selectedVehicleId) vehicleSelect.value = String(selectedVehicleId);
     }
     if (trailerSelect) {
         trailerSelect.innerHTML = '<option value="">— Aucune —</option>' +
-            getVehiclesByType('TRAILER').map(v => `<option value="${v.id}">${v.plate}${v.model ? ` — ${v.model}` : ''}</option>`).join('');
+            getVehiclesByType('TRAILER').map(v => optionHtml(v.id, `${v.plate}${v.model ? ` — ${v.model}` : ''}`)).join('');
         if (selectedTrailerId) trailerSelect.value = String(selectedTrailerId);
     }
 }
@@ -1291,12 +1290,12 @@ function populateOrderFleetSelects(prefix, { vehicleId, trailerId } = {}) {
     const trailerSelect = document.getElementById(`${prefix}-trailer`);
     if (vehicleSelect) {
         vehicleSelect.innerHTML = '<option value="">-- Auto / manuel --</option>' +
-            getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model || 'Camion'}</option>`).join('');
+            getVehiclesByType('TRUCK').map(v => optionHtml(v.id, `${v.plate} - ${v.model || 'Camion'}`)).join('');
         if (vehicleId) vehicleSelect.value = String(vehicleId);
     }
     if (trailerSelect) {
         trailerSelect.innerHTML = '<option value="">-- Auto / manuel --</option>' +
-            getVehiclesByType('TRAILER').map(v => `<option value="${v.id}">${v.plate} - ${v.model || 'Remorque'}</option>`).join('');
+            getVehiclesByType('TRAILER').map(v => optionHtml(v.id, `${v.plate} - ${v.model || 'Remorque'}`)).join('');
         if (trailerId) trailerSelect.value = String(trailerId);
     }
 }
@@ -1478,8 +1477,8 @@ function renderDashboardMetricCheckboxes() {
     const selected = new Set(window.dashboardFilters?.metrics || []);
     box.innerHTML = DASHBOARD_METRIC_OPTIONS.map(m => `
         <label class="flex items-center gap-2 p-2 rounded border border-gray-100 hover:bg-gray-50 cursor-pointer">
-            <input type="checkbox" class="dash-metric-cb rounded" value="${m.id}" ${selected.has(m.id) ? 'checked' : ''}>
-            <span>${m.label}</span>
+            <input type="checkbox" class="dash-metric-cb rounded" id="dash-metric-${m.id}" value="${m.id}" ${selected.has(m.id) ? 'checked' : ''}>
+            <span>${esc(m.label)}</span>
         </label>`).join('');
 }
 
@@ -1488,14 +1487,14 @@ function populateDashboardFilterSelects() {
     if (clientSel) {
         const cur = window.dashboardFilters.clientId || '';
         clientSel.innerHTML = '<option value="">Tous</option>' + (db.clients || []).map(c =>
-            `<option value="${c.id}" ${String(c.id) === String(cur) ? 'selected' : ''}>${c.name}</option>`
+            optionHtml(c.id, c.name, String(c.id) === String(cur))
         ).join('');
     }
     const driverSel = document.getElementById('dash-filter-driver');
     if (driverSel) {
         const cur = window.dashboardFilters.driverId || '';
         driverSel.innerHTML = '<option value="">Tous</option>' + (db.drivers || []).map(d =>
-            `<option value="${d.id}" ${String(d.id) === String(cur) ? 'selected' : ''}>${d.name}</option>`
+            optionHtml(d.id, d.name, String(d.id) === String(cur))
         ).join('');
     }
 }
@@ -1585,10 +1584,26 @@ async function fetchAllData() {
             const resourceKey = url.split('/')[0].replace('-', '_');
             return (data[resourceKey] && Array.isArray(data[resourceKey])) ? data[resourceKey] : [];
         };
+        const fetchAllPaginated = async (url, pageSize = 500) => {
+            const all = [];
+            let offset = 0;
+            while (true) {
+                const sep = url.includes('?') ? '&' : '?';
+                const res = await apiFetch(`${url}${sep}limit=${pageSize}&offset=${offset}`);
+                if (res.status === 402) return all;
+                if (!res.ok) break;
+                const data = await res.json();
+                const chunk = Array.isArray(data.data) ? data.data : [];
+                all.push(...chunk);
+                if (data.hasMore === false || chunk.length < pageSize) break;
+                offset += pageSize;
+            }
+            return all;
+        };
         const mayView = (module) => (typeof can !== 'function') || can(module, 'view');
 
         const [orders, clients, missions, drivers, vehicles, users, sales, purchase, subcontractors, agencies] = await Promise.all([
-            mayView('transports') ? fetchJson('transport-orders') : Promise.resolve([]),
+            mayView('transports') ? fetchAllPaginated('transport-orders') : Promise.resolve([]),
             mayView('clients') ? fetchJson('clients') : Promise.resolve([]),
             mayView('transports') ? fetchJson('missions') : Promise.resolve([]),
             mayView('carriers') ? fetchJson('drivers') : Promise.resolve([]),
@@ -1682,43 +1697,45 @@ function renderDashboardFiltersBody() {
     ).join('');
     const countries = ['France', 'Belgique', 'Espagne', 'Allemagne', 'Italie', 'Pays-Bas', 'Portugal'];
     const countryOptions = (selected) => countries.map(c =>
-        `<option value="${c}" ${selected === c ? 'selected' : ''}>${c}</option>`
+        `<option value="${escAttr(c)}" ${selected === c ? 'selected' : ''}>${esc(c)}</option>`
     ).join('');
 
     return `
         <div class="dash-v2-filters-toolbar">
             <div class="dash-v2-filters-toolbar-left">
                 <div class="dash-v2-filter-field dash-v2-filter-field--period">
-                    <label>Période</label>
+                    <label for="dash-inline-preset">Période</label>
                     <select id="dash-inline-preset">${presetOpts}</select>
                 </div>
                 <div class="dash-v2-filter-dates ${preset === 'custom' ? '' : 'dash-v2-filter-dates--hidden'}" id="dash-inline-dates-wrap">
-                    <input type="date" id="dash-inline-start" value="${f.startDate || ''}">
-                    <span>→</span>
-                    <input type="date" id="dash-inline-end" value="${f.endDate || ''}">
+                    <label for="dash-inline-start" class="sr-only">Date de début</label>
+                    <input type="date" id="dash-inline-start" value="${f.startDate || ''}" aria-label="Date de début">
+                    <span aria-hidden="true">→</span>
+                    <label for="dash-inline-end" class="sr-only">Date de fin</label>
+                    <input type="date" id="dash-inline-end" value="${f.endDate || ''}" aria-label="Date de fin">
                 </div>
             </div>
         </div>
         <div class="dash-v2-filters-grid">
-            <div><label>Client</label><select id="dash-inline-client"><option value="">Tous</option>${clients.map(c => `<option value="${c.id}" ${String(c.id) === String(f.clientId) ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
-            <div><label>Conducteur</label><select id="dash-inline-driver"><option value="">Tous</option>${drivers.map(d => `<option value="${d.id}" ${String(d.id) === String(f.driverId) ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div>
-            <div><label>Véhicule</label><select id="dash-inline-vehicle"><option value="">Tous</option>${trucks.map(v => `<option value="${v.id}" ${String(v.id) === String(f.vehicleId) ? 'selected' : ''}>${v.plate || v.model}</option>`).join('')}</select></div>
-            <div><label>Remorque</label><select id="dash-inline-trailer"><option value="">Toutes</option>${trailers.map(v => `<option value="${v.id}" ${String(v.id) === String(f.trailerId) ? 'selected' : ''}>${v.plate || v.model}</option>`).join('')}</select></div>
-            <div><label>Activité</label><select id="dash-inline-activity"><option value="">Toutes</option><option value="national" ${f.activity === 'national' ? 'selected' : ''}>National</option><option value="international" ${f.activity === 'international' ? 'selected' : ''}>International</option></select></div>
-            <div><label>Agence</label><select id="dash-inline-agency" ${isAdminUser ? '' : 'disabled'}><option value="">Toutes</option>${agencies.map(a => `<option value="${a.id}" ${String(a.id) === String(f.agencyId) ? 'selected' : ''}>${a.code} — ${a.name}</option>`).join('')}</select></div>
-            <div><label>Type mission</label><select id="dash-inline-assignment"><option value="">Tous</option><option value="INTERNAL" ${f.assignmentType === 'INTERNAL' ? 'selected' : ''}>Flotte propre</option><option value="SUBCONTRACTED" ${f.assignmentType === 'SUBCONTRACTED' ? 'selected' : ''}>Affrètement</option></select></div>
-            <div><label>Statut</label><select id="dash-inline-status"><option value="">Tous</option><option value="Livré" ${f.status === 'Livré' ? 'selected' : ''}>Livré</option><option value="En cours" ${f.status === 'En cours' ? 'selected' : ''}>En cours</option><option value="Planifié" ${f.status === 'Planifié' ? 'selected' : ''}>Planifié</option><option value="Validé" ${f.status === 'Validé' ? 'selected' : ''}>Validé</option><option value="Annulé" ${f.status === 'Annulé' ? 'selected' : ''}>Annulé</option></select></div>
-            <div><label>Départ</label><select id="dash-inline-origin"><option value="">Tous</option>${countryOptions(f.originCountry)}</select></div>
-            <div><label>Destination</label><select id="dash-inline-dest"><option value="">Toutes</option>${countryOptions(f.destCountry)}</select></div>
-            <div><label>Région</label><input type="text" id="dash-inline-region" placeholder="Ex. Île-de-France" value="${f.region || ''}"></div>
-            <div><label>Marchandise</label><select id="dash-inline-cargo"><option value="">Toutes</option><option value="standard" ${f.cargoType === 'standard' ? 'selected' : ''}>Standard</option><option value="frigo" ${f.cargoType === 'frigo' ? 'selected' : ''}>Frigorifique</option><option value="adr" ${f.cargoType === 'adr' ? 'selected' : ''}>ADR</option></select></div>
-            <div><label>N° mission</label><input type="text" id="dash-inline-mission-ref" placeholder="Réf." value="${f.missionRef || ''}"></div>
+            <div><label for="dash-inline-client">Client</label><select id="dash-inline-client"><option value="">Tous</option>${clients.map(c => optionHtml(c.id, c.name, String(c.id) === String(f.clientId))).join('')}</select></div>
+            <div><label for="dash-inline-driver">Conducteur</label><select id="dash-inline-driver"><option value="">Tous</option>${drivers.map(d => optionHtml(d.id, d.name, String(d.id) === String(f.driverId))).join('')}</select></div>
+            <div><label for="dash-inline-vehicle">Véhicule</label><select id="dash-inline-vehicle"><option value="">Tous</option>${trucks.map(v => optionHtml(v.id, v.plate || v.model, String(v.id) === String(f.vehicleId))).join('')}</select></div>
+            <div><label for="dash-inline-trailer">Remorque</label><select id="dash-inline-trailer"><option value="">Toutes</option>${trailers.map(v => optionHtml(v.id, v.plate || v.model, String(v.id) === String(f.trailerId))).join('')}</select></div>
+            <div><label for="dash-inline-activity">Activité</label><select id="dash-inline-activity"><option value="">Toutes</option><option value="national" ${f.activity === 'national' ? 'selected' : ''}>National</option><option value="international" ${f.activity === 'international' ? 'selected' : ''}>International</option></select></div>
+            <div><label for="dash-inline-agency">Agence</label><select id="dash-inline-agency" ${isAdminUser ? '' : 'disabled'}><option value="">Toutes</option>${agencies.map(a => optionHtml(a.id, `${a.code} — ${a.name}`, String(a.id) === String(f.agencyId))).join('')}</select></div>
+            <div><label for="dash-inline-assignment">Type mission</label><select id="dash-inline-assignment"><option value="">Tous</option><option value="INTERNAL" ${f.assignmentType === 'INTERNAL' ? 'selected' : ''}>Flotte propre</option><option value="SUBCONTRACTED" ${f.assignmentType === 'SUBCONTRACTED' ? 'selected' : ''}>Affrètement</option></select></div>
+            <div><label for="dash-inline-status">Statut</label><select id="dash-inline-status"><option value="">Tous</option><option value="Livré" ${f.status === 'Livré' ? 'selected' : ''}>Livré</option><option value="En cours" ${f.status === 'En cours' ? 'selected' : ''}>En cours</option><option value="Planifié" ${f.status === 'Planifié' ? 'selected' : ''}>Planifié</option><option value="Validé" ${f.status === 'Validé' ? 'selected' : ''}>Validé</option><option value="Annulé" ${f.status === 'Annulé' ? 'selected' : ''}>Annulé</option></select></div>
+            <div><label for="dash-inline-origin">Départ</label><select id="dash-inline-origin"><option value="">Tous</option>${countryOptions(f.originCountry)}</select></div>
+            <div><label for="dash-inline-dest">Destination</label><select id="dash-inline-dest"><option value="">Toutes</option>${countryOptions(f.destCountry)}</select></div>
+            <div><label for="dash-inline-region">Région</label><input type="text" id="dash-inline-region" placeholder="Ex. Île-de-France" value="${escAttr(f.region || '')}"></div>
+            <div><label for="dash-inline-cargo">Marchandise</label><select id="dash-inline-cargo"><option value="">Toutes</option><option value="standard" ${f.cargoType === 'standard' ? 'selected' : ''}>Standard</option><option value="frigo" ${f.cargoType === 'frigo' ? 'selected' : ''}>Frigorifique</option><option value="adr" ${f.cargoType === 'adr' ? 'selected' : ''}>ADR</option></select></div>
+            <div><label for="dash-inline-mission-ref">N° mission</label><input type="text" id="dash-inline-mission-ref" placeholder="Réf." value="${f.missionRef || ''}"></div>
         </div>
         <div class="dash-v2-filters-footer">
-            <label class="dash-v2-checkbox"><input type="checkbox" id="dash-inline-invoiced" ${f.invoicedOnly ? 'checked' : ''}> Afficher uniquement les missions facturées</label>
-            <label class="dash-v2-checkbox"><input type="checkbox" id="dash-inline-paid" ${f.paidOnly ? 'checked' : ''}> Uniquement factures payées</label>
+            <label class="dash-v2-checkbox" for="dash-inline-invoiced"><input type="checkbox" id="dash-inline-invoiced" ${f.invoicedOnly ? 'checked' : ''}> Afficher uniquement les missions facturées</label>
+            <label class="dash-v2-checkbox" for="dash-inline-paid"><input type="checkbox" id="dash-inline-paid" ${f.paidOnly ? 'checked' : ''}> Uniquement factures payées</label>
             <div class="dash-v2-filters-footer-actions">
-                <button type="button" class="dash-v2-btn-save-view dash-v2-btn-save-view--footer" onclick="promptSaveDashboardView()"><i class="fa-solid fa-star"></i> Enregistrer la vue actuelle</button>
+                <button type="button" class="dash-v2-btn-save-view dash-v2-btn-save-view--footer" onclick="promptSaveDashboardView()"><i class="fa-solid fa-star" aria-hidden="true"></i> Enregistrer la vue actuelle</button>
                 <button type="button" class="dash-v2-btn-reset" onclick="resetDashboardInlineFilters()">Réinitialiser</button>
             </div>
         </div>`;
@@ -1731,22 +1748,22 @@ function renderDashboardFiltersBar() {
     const expanded = !!window.dashboardFiltersExpanded;
 
     return `<div class="dash-v2-filters-bar">
-        <button type="button" class="dash-v2-filters-toggle" onclick="toggleDashboardFilters()" aria-expanded="${expanded}">
-            <i class="fa-solid fa-filter"></i> Filtres KPI
-            <i class="fa-solid fa-chevron-${expanded ? 'up' : 'down'} dash-v2-filters-chevron"></i>
+        <button type="button" class="dash-v2-filters-toggle" onclick="toggleDashboardFilters()" aria-expanded="${expanded}" aria-controls="dash-filters-panel">
+            <i class="fa-solid fa-filter" aria-hidden="true"></i> Filtres KPI
+            <i class="fa-solid fa-chevron-${expanded ? 'up' : 'down'} dash-v2-filters-chevron" aria-hidden="true"></i>
         </button>
-        <span class="dash-v2-cockpit-badge" title="Vue adaptée à votre profil"><i class="fa-solid ${cockpitMeta.icon}"></i> Cockpit ${cockpitMeta.label}</span>
+        <span class="dash-v2-cockpit-badge" title="Vue adaptée à votre profil"><i class="fa-solid ${cockpitMeta.icon}" aria-hidden="true"></i> Cockpit ${cockpitMeta.label}</span>
         <div class="dash-v2-filters-bar-actions">
-            <label class="dash-v2-saved-view-label">Vues enregistrées</label>
+            <label for="dash-inline-saved-view" class="dash-v2-saved-view-label">Vues enregistrées</label>
             <select id="dash-inline-saved-view" class="dash-v2-saved-view-select" title="Charger une vue enregistrée">
                 <option value="">${savedViews.length ? '— Choisir une vue —' : 'Aucune vue enregistrée'}</option>
-                ${savedViews.map(v => `<option value="${v.id}">⭐ ${v.name}</option>`).join('')}
+                ${savedViews.map(v => optionHtml(v.id, `⭐ ${v.name}`)).join('')}
             </select>
-            <button type="button" class="dash-v2-btn-save-view" onclick="promptSaveDashboardView()"><i class="fa-solid fa-star"></i> Enregistrer la vue</button>
-            <button type="button" class="dash-v2-btn-delete-view" onclick="deleteDashboardSavedView()" title="Supprimer la vue sélectionnée"><i class="fa-solid fa-trash"></i></button>
-            <button type="button" class="dash-v2-btn-filter" onclick="refreshDashboardStatsOnly()"><i class="fa-solid fa-filter mr-1"></i>Filtrer</button>
+            <button type="button" class="dash-v2-btn-save-view" onclick="promptSaveDashboardView()"><i class="fa-solid fa-star" aria-hidden="true"></i> Enregistrer la vue</button>
+            <button type="button" class="dash-v2-btn-delete-view btn-icon" onclick="deleteDashboardSavedView()" aria-label="Supprimer la vue sélectionnée"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+            <button type="button" class="dash-v2-btn-filter" onclick="refreshDashboardStatsOnly()"><i class="fa-solid fa-filter mr-1" aria-hidden="true"></i>Filtrer</button>
             <button type="button" class="dash-v2-btn-reset" onclick="resetDashboardInlineFilters()">Réinitialiser</button>
-            <button type="button" class="dash-v2-btn-refresh" onclick="refreshDashboardStatsOnly()" title="Actualiser"><i class="fa-solid fa-arrows-rotate"></i></button>
+            <button type="button" class="dash-v2-btn-refresh btn-icon" onclick="refreshDashboardStatsOnly()" aria-label="Actualiser les indicateurs"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i></button>
         </div>
     </div>`;
 }
@@ -1923,7 +1940,7 @@ window.resetDashboardInlineFilters = async function () {
 };
 
 function renderDashboardCostBars(categories = []) {
-    if (!categories.length) return '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune donnée de coûts</p>';
+    if (!categories.length) return '<p class="dash-v2-muted italic text-sm py-4 text-center">Aucune donnée de coûts</p>';
     return categories.map(c => `<div class="dash-v2-cost-bar">
         <div class="dash-v2-cost-bar-head"><span>${c.label}</span><span>${c.percent ?? 0} %</span></div>
         <div class="dash-v2-cost-bar-track"><div class="dash-v2-cost-bar-fill" style="width:${c.percent ?? 0}%"></div></div>
@@ -1965,7 +1982,7 @@ function formatDashboardCity(label) {
 function renderDashboardTopDestinations(geoPerformance = []) {
     const items = (geoPerformance || []).slice(0, 5);
     if (!items.length) {
-        return '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune destination</p>';
+        return '<p class="dash-v2-muted italic text-sm py-4 text-center">Aucune destination</p>';
     }
     const max = Math.max(...items.map((i) => i.value || 0), 1);
     return items.map((d) => {
@@ -2013,19 +2030,19 @@ function renderDashboardDirigeantBody(stats = {}) {
     <div class="dash-v2-main-grid">
         <div class="dash-v2-card">
             <div class="flex justify-between items-center mb-2">
-                <h4 class="dash-v2-card-title mb-0">Évolution du chiffre d'affaires</h4>
-                <span class="text-xs text-gray-400">${new Date().getFullYear()}</span>
+                <h3 class="dash-v2-card-title mb-0">Évolution du chiffre d'affaires</h3>
+                <span class="dash-v2-muted text-xs">${new Date().getFullYear()}</span>
             </div>
             <div class="dash-v2-chart-h"><canvas id="dashRevChart"></canvas></div>
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Répartition des coûts</h4>
+            <h3 class="dash-v2-card-title">Répartition des coûts</h3>
             <div class="dash-v2-chart-h dash-v2-chart-cost"><canvas id="dashCostChart"></canvas></div>
             ${costCats.length ? `<div class="dash-v2-cost-legend">${costCats.slice(0, 5).map((c) => `<div class="dash-v2-cost-legend-item"><span class="dash-v2-cost-dot"></span>${c.label} <strong>${c.percent ?? 0}%</strong> · ${Number(c.value || 0).toLocaleString('fr-FR')} €</div>`).join('')}</div>` : ''}
         </div>
         <div class="dash-v2-card dash-v2-card--map">
             <div class="dash-v2-card-title-row">
-                <h4 class="dash-v2-card-title">Carte des missions en temps réel</h4>
+                <h3 class="dash-v2-card-title">Carte des missions en temps réel</h3>
                 <span id="dash-live-gps-count" class="dash-live-gps-count">—</span>
             </div>
             <div class="dash-v2-map dash-v2-map--live">
@@ -2044,55 +2061,56 @@ function renderDashboardDirigeantBody(stats = {}) {
 
     <div class="dash-v2-mini-row">
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Performance des missions</h4>
+            <h3 class="dash-v2-card-title">Performance des missions</h3>
             <div class="dash-v2-chart-sm"><canvas id="dashMissionPerfChart"></canvas></div>
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Taux de remplissage</h4>
+            <h3 class="dash-v2-card-title">Taux de remplissage</h3>
             <div class="dash-v2-gauge-wrap">
                 <canvas id="dashFillGauge"></canvas>
                 <span class="dash-v2-gauge-value">${fillRate}%</span>
             </div>
         </div>
         <div class="dash-v2-card dash-v2-card--stat">
-            <h4 class="dash-v2-card-title">Coût moyen / mission</h4>
+            <h3 class="dash-v2-card-title">Coût moyen / mission</h3>
             <div class="dash-v2-stat-big">${Number(stats.avgCostPerMission || 0).toLocaleString('fr-FR')} €</div>
-            <p class="text-xs text-center text-gray-400 mt-1">Sur la période filtrée</p>
+                <p class="dash-v2-muted text-xs text-center mt-1">Sur la période filtrée</p>
         </div>
     </div>
 
     <div class="dash-v2-lower-grid dash-v2-lower-grid--4">
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Top 5 Véhicules</h4>
+            <h3 class="dash-v2-card-title">Top 5 Véhicules</h3>
             <table class="dash-v2-table">
-                <thead><tr><th>Camion</th><th>Miss.</th><th>Km</th><th>Conso</th><th>Dispo</th></tr></thead>
-                <tbody>${topVehicles.length ? topVehicles.map((v) => `<tr><td>${v.name}</td><td>${v.missions}</td><td>${Number(v.km).toLocaleString('fr-FR')}</td><td>${v.avgConsumption != null ? v.avgConsumption + ' L' : '—'}</td><td>${v.availability}%</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
+                <caption class="sr-only">Top 5 véhicules par activité</caption>
+                <thead><tr><th scope="col">Camion</th><th scope="col">Miss.</th><th scope="col">Km</th><th scope="col">Conso</th><th scope="col">Dispo</th></tr></thead>
+                <tbody>${topVehicles.length ? topVehicles.map((v) => `<tr><td>${esc(v.name)}</td><td>${esc(v.missions)}</td><td>${Number(v.km).toLocaleString('fr-FR')}</td><td>${v.avgConsumption != null ? esc(v.avgConsumption) + ' L' : '—'}</td><td>${esc(v.availability)}%</td></tr>`).join('') : '<tr><td colspan="5" class="dash-v2-muted italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
             </table>
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Top 5 Clients</h4>
-            ${topClients.length ? topClients.map((c) => `<div class="dash-v2-client-bar"><div class="dash-v2-client-bar-head"><span>${c.name}</span><span>${Number(c.revenue || 0).toLocaleString('fr-FR')} € · ${c.share}%</span></div><div class="dash-v2-client-bar-track"><div class="dash-v2-client-bar-fill" style="width:${c.share}%"></div></div></div>`).join('') : '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune donnée</p>'}
+            <h3 class="dash-v2-card-title">Top 5 Clients</h3>
+            ${topClients.length ? topClients.map((c) => `<div class="dash-v2-client-bar"><div class="dash-v2-client-bar-head"><span>${esc(c.name)}</span><span>${Number(c.revenue || 0).toLocaleString('fr-FR')} € · ${esc(c.share)}%</span></div><div class="dash-v2-client-bar-track"><div class="dash-v2-client-bar-fill" style="width:${Math.min(100, Math.max(0, Number(c.share) || 0))}%"></div></div></div>`).join('') : '<p class="dash-v2-muted italic text-sm py-4 text-center">Aucune donnée</p>'}
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Top destinations</h4>
+            <h3 class="dash-v2-card-title">Top destinations</h3>
             ${renderDashboardTopDestinations(stats.geoPerformance)}
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Alertes</h4>
+            <h3 class="dash-v2-card-title">Alertes</h3>
             ${alerts.length ? alerts.map((a) => {
                 const click = a.action === 'disputes' ? ` onclick="router('disputes')" role="button" style="cursor:pointer"` : '';
                 return `<div class="dash-v2-alert ${a.type}"${click}><i class="fa-solid ${a.icon}"></i><span>${a.text}</span></div>`;
-            }).join('') : '<p class="text-gray-400 italic text-sm py-2">Aucune alerte</p>'}
+            }).join('') : '<p class="dash-v2-muted italic text-sm py-2">Aucune alerte</p>'}
         </div>
     </div>
 
     <div class="dash-v2-sensors">
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--blue"><i class="fa-solid fa-truck"></i></span><div><span class="dash-v2-sensor-label">Véhicules disponibles</span><strong>${fleet.vehicles?.available ?? 0} / ${fleet.vehicles?.total ?? 0}</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--indigo"><i class="fa-solid fa-user"></i></span><div><span class="dash-v2-sensor-label">Conducteurs disponibles</span><strong>${fleet.drivers?.available ?? 0} / ${fleet.drivers?.total ?? 0}</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--purple"><i class="fa-solid fa-clipboard-list"></i></span><div><span class="dash-v2-sensor-label">Missions aujourd'hui</span><strong>${today.missions ?? 0}</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--teal"><i class="fa-solid fa-box"></i></span><div><span class="dash-v2-sensor-label">Livraisons aujourd'hui</span><strong>${today.deliveries ?? 0}</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--orange"><i class="fa-solid fa-road"></i></span><div><span class="dash-v2-sensor-label">Km aujourd'hui</span><strong>${Number(today.km || 0).toLocaleString('fr-FR')} km</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--green"><i class="fa-solid fa-euro-sign"></i></span><div><span class="dash-v2-sensor-label">CA aujourd'hui</span><strong>${Number(today.revenue || 0).toLocaleString('fr-FR')} €</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--blue"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Véhicules disponibles</span><strong>${fleet.vehicles?.available ?? 0} / ${fleet.vehicles?.total ?? 0}</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--indigo"><i class="fa-solid fa-user" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Conducteurs disponibles</span><strong>${fleet.drivers?.available ?? 0} / ${fleet.drivers?.total ?? 0}</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--purple"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Missions aujourd'hui</span><strong>${today.missions ?? 0}</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--teal"><i class="fa-solid fa-box" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Livraisons aujourd'hui</span><strong>${today.deliveries ?? 0}</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--orange"><i class="fa-solid fa-road" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Km aujourd'hui</span><strong>${Number(today.km || 0).toLocaleString('fr-FR')} km</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--green"><i class="fa-solid fa-euro-sign" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">CA aujourd'hui</span><strong>${Number(today.revenue || 0).toLocaleString('fr-FR')} €</strong></div></div>
     </div>`;
 }
 
@@ -2161,13 +2179,13 @@ function renderDashboardKpiBody(stats = {}) {
     <div class="dash-v2-mid-grid">
         <div class="dash-v2-card">
             <div class="flex justify-between items-center mb-2">
-                <h4 class="dash-v2-card-title mb-0">Évolution CA</h4>
-                <span class="text-xs text-gray-400">${new Date().getFullYear()}</span>
+                <h3 class="dash-v2-card-title mb-0">Évolution CA</h3>
+                <span class="dash-v2-muted text-xs">${new Date().getFullYear()}</span>
             </div>
             <div class="dash-v2-chart-h"><canvas id="dashRevChart"></canvas></div>
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Répartition des coûts</h4>
+            <h3 class="dash-v2-card-title">Répartition des coûts</h3>
             ${renderDashboardCostBars(costCats)}
             <div class="dash-v2-chart-h dash-v2-chart-h--sm mt-2"><canvas id="dashCostChart"></canvas></div>
         </div>
@@ -2177,12 +2195,12 @@ function renderDashboardKpiBody(stats = {}) {
     <h3 class="dash-v2-section-title">Performance exploitation</h3>
     <div class="dash-v2-exploit-grid">
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Performance des missions</h4>
+            <h3 class="dash-v2-card-title">Performance des missions</h3>
             <div class="dash-v2-chart-sm"><canvas id="dashMissionPerfChart"></canvas></div>
         </div>
         <div class="dash-v2-card dash-v2-card--map">
             <div class="dash-v2-card-title-row">
-                <h4 class="dash-v2-card-title">Carte opérationnelle · suivi live</h4>
+                <h3 class="dash-v2-card-title">Carte opérationnelle · suivi live</h3>
                 <span id="dash-live-gps-count" class="dash-live-gps-count">—</span>
             </div>
             <div class="dash-v2-map dash-v2-map--live">
@@ -2198,7 +2216,7 @@ function renderDashboardKpiBody(stats = {}) {
             </div>
         </div>
         <div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Taux de remplissage</h4>
+            <h3 class="dash-v2-card-title">Taux de remplissage</h3>
             <div class="dash-v2-gauge-wrap">
                 <canvas id="dashFillGauge"></canvas>
                 <span class="dash-v2-gauge-value">${fillRate}%</span>
@@ -2209,43 +2227,45 @@ function renderDashboardKpiBody(stats = {}) {
     const lowerCards = [];
     if (isCockpitSectionVisible('drivers')) {
         lowerCards.push(`<div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Conducteurs</h4>
+            <h3 class="dash-v2-card-title">Conducteurs</h3>
             <table class="dash-v2-table">
-                <thead><tr><th>Conducteur</th><th>Miss.</th><th>CA</th><th>Marge</th><th>Retards</th></tr></thead>
-                <tbody>${topDrivers.length ? topDrivers.map(d => `<tr><td>${d.name}</td><td>${d.missions}</td><td>${Number(d.revenue).toLocaleString('fr-FR')} €</td><td>${Number(d.margin).toLocaleString('fr-FR')} €</td><td>${d.delays ?? 0}</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
+                <caption class="sr-only">Classement des conducteurs</caption>
+                <thead><tr><th scope="col">Conducteur</th><th scope="col">Miss.</th><th scope="col">CA</th><th scope="col">Marge</th><th scope="col">Retards</th></tr></thead>
+                <tbody>${topDrivers.length ? topDrivers.map(d => `<tr><td>${esc(d.name)}</td><td>${esc(d.missions)}</td><td>${Number(d.revenue).toLocaleString('fr-FR')} €</td><td>${Number(d.margin).toLocaleString('fr-FR')} €</td><td>${esc(d.delays ?? 0)}</td></tr>`).join('') : '<tr><td colspan="5" class="dash-v2-muted italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
             </table>
         </div>`);
     }
     if (isCockpitSectionVisible('vehicles')) {
         lowerCards.push(`<div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Véhicules</h4>
+            <h3 class="dash-v2-card-title">Véhicules</h3>
             <table class="dash-v2-table">
-                <thead><tr><th>Camion</th><th>Km</th><th>Miss.</th><th>Conso</th><th>Dispo</th></tr></thead>
-                <tbody>${topVehicles.length ? topVehicles.map(v => `<tr><td>${v.name}</td><td>${Number(v.km).toLocaleString('fr-FR')}</td><td>${v.missions}</td><td>${v.avgConsumption != null ? v.avgConsumption + ' L' : '—'}</td><td>${v.availability}%</td></tr>`).join('') : '<tr><td colspan="5" class="text-gray-400 italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
+                <caption class="sr-only">Classement des véhicules</caption>
+                <thead><tr><th scope="col">Camion</th><th scope="col">Km</th><th scope="col">Miss.</th><th scope="col">Conso</th><th scope="col">Dispo</th></tr></thead>
+                <tbody>${topVehicles.length ? topVehicles.map(v => `<tr><td>${esc(v.name)}</td><td>${Number(v.km).toLocaleString('fr-FR')}</td><td>${esc(v.missions)}</td><td>${v.avgConsumption != null ? esc(v.avgConsumption) + ' L' : '—'}</td><td>${esc(v.availability)}%</td></tr>`).join('') : '<tr><td colspan="5" class="dash-v2-muted italic py-4 text-center">Aucune donnée</td></tr>'}</tbody>
             </table>
         </div>`);
     }
     if (isCockpitSectionVisible('clients')) {
         lowerCards.push(`<div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Top clients</h4>
-            ${topClients.length ? topClients.map(c => `<div class="dash-v2-client-bar"><div class="dash-v2-client-bar-head"><span>${c.name}</span><span>${c.share}%</span></div><div class="dash-v2-client-bar-track"><div class="dash-v2-client-bar-fill" style="width:${c.share}%"></div></div></div>`).join('') : '<p class="text-gray-400 italic text-sm py-4 text-center">Aucune donnée</p>'}
+            <h3 class="dash-v2-card-title">Top clients</h3>
+            ${topClients.length ? topClients.map(c => `<div class="dash-v2-client-bar"><div class="dash-v2-client-bar-head"><span>${esc(c.name)}</span><span>${esc(c.share)}%</span></div><div class="dash-v2-client-bar-track"><div class="dash-v2-client-bar-fill" style="width:${Math.min(100, Math.max(0, Number(c.share) || 0))}%"></div></div></div>`).join('') : '<p class="dash-v2-muted italic text-sm py-4 text-center">Aucune donnée</p>'}
         </div>`);
     }
     if (isCockpitSectionVisible('destinations')) {
         lowerCards.push(`<div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Top destinations</h4>
+            <h3 class="dash-v2-card-title">Top destinations</h3>
             ${renderDashboardTopDestinations(stats.geoPerformance)}
         </div>`);
     }
     if (isCockpitSectionVisible('alerts')) {
         lowerCards.push(`<div class="dash-v2-card">
-            <h4 class="dash-v2-card-title">Alertes</h4>
+            <h3 class="dash-v2-card-title">Alertes</h3>
             ${alerts.length ? alerts.map(a => {
                 const click = a.action === 'disputes'
                     ? ` onclick="router('disputes')" role="button" style="cursor:pointer"`
                     : '';
                 return `<div class="dash-v2-alert ${a.type}"${click}><i class="fa-solid ${a.icon}"></i><span>${a.text}</span></div>`;
-            }).join('') : '<p class="text-gray-400 italic text-sm py-2">Aucune alerte</p>'}
+            }).join('') : '<p class="dash-v2-muted italic text-sm py-2">Aucune alerte</p>'}
         </div>`);
     }
 
@@ -2296,14 +2316,14 @@ function renderDashboard(stats = {}) {
     const periodLabel = `${f.startDate ? formatDisplayDate(f.startDate) : '…'} – ${f.endDate ? formatDisplayDate(f.endDate) : '…'}`;
 
     const palletsTabBtn = (typeof planHasFeature === 'function' && planHasFeature('pallets'))
-        ? `<button onclick="window.switchDashboardTab('pallets')" class="px-6 py-2 ${activeTab === 'pallets' ? 'bg-gray-100 border-t-2 border-teal-500 font-bold text-teal-700' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider"><i class="fa-solid fa-pallet mr-1"></i> Palettes Europe</button>`
+        ? `<button type="button" role="tab" id="dash-tab-pallets" aria-selected="${activeTab === 'pallets'}" aria-controls="dash-tabpanel" onclick="window.switchDashboardTab('pallets')" class="dash-v2-tab dash-v2-tab--teal px-6 py-2 ${activeTab === 'pallets' ? 'bg-gray-100 border-t-2 border-teal-500 font-bold' : 'font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider"><i class="fa-solid fa-pallet mr-1" aria-hidden="true"></i> Palettes Europe</button>`
         : '';
 
     const tabsHtml = `
-        <div class="flex gap-1 border-b border-gray-200 mb-4">
-            <button onclick="window.switchDashboardTab('general')" class="px-6 py-2 ${activeTab === 'general' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Général</button>
-            <button onclick="window.switchDashboardTab('quotations')" class="px-6 py-2 ${activeTab === 'quotations' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Cotations</button>
-            <button onclick="window.switchDashboardTab('invoicing')" class="px-6 py-2 ${activeTab === 'invoicing' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold text-blue-600' : 'text-gray-400 font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Facturation</button>
+        <div class="flex gap-1 border-b border-gray-200 mb-4" role="tablist" aria-label="Onglets du tableau de bord">
+            <button type="button" role="tab" id="dash-tab-general" aria-selected="${activeTab === 'general'}" aria-controls="dash-tabpanel" onclick="window.switchDashboardTab('general')" class="dash-v2-tab px-6 py-2 ${activeTab === 'general' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold' : 'font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Général</button>
+            <button type="button" role="tab" id="dash-tab-quotations" aria-selected="${activeTab === 'quotations'}" aria-controls="dash-tabpanel" onclick="window.switchDashboardTab('quotations')" class="dash-v2-tab px-6 py-2 ${activeTab === 'quotations' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold' : 'font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Cotations</button>
+            <button type="button" role="tab" id="dash-tab-invoicing" aria-selected="${activeTab === 'invoicing'}" aria-controls="dash-tabpanel" onclick="window.switchDashboardTab('invoicing')" class="dash-v2-tab px-6 py-2 ${activeTab === 'invoicing' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold' : 'font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Facturation</button>
             ${palletsTabBtn}
         </div>
     `;
@@ -2317,15 +2337,15 @@ function renderDashboard(stats = {}) {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                 <h3 class="text-3xl font-bold text-gray-700">${stats.totalQuotations || 0}</h3>
-                <p class="text-gray-400 text-sm">Cotations totales</p>
+                <p class="dash-v2-muted text-sm">Cotations totales</p>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                 <h3 id="conversion-rate-kpi" class="text-3xl font-bold text-blue-600">-- %</h3>
-                <p class="text-gray-400 text-sm">Taux de Conversion</p>
+                <p class="dash-v2-muted text-sm">Taux de Conversion</p>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                 <h3 class="text-3xl font-bold text-gray-700">${stats.avgQuotationTime || '--:--:--'}</h3>
-                <p class="text-gray-400 text-sm">Délai moyen</p>
+                <p class="dash-v2-muted text-sm">Délai moyen</p>
             </div>
         </div>
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -2352,15 +2372,15 @@ function renderDashboard(stats = {}) {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                 <h3 class="text-3xl font-bold text-gray-700">${formatEuro(totalInvoiced)} €</h3>
-                <p class="text-gray-400 text-sm">Montant total facturé</p>
+                <p class="dash-v2-muted text-sm">Montant total facturé</p>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                 <h3 class="text-3xl font-bold text-orange-600">${pendingValidation}</h3>
-                <p class="text-gray-400 text-sm">Factures en attente validation</p>
+                <p class="dash-v2-muted text-sm">Factures en attente validation</p>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                 <h3 class="text-3xl font-bold text-red-600">${formatEuro(outstanding)} €</h3>
-                <p class="text-gray-400 text-sm">Encours Clients</p>
+                <p class="dash-v2-muted text-sm">Encours Clients</p>
             </div>
         </div>
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -2373,22 +2393,22 @@ function renderDashboard(stats = {}) {
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                     <h3 id="pallet-kpi-delivered" class="text-3xl font-bold text-teal-600">—</h3>
-                    <p class="text-gray-400 text-sm">Palettes livrées (échange)</p>
+                    <p class="dash-v2-muted text-sm">Palettes livrées (échange)</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                     <h3 id="pallet-kpi-returned" class="text-3xl font-bold text-blue-600">—</h3>
-                    <p class="text-gray-400 text-sm">Palettes rendues</p>
+                    <p class="dash-v2-muted text-sm">Palettes rendues</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                     <h3 id="pallet-kpi-balance" class="text-3xl font-bold text-orange-600">—</h3>
-                    <p class="text-gray-400 text-sm">Solde global (dues par clients)</p>
+                    <p class="dash-v2-muted text-sm">Solde global (dues par clients)</p>
                 </div>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                     <h4 class="font-bold text-gray-800"><i class="fa-solid fa-pallet mr-2 text-teal-600"></i>Soldes par client</h4>
                     <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600">Filtrer :</label>
+                        <label for="dashboard-pallet-client-filter" class="text-sm text-gray-600">Filtrer :</label>
                         <select id="dashboard-pallet-client-filter" onchange="loadDashboardPallets()" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm">
                             <option value="">Tous les clients</option>
                         </select>
@@ -2441,10 +2461,12 @@ function renderDashboard(stats = {}) {
             <div>
                 <p class="dash-v2-subtitle">Vue d'ensemble de votre activité</p>
             </div>
-            <div class="dash-v2-period"><i class="fa-regular fa-calendar mr-1"></i> Période ${periodLabel}</div>
+            <div class="dash-v2-period" role="status"><i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i> Période ${periodLabel}</div>
         </div>
         ${tabsHtml}
+        <div id="dash-tabpanel" role="tabpanel" aria-labelledby="dash-tab-${activeTab}">
         ${tabContent}
+        </div>
     </div>`;
 }
 
@@ -2465,8 +2487,8 @@ function renderCompletedTransports() {
         const client = db.clients.find(c => c.id === m.client_id);
         return `<tr class="bg-white border-b hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900">#${m.id}</td>
-                            <td class="px-4 py-3">${client ? client.name : '-'}</td>
-                            <td class="px-4 py-3">${m.origin} → ${m.dest}</td>
+                            <td class="px-4 py-3">${client ? esc(client.name) : '-'}</td>
+                            <td class="px-4 py-3">${esc(m.origin)} → ${esc(m.dest)}</td>
                             <td class="px-4 py-3">${formatDisplayDate(m.date) || '-'}</td>
                             <td class="px-4 py-3">${m.delivery_time || '-'}</td>
                             <td class="px-4 py-3 font-bold text-gray-700">${m.price} €</td>
@@ -2516,7 +2538,7 @@ function renderInProgressTransports() {
                             <td class="px-4 py-3 text-blue-600 font-bold animate-pulse">${m.delivery_time || '-'}</td>
                             <td class="px-4 py-3 flex gap-3">
                                 <button onclick="finishMission(${m.id})" class="text-green-600 hover:text-green-800 font-bold text-xs"><i class="fa-solid fa-check-double mr-1"></i>Terminer</button>
-                                <button onclick="openEditMissionModal(${m.id})" class="text-gray-400 hover:text-blue-600 text-xs"><i class="fa-solid fa-gear"></i></button>
+                                <button type="button" onclick="openEditMissionModal(${m.id})" class="text-gray-500 hover:text-blue-600 text-xs btn-icon" aria-label="Modifier la mission ${esc(m.id)}"><i class="fa-solid fa-gear" aria-hidden="true"></i></button>
                             </td>
                         </tr>`;
     }).join('') : '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400 italic">Aucun chauffeur n\'a de mission en cours actuellement</td></tr>'}
@@ -2915,14 +2937,14 @@ function updateMarginDashboard(data) {
         const rows = data.bySubcontractor.map(item => {
             const marginPercent = item.saleTotal > 0 ? ((item.margin / item.saleTotal) * 100).toFixed(1) : 0;
             return `<tr class="border-b hover:bg-gray-50">
-                <td class="px-4 py-3 font-medium">${item.name}</td>
+                <td class="px-4 py-3 font-medium">${esc(item.name)}</td>
                 <td class="px-4 py-3">${item.orderCount}</td>
                 <td class="px-4 py-3 text-green-600">${item.saleTotal.toLocaleString()}€</td>
                 <td class="px-4 py-3 text-orange-600">${item.costTotal.toLocaleString()}€</td>
                 <td class="px-4 py-3 font-bold ${item.margin >= 0 ? 'text-green-600' : 'text-red-600'}">${item.margin.toLocaleString()}€</td>
                 <td class="px-4 py-3 font-bold ${item.margin >= 0 ? 'text-green-600' : 'text-red-600'}">${marginPercent}%</td>
                 <td class="px-4 py-3">
-                    <button onclick="filterPurchaseInvoicesBySubcontractor('${(item.name || '').replace(/'/g, "\\'")}')" class="text-xs text-blue-600 hover:underline">Factures achat</button>
+                    <button type="button" data-sub-name="${escAttr(item.name)}" onclick="filterPurchaseInvoicesBySubcontractor(this.dataset.subName)" class="text-xs text-blue-600 hover:underline">Factures achat</button>
                 </td>
             </tr>`;
         }).join('');
@@ -3002,7 +3024,7 @@ async function loadAffretementConfirmationPage() {
                 const overageNote = atLimit
                     ? `Quota mensuel atteint — prochains envois facturés <strong>${String(quota.unitPrice).replace('.', ',')} € HT</strong> chacun.`
                     : `<strong>${quota.remaining}</strong> confirmation(s) incluse(s) restante(s) sur ${quota.limit} ce mois (${quota.sendsThisMonth} utilisée(s)).`;
-                quotaEl.innerHTML = `<i class="fa-solid fa-envelope-circle-check mr-1"></i> ${overageNote}`;
+                quotaEl.innerHTML = `<i class="fa-solid fa-envelope-circle-check mr-1"></i> ${esc(overageNote)}`;
                 quotaEl.classList.remove('hidden');
             }
         }
@@ -3017,7 +3039,7 @@ async function loadAffretementConfirmationPage() {
         if (statusEl) {
             if (data.sentAt && data.sentTo) {
                 statusEl.className = 'mb-4 p-3 rounded-lg text-sm bg-green-50 border border-green-200 text-green-800';
-                statusEl.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> Envoyée le ${formatDisplayDate(data.sentAt)} à <strong>${data.sentTo}</strong>`;
+                statusEl.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> Envoyée le ${esc(formatDisplayDate(data.sentAt))} à <strong>${esc(data.sentTo)}</strong>`;
                 statusEl.classList.remove('hidden');
             } else {
                 statusEl.classList.add('hidden');
@@ -3031,7 +3053,7 @@ async function loadAffretementConfirmationPage() {
             if (emailInput) emailInput.disabled = !canSend;
         }
     } catch (e) {
-        if (preview) preview.innerHTML = `<p class="p-8 text-center text-red-500">${e.message}</p>`;
+        if (preview) preview.innerHTML = `<p class="p-8 text-center text-red-500">${esc(e.message)}</p>`;
         showToast(e.message, 'error');
     }
 }
@@ -3147,7 +3169,7 @@ async function loadCmrPreviewPage() {
 
         if (generateBtn) generateBtn.disabled = false;
     } catch (e) {
-        if (preview) preview.innerHTML = `<p class="p-8 text-center text-red-500">${e.message}</p>`;
+        if (preview) preview.innerHTML = `<p class="p-8 text-center text-red-500">${esc(e.message)}</p>`;
         showToast(e.message, 'error');
     }
 }
@@ -3271,8 +3293,8 @@ function renderFleet() {
         return `<div onclick="openEditVehicleModal(${v.id})" class="border rounded-xl p-5 hover:shadow-md transition relative overflow-hidden cursor-pointer">
                         <div class="absolute top-0 left-0 w-full h-1 ${statusColor}"></div>
                         <div class="flex justify-between items-start mb-4">
-                            <div><h4 class="font-bold text-gray-800">${v.plate}</h4><p class="text-xs text-gray-500">${v.model || typeBadge}</p></div>
-                            <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold uppercase">${v.status}</span>
+                            <div><h4 class="font-bold text-gray-800">${esc(v.plate)}</h4><p class="text-xs text-gray-500">${esc(v.model || typeBadge)}</p></div>
+                            <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold uppercase">${esc(v.status)}</span>
                         </div>
                         <div class="space-y-3 text-sm">
                             <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Chauffeur</span><span class="font-medium">${v.driver_name || '<span class="text-gray-400">Aucun</span>'}</span></div>
@@ -3287,10 +3309,111 @@ function renderFleet() {
 }
 
 // --- RENDER: Facturation ---
+function isAutoAffretementPurchaseInvoice(inv) {
+    return inv?.type === 'Sous-traitance' && inv.order_id && String(inv.id || '').startsWith('ACH-AFF-');
+}
+
+function groupAutoAffPurchaseInvoicesBySubcontractor(invoices) {
+    const groups = new Map();
+    for (const inv of invoices) {
+        if (!isAutoAffretementPurchaseInvoice(inv)) continue;
+        const key = inv.subcontractor_id ? String(inv.subcontractor_id) : `supplier:${inv.supplier || 'unknown'}`;
+        if (!groups.has(key)) {
+            groups.set(key, {
+                key,
+                subcontractor_id: inv.subcontractor_id || null,
+                subcontractor_name: inv.subcontractor_name || inv.supplier || 'Sans sous-traitant',
+                invoices: [],
+                totalAmount: 0,
+                pendingAmount: 0,
+                paidAmount: 0,
+                pendingCount: 0,
+                paidCount: 0,
+            });
+        }
+        const group = groups.get(key);
+        const amount = Number(inv.amount || 0);
+        group.invoices.push(inv);
+        group.totalAmount += amount;
+        if (inv.status === 'Payée') {
+            group.paidAmount += amount;
+            group.paidCount += 1;
+        } else {
+            group.pendingAmount += amount;
+            group.pendingCount += 1;
+        }
+    }
+    for (const group of groups.values()) {
+        group.invoices.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    }
+    return [...groups.values()].sort((a, b) => a.subcontractor_name.localeCompare(b.subcontractor_name, 'fr'));
+}
+
+function renderPurchaseInvoiceTableRow(inv, { indent = false, canManage = false } = {}) {
+    const isAutoAff = isAutoAffretementPurchaseInvoice(inv);
+    const agencyLabel = inv.agency_code
+        ? `${inv.agency_code} — ${inv.agency_name || ''}`
+        : (inv.agency_name || '—');
+    const indentClass = indent ? ' purchase-inv-row--detail' : '';
+    const invIdEsc = String(inv.id).replace(/'/g, "\\'");
+    const payCell = inv.status === 'Payée'
+        ? '<span class="text-xs text-gray-400">—</span>'
+        : (canManage
+            ? `<button type="button" onclick="payPurchaseInvoice('${invIdEsc}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded shadow-sm">Payer</button>`
+            : '<span class="text-xs text-gray-400">—</span>');
+    return `<tr class="bg-white border-b hover:bg-gray-50${indentClass}">
+        <td class="px-4 py-3 font-medium text-gray-900">${indent ? '<span class="text-gray-400 mr-2">↳</span>' : ''}${inv.id}${isAutoAff ? '<br><span class="text-[10px] text-indigo-600 font-semibold">Auto affrètement</span>' : ''}</td>
+        <td class="px-4 py-3">${inv.supplier}</td>
+        <td class="px-4 py-3 text-xs">${inv.subcontractor_name || '-'}${inv.order_ref ? `<br><span class="text-gray-400">Cmd. ${inv.order_ref}</span>` : ''}</td>
+        <td class="px-4 py-3 text-xs text-gray-600">${agencyLabel}</td>
+        <td class="px-4 py-3">${inv.type}</td>
+        <td class="px-4 py-3 font-bold text-gray-700">-${Number(inv.amount || 0).toLocaleString('fr-FR')} €</td>
+        <td class="px-4 py-3"><span class="${inv.status === 'Payée' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'} px-2 py-1 rounded text-xs font-semibold">${inv.status}</span></td>
+        <td class="px-4 py-3">${payCell}</td>
+    </tr>`;
+}
+
+function renderPurchaseInvoicesGroupedBody(autoGroups, otherInvoices, canManage = false) {
+    const parts = [];
+
+    for (const group of autoGroups) {
+        parts.push(`<tr class="purchase-inv-group-header bg-indigo-50 border-y border-indigo-100">
+            <td colspan="8" class="px-4 py-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <span class="font-bold text-indigo-900">${group.subcontractor_name}</span>
+                        <span class="ml-2 text-xs text-indigo-700">${group.invoices.length} affrètement(s)</span>
+                    </div>
+                    <div class="text-xs text-gray-700 flex flex-wrap gap-3">
+                        <span><strong>Total :</strong> ${group.totalAmount.toLocaleString('fr-FR')} €</span>
+                        <span class="text-green-700"><strong>Payé :</strong> ${group.paidAmount.toLocaleString('fr-FR')} €</span>
+                        <span class="text-orange-700"><strong>À payer :</strong> ${group.pendingAmount.toLocaleString('fr-FR')} €</span>
+                    </div>
+                </div>
+            </td>
+        </tr>`);
+        parts.push(group.invoices.map((inv) => renderPurchaseInvoiceTableRow(inv, { indent: true, canManage })).join(''));
+    }
+
+    if (otherInvoices.length) {
+        if (autoGroups.length) {
+            parts.push(`<tr class="purchase-inv-group-header bg-gray-50 border-y border-gray-200">
+                <td colspan="8" class="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-500">Autres factures d'achat</td>
+            </tr>`);
+        }
+        parts.push(otherInvoices.map((inv) => renderPurchaseInvoiceTableRow(inv, { canManage })).join(''));
+    }
+
+    if (!parts.length) {
+        return '<tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 italic">Aucune facture d\'achat</td></tr>';
+    }
+    return parts.join('');
+}
+
 function renderPurchaseInvoices() {
     const canManage = canManageInvoices();
     const subcontractorOptions = (db.subcontractors || []).map(s =>
-        `<option value="${s.id}" ${String(purchaseInvoiceFilter.subcontractor_id) === String(s.id) ? 'selected' : ''}>${s.name}</option>`
+        optionHtml(s.id, s.name, String(purchaseInvoiceFilter.subcontractor_id) === String(s.id))
     ).join('');
 
     let invoices = [...(db.purchase_invoices || [])];
@@ -3300,6 +3423,10 @@ function renderPurchaseInvoices() {
     if (purchaseInvoiceFilter.type) {
         invoices = invoices.filter(inv => inv.type === purchaseInvoiceFilter.type);
     }
+
+    const autoAffInvoices = invoices.filter(isAutoAffretementPurchaseInvoice);
+    const otherInvoices = invoices.filter((inv) => !isAutoAffretementPurchaseInvoice(inv));
+    const autoAffGroups = groupAutoAffPurchaseInvoicesBySubcontractor(autoAffInvoices);
 
     return `<div class="h-full flex flex-col fade-in">
         <div class="flex justify-between items-center mb-4">
@@ -3325,25 +3452,10 @@ function renderPurchaseInvoices() {
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">N° Pièce</th><th class="px-4 py-3">Fournisseur</th><th class="px-4 py-3">Sous-traitant / Commande</th><th class="px-4 py-3">Agence</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Montant TTC</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Doc</th></tr>
+                    <tr><th class="px-4 py-3">N° Pièce</th><th class="px-4 py-3">Fournisseur</th><th class="px-4 py-3">Sous-traitant / Commande</th><th class="px-4 py-3">Agence</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Montant TTC</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Payer</th></tr>
                 </thead>
                 <tbody>
-                    ${invoices.length ? invoices.map(inv => {
-        const isAutoAff = inv.type === 'Sous-traitance' && inv.order_id && String(inv.id).startsWith('ACH-AFF-');
-        const agencyLabel = inv.agency_code
-            ? `${inv.agency_code} — ${inv.agency_name || ''}`
-            : (inv.agency_name || '—');
-        return `<tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-4 py-3 font-medium text-gray-900">${inv.id}${isAutoAff ? '<br><span class="text-[10px] text-indigo-600 font-semibold">Auto affrètement</span>' : ''}</td>
-                        <td class="px-4 py-3">${inv.supplier}</td>
-                        <td class="px-4 py-3 text-xs">${inv.subcontractor_name || '-'}${inv.order_ref ? `<br><span class="text-gray-400">Cmd. ${inv.order_ref}</span>` : ''}</td>
-                        <td class="px-4 py-3 text-xs text-gray-600">${agencyLabel}</td>
-                        <td class="px-4 py-3">${inv.type}</td>
-                        <td class="px-4 py-3 font-bold text-gray-700">-${Number(inv.amount || 0).toLocaleString()} €</td>
-                        <td class="px-4 py-3"><span class="${inv.status === 'Payée' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'} px-2 py-1 rounded text-xs font-semibold">${inv.status}</span></td>
-                        <td class="px-4 py-3">${inv.file ? `<a href="${normalizeUploadUrl(inv.file)}" target="_blank" class="text-blue-600 hover:underline text-xs"><i class="fa-solid fa-file-pdf"></i></a>` : '-'}</td>
-                    </tr>`;
-    }).join('') : '<tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 italic">Aucune facture d\'achat</td></tr>'}
+                    ${renderPurchaseInvoicesGroupedBody(autoAffGroups, otherInvoices, canManage)}
                 </tbody>
             </table>
         </div>
@@ -3355,6 +3467,56 @@ window.filterPurchaseInvoicesBySubcontractor = function (subcontractorName) {
     purchaseInvoiceFilter.subcontractor_id = sub ? sub.id : '';
     purchaseInvoiceFilter.type = 'Sous-traitance';
     router('purchase_invoices');
+};
+
+window.filterPurchaseInvoicesBySubcontractorId = function (subcontractorId, subcontractorName) {
+    if (subcontractorId) {
+        purchaseInvoiceFilter.subcontractor_id = String(subcontractorId);
+    } else if (subcontractorName) {
+        const sub = (db.subcontractors || []).find(s => s.name === subcontractorName);
+        purchaseInvoiceFilter.subcontractor_id = sub ? sub.id : '';
+    } else {
+        purchaseInvoiceFilter.subcontractor_id = '';
+    }
+    purchaseInvoiceFilter.type = 'Sous-traitance';
+    router('purchase_invoices');
+};
+
+window.payPurchaseInvoice = async function (invoiceId) {
+    if (!canManageInvoices()) {
+        showToast("Vous n'avez pas l'autorisation de solder une facture d'achat.", 'error');
+        return;
+    }
+    const inv = (db.purchase_invoices || []).find((i) => i.id === invoiceId);
+    if (!inv) {
+        showToast('Facture introuvable.', 'error');
+        return;
+    }
+    if (inv.status === 'Payée') return;
+
+    const amountLabel = `${Number(inv.amount || 0).toLocaleString('fr-FR')} €`;
+    if (!confirm(`Solder la facture ${invoiceId} (${amountLabel}) ?`)) return;
+
+    try {
+        await apiFetch(`purchase-invoices/${encodeURIComponent(invoiceId)}`, {
+            method: 'PUT',
+            body: {
+                supplier: inv.supplier,
+                type: inv.type,
+                date: inv.date,
+                amount: inv.amount,
+                status: 'Payée',
+                file: inv.file || null,
+                subcontractor_id: inv.subcontractor_id || null,
+                order_id: inv.order_id || null
+            }
+        });
+        await fetchAllData();
+        showToast('Facture soldée.', 'success');
+        router('purchase_invoices');
+    } catch (err) {
+        showToast(err.message || 'Erreur lors du paiement de la facture.', 'error');
+    }
 };
 
 function isCreditNoteType(inv) {
@@ -3437,14 +3599,12 @@ window.submitEinvoiceToPA = async function (invoiceId) {
 
     const inv = db.sales_invoices.find(i => String(i.id) === String(id));
     if (!canSubmitToPA(inv)) {
-        return showToast('Seules les factures validées non encore transmises peuvent être envoyées à la PA', 'error');
+        return showToast('Cette facture ne peut pas être transmise à la PA', 'error');
     }
-    if (!confirm('Transmettre cette facture à la Plateforme Agréée Iopole (Factur-X) ?')) return;
+    if (!confirm('Réessayer la transmission de cette facture à la Plateforme Agréée Iopole ?')) return;
 
     const submitBtn = document.getElementById('submit-einvoice-btn');
-    const headerBtn = document.getElementById('submit-einvoice-header-btn');
     if (submitBtn) submitBtn.disabled = true;
-    if (headerBtn) headerBtn.disabled = true;
 
     showToast('Transmission à la PA en cours…', 'info');
     try {
@@ -3462,51 +3622,49 @@ window.submitEinvoiceToPA = async function (invoiceId) {
         showToast('Erreur de communication avec le serveur', 'error');
     } finally {
         if (submitBtn) submitBtn.disabled = false;
-        if (headerBtn) headerBtn.disabled = false;
     }
 };
 
+function showEinvoiceValidationFeedback(einvoice) {
+    if (!einvoice) return;
+    if (einvoice.submitted) {
+        showToast('Facture transmise automatiquement à la Plateforme Agréée', 'success');
+        return;
+    }
+    if (einvoice.skipped) return;
+    if (einvoice.error) {
+        showToast(`Facture validée — échec transmission PA : ${einvoice.error}`, 'error');
+    }
+}
+
 function updateInvoiceModalPaUi(inv) {
     currentInvoiceModalId = inv?.id || null;
-    const actionBar = document.getElementById('einvoice-action-bar');
-    const statusLabel = document.getElementById('modal-einvoice-status-label');
-    const submittedAtEl = document.getElementById('modal-einvoice-submitted-at');
     const submitBtn = document.getElementById('submit-einvoice-btn');
-    const headerBtn = document.getElementById('submit-einvoice-header-btn');
     const showPa = inv && !isCreditNoteType(inv);
 
-    if (actionBar) actionBar.classList.toggle('hidden', !showPa);
-
-    if (!showPa) {
+    if (!showPa || !submitBtn) {
         if (submitBtn) submitBtn.classList.add('hidden');
-        if (headerBtn) headerBtn.classList.add('hidden');
         return;
     }
 
-    const submitted = Boolean(inv.iopole_invoice_id);
-    const canSubmit = canSubmitToPA(inv);
-    const statusText = submitted
-        ? formatEinvoiceStatusLabel(inv.einvoice_status || 'SUBMITTED')
-        : (isValidatedForPaSubmission(inv) ? 'Prête pour transmission PA' : 'Validez la facture avant transmission');
+    const hasError = Boolean(inv.einvoice_error);
+    const canRetry = canSubmitToPA(inv) && hasError;
+    submitBtn.classList.toggle('hidden', !canRetry);
+    submitBtn.disabled = !canRetry;
+}
 
-    if (statusLabel) statusLabel.textContent = statusText;
-    if (submittedAtEl) {
-        if (inv.einvoice_submitted_at) {
-            submittedAtEl.textContent = `Transmise le ${formatDisplayDate(inv.einvoice_submitted_at)}`;
-            submittedAtEl.classList.remove('hidden');
-        } else {
-            submittedAtEl.classList.add('hidden');
-            submittedAtEl.textContent = '';
-        }
-    }
+function updateInvoiceModalCreditNoteUi(inv) {
+    const cnTotalBtn = document.getElementById('credit-note-total-btn');
+    const cnPartialBtn = document.getElementById('credit-note-partial-btn');
+    const eligible = canManageInvoices() && isCreditNoteEligibleInvoice(inv);
 
-    if (submitBtn) {
-        submitBtn.classList.toggle('hidden', !canSubmit);
-        submitBtn.disabled = !canSubmit;
+    if (cnTotalBtn) {
+        cnTotalBtn.classList.toggle('hidden', !eligible);
+        cnTotalBtn.onclick = eligible ? () => createCreditNote(inv.id, false) : null;
     }
-    if (headerBtn) {
-        headerBtn.classList.toggle('hidden', !canSubmit);
-        headerBtn.onclick = () => submitEinvoiceToPA(inv.id);
+    if (cnPartialBtn) {
+        cnPartialBtn.classList.toggle('hidden', !eligible);
+        cnPartialBtn.onclick = eligible ? () => openPartialCreditNoteModal(inv.id) : null;
     }
 }
 
@@ -3518,8 +3676,8 @@ function renderSalesInvoices(view = 'validated') {
         : allInvoices.filter(isSalesInvoiceValidated);
     const title = view === 'draft' ? 'Factures — Brouillon' : 'Factures validées';
     const subtitle = view === 'draft'
-        ? 'Factures en cours de rédaction, non encore validées'
-        : 'Factures validées, payées ou avoirs émis';
+        ? 'Factures en cours de rédaction, non encore validées — cliquez sur une ligne pour ouvrir le détail'
+        : 'Factures validées, payées ou avoirs émis — cliquez sur une ligne pour voir le détail et émettre un avoir';
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
         <div class="flex justify-between items-center mb-6">
             <div>
@@ -3552,7 +3710,6 @@ function renderSalesInvoices(view = 'validated') {
                         <th class="px-4 py-3">Montant TTC</th>
                         <th class="px-4 py-3">Statut</th>
                         ${view === 'draft' ? '' : '<th class="px-4 py-3">PA</th>'}
-                        <th class="px-4 py-3">Actions</th>
                         ${view === 'draft' ? '' : '<th class="px-4 py-3">Relances</th>'}
                     </tr>
                 </thead>
@@ -3568,9 +3725,14 @@ function renderSalesInvoices(view = 'validated') {
             ? `- ${Number(inv.amount).toLocaleString('fr-FR')} €`
             : `${Number(inv.amount).toLocaleString('fr-FR')} €`;
         const amountClass = isCreditNote ? 'text-red-600' : 'text-gray-700';
-        const canCredit = canManage && isCreditNoteEligibleInvoice(inv);
-        return `<tr class="bg-white border-b hover:bg-gray-50">
-                            <td class="px-4 py-3"><input type="checkbox" class="invoice-checkbox" value="${inv.id}"></td>
+        const invIdEsc = String(inv.id).replace(/'/g, "\\'");
+        const showRelance = view !== 'draft' && !isCreditNote && inv.status !== 'Payée' && canManage;
+        const relanceCell = view === 'draft' ? '' : `<td class="px-4 py-3 text-sm text-gray-600" onclick="event.stopPropagation()">
+                                ${showRelance ? `<button onclick="relanceFacture('${invIdEsc}')" class="text-orange-600 hover:underline text-xs mr-2">Relancer</button>` : ''}
+                                ${reminderLabel}
+                            </td>`;
+        return `<tr class="bg-white border-b hover:bg-blue-50/40 cursor-pointer sales-inv-row transition-colors" onclick="openInvoiceModal('${invIdEsc}')">
+                            <td class="px-4 py-3" onclick="event.stopPropagation()"><input type="checkbox" class="invoice-checkbox" value="${inv.id}"></td>
                             <td class="px-4 py-3 font-medium text-gray-900">
                                 ${invoiceNumber}
                                 ${isCreditNote ? '<span class="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">Avoir</span>' : ''}
@@ -3584,18 +3746,9 @@ function renderSalesInvoices(view = 'validated') {
             }">${inv.status}</span>
                             </td>
                             ${view === 'draft' ? '' : `<td class="px-4 py-3">${renderPaStatusBadge(inv)}</td>`}
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <button onclick="openInvoiceModal('${inv.id}')" class="text-blue-600 hover:underline mr-2">Voir</button>
-                                ${view !== 'draft' && canSubmitToPA(inv) ? `<button onclick="submitEinvoiceToPA('${inv.id}')" class="text-emerald-600 hover:underline mr-2" title="Transmettre à la PA Iopole"><i class="fa-solid fa-paper-plane mr-1"></i>PA</button>` : ''}
-                                ${canCredit ? `
-                                    <button onclick="createCreditNote('${inv.id}', false)" class="text-purple-600 hover:underline mr-2" title="Annuler la facture en totalité">Avoir total</button>
-                                    <button onclick="openPartialCreditNoteModal('${inv.id}')" class="text-purple-600 hover:underline mr-2" title="Créditer une partie">Avoir partiel</button>
-                                ` : ''}
-                                ${view !== 'draft' && !isCreditNote && inv.status !== 'Payée' && canManage ? `<button onclick="relanceFacture('${inv.id}')" class="text-orange-600 hover:underline">Relancer</button>` : ''}
-                            </td>
-                            ${view === 'draft' ? '' : `<td class="px-4 py-3 text-sm text-gray-600">${reminderLabel}</td>`}
+                            ${relanceCell}
                         </tr>`;
-    }).join('') : `<tr><td colspan="${view === 'draft' ? 7 : 9}" class="px-4 py-10 text-center text-gray-400 italic">${view === 'draft' ? 'Aucun brouillon' : 'Aucune facture validée'}</td></tr>`}
+    }).join('') : `<tr><td colspan="${view === 'draft' ? 6 : 8}" class="px-4 py-10 text-center text-gray-400 italic">${view === 'draft' ? 'Aucun brouillon' : 'Aucune facture validée'}</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -3792,29 +3945,8 @@ window.openInvoiceModal = async function (invoiceId) {
         downloadBtn.onclick = () => downloadInvoicePDF(invoiceId);
     }
 
-    const cnTotalBtn = document.getElementById('credit-note-total-btn');
-    if (cnTotalBtn) {
-        if (canManageInvoices() && isCreditNoteEligibleInvoice(inv)) {
-            cnTotalBtn.classList.remove('hidden');
-            cnTotalBtn.onclick = () => createCreditNote(inv.id, false);
-        } else {
-            cnTotalBtn.classList.add('hidden');
-            cnTotalBtn.onclick = null;
-        }
-    }
-
-    const cnPartialBtn = document.getElementById('credit-note-partial-btn');
-    if (cnPartialBtn) {
-        if (canManageInvoices() && isCreditNoteEligibleInvoice(inv)) {
-            cnPartialBtn.classList.remove('hidden');
-            cnPartialBtn.onclick = () => openPartialCreditNoteModal(inv.id);
-        } else {
-            cnPartialBtn.classList.add('hidden');
-            cnPartialBtn.onclick = null;
-        }
-    }
-
     updateInvoiceModalPaUi(inv);
+    updateInvoiceModalCreditNoteUi(inv);
 
     const modal = document.getElementById('invoice-modal');
     if (modal) {
@@ -4111,7 +4243,7 @@ window.refreshIopoleConfigPanel = async function () {
                 </div>
             </div>`;
     } catch (e) {
-        panel.innerHTML = `<p class="text-red-700"><i class="fa-solid fa-circle-xmark mr-2"></i>Impossible de lire la configuration PA (${e.message || 'erreur réseau'}).</p>`;
+        panel.innerHTML = `<p class="text-red-700"><i class="fa-solid fa-circle-xmark mr-2"></i>Impossible de lire la configuration PA (${esc(e.message || 'erreur réseau')}).</p>`;
     }
 };
 
@@ -4474,9 +4606,11 @@ async function validateInvoice() {
         }
 
         if (res.ok) {
+            const payload = await res.json().catch(() => ({}));
             await fetchAllData();
             editingInvoiceId = null;
             showToast("Facture validée et enregistrée !", "success");
+            showEinvoiceValidationFeedback(payload.einvoice);
             router('sales_invoices_validated');
         } else {
             const err = await res.json().catch(() => ({}));
@@ -4802,8 +4936,8 @@ function renderAdmin(bankSettings = null) {
                     <thead class="border-b"><tr><th class="pb-2">Nom</th><th class="pb-2">Rôle</th><th class="pb-2">Action</th></tr></thead>
                     <tbody>
                         ${db.users.map(u => `<tr class="border-b last:border-0">
-                            <td class="py-2">${u.name}</td>
-                            <td class="py-2"><span class="${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'} px-2 rounded text-[10px] font-bold uppercase">${u.role}</span></td>
+                            <td class="py-2">${esc(u.name)}</td>
+                            <td class="py-2"><span class="${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'} px-2 rounded text-[10px] font-bold uppercase">${esc(u.role)}</span></td>
                             <td class="py-2"><button class="text-blue-600 text-xs">Modifier</button></td>
                         </tr>`).join('')}
                     </tbody>
@@ -4819,7 +4953,7 @@ function renderAdmin(bankSettings = null) {
                     <tbody>
                         ${(db.agencies || []).map(a => `<tr class="border-b last:border-0">
                             <td class="py-2 font-mono text-xs">${a.code}</td>
-                            <td class="py-2">${a.name}</td>
+                            <td class="py-2">${esc(a.name)}</td>
                             <td class="py-2 text-gray-500">${[a.address, a.city].filter(Boolean).join(', ') || '—'}</td>
                         </tr>`).join('') || '<tr><td colspan="3" class="py-4 text-gray-400 italic">Aucune agence</td></tr>'}
                     </tbody>
@@ -5108,7 +5242,7 @@ function renderSustainability(stats = null) {
                     <table class="w-full text-sm">
                         <thead class="text-xs uppercase text-gray-500 border-b"><tr><th class="py-2 text-left">Client</th><th class="py-2 text-right">Expéd.</th><th class="py-2 text-right">CO2e kg</th></tr></thead>
                         <tbody>
-                            ${topClients.length ? topClients.map(c => `<tr class="border-b"><td class="py-2">${c.client_name || '—'}</td><td class="py-2 text-right">${c.shipments}</td><td class="py-2 text-right font-semibold text-green-700">${formatCo2Kg(c.co2_kg)}</td></tr>`).join('') : '<tr><td colspan="3" class="py-6 text-center text-gray-400 italic">Aucune donnée — recalculez les transports</td></tr>'}
+                            ${topClients.length ? topClients.map(c => `<tr class="border-b"><td class="py-2">${esc(c.client_name || '—')}</td><td class="py-2 text-right">${esc(c.shipments)}</td><td class="py-2 text-right font-semibold text-green-700">${formatCo2Kg(c.co2_kg)}</td></tr>`).join('') : '<tr><td colspan="3" class="py-6 text-center text-gray-400 italic">Aucune donnée — recalculez les transports</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -6579,7 +6713,7 @@ function openEditMissionModal(missionId) {
 
     // Populate vehicles
     const vehicleSelect = document.getElementById('edit-mission-vehicle');
-    vehicleSelect.innerHTML = getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+    vehicleSelect.innerHTML = getVehiclesByType('TRUCK').map(v => optionHtml(v.id, `${v.plate} - ${v.model}`)).join('');
     vehicleSelect.value = mission.vehicle_id || '';
 
     document.getElementById('edit-mission-date').value = mission.date;
@@ -6625,7 +6759,7 @@ async function submitEditMission() {
 
         // Populate vehicles
         const vehicleSelect = document.getElementById('add-mission-vehicle');
-        vehicleSelect.innerHTML = getVehiclesByType('TRUCK').map(v => `<option value="${v.id}">${v.plate} - ${v.model}</option>`).join('');
+        vehicleSelect.innerHTML = getVehiclesByType('TRUCK').map(v => optionHtml(v.id, `${v.plate} - ${v.model}`)).join('');
 
         // Set default date
         document.getElementById('add-mission-date').value = new Date().toISOString().split('T')[0];
@@ -7313,6 +7447,18 @@ function closeDriverCardModal() {
 window.closeDriverCardModal = closeDriverCardModal;
 
 // --- SUBCONTRACTOR MODALS ---
+function bindSubcontractorDocViewButton(el, url) {
+    if (!el) return;
+    if (url) {
+        const safeUrl = normalizeUploadUrl(url);
+        el.onclick = () => window.open(safeUrl, '_blank', 'noopener,noreferrer');
+        el.classList.remove('hidden');
+    } else {
+        el.onclick = null;
+        el.classList.add('hidden');
+    }
+}
+
 function openAddSubcontractorModal() {
     hideAllModals();
 
@@ -7363,34 +7509,15 @@ function openEditSubcontractorModal(subcontractorId) {
     document.getElementById('add-subcontractor-insurance-file').value = '';
 
     const viewLink = document.getElementById('subcontractor-insurance-view');
-    if (subcontractor.insurance_doc_url) {
-        viewLink.href = normalizeUploadUrl(subcontractor.insurance_doc_url);
-        viewLink.classList.remove('hidden');
-    } else {
-        viewLink.classList.add('hidden');
-    }
+    bindSubcontractorDocViewButton(viewLink, subcontractor.insurance_doc_url);
 
     const urssafView = document.getElementById('subcontractor-urssaf-view');
-    if (urssafView) {
-        if (subcontractor.urssaf_doc_url) {
-            urssafView.href = normalizeUploadUrl(subcontractor.urssaf_doc_url);
-            urssafView.classList.remove('hidden');
-        } else {
-            urssafView.classList.add('hidden');
-        }
-    }
+    bindSubcontractorDocViewButton(urssafView, subcontractor.urssaf_doc_url);
     const urssafFileInput = document.getElementById('add-subcontractor-urssaf-file');
     if (urssafFileInput) urssafFileInput.value = '';
 
     const kbisView = document.getElementById('subcontractor-kbis-view');
-    if (kbisView) {
-        if (subcontractor.kbis_doc_url) {
-            kbisView.href = normalizeUploadUrl(subcontractor.kbis_doc_url);
-            kbisView.classList.remove('hidden');
-        } else {
-            kbisView.classList.add('hidden');
-        }
-    }
+    bindSubcontractorDocViewButton(kbisView, subcontractor.kbis_doc_url);
     const kbisFileInput = document.getElementById('add-subcontractor-kbis-file');
     if (kbisFileInput) kbisFileInput.value = '';
 
@@ -7592,7 +7719,7 @@ function openDispatchModal(orderId) {
         (!s.rc_pro_expiry || new Date(s.rc_pro_expiry) >= new Date())
     );
     select.innerHTML = '<option value="">-- Sélectionner --</option>' +
-        validSubcontractors.map(s => `<option value="${s.id}" ${String(order.subcontractor_id) === String(s.id) ? 'selected' : ''}>${s.name}</option>`).join('');
+        validSubcontractors.map(s => optionHtml(s.id, s.name, String(order.subcontractor_id) === String(s.id))).join('');
 
     // Also add expired ones with warning
     const expired = db.subcontractors.filter(s =>
@@ -7600,7 +7727,7 @@ function openDispatchModal(orderId) {
     );
     if (expired.length > 0) {
         select.innerHTML += '<option disabled>--- Expirés (attention) ---</option>' +
-            expired.map(s => `<option value="${s.id}" class="text-red-500">${s.name} ⚠️</option>`).join('');
+            expired.map(s => optionHtml(s.id, `${s.name} ⚠️`)).join('');
     }
 
     setDispatchSubmitting(false);
@@ -8185,7 +8312,9 @@ window.validateDraft = async function (invoiceId) {
     try {
         const res = await apiFetch(`sales-invoices/${invoiceId}/validate`, { method: 'POST' });
         if (res.ok) {
+            const payload = await res.json().catch(() => ({}));
             showToast("Facture validée avec succès !", "success");
+            showEinvoiceValidationFeedback(payload.einvoice);
             await fetchAllData();
             closeModal();
             router('sales_invoices_validated');
@@ -8330,13 +8459,6 @@ async function downloadInvoicePDF(invoiceId) {
     }
 }
 
-window.filterPurchaseInvoicesBySubcontractor = function (subcontractorName) {
-    const sub = (db.subcontractors || []).find(s => s.name === subcontractorName);
-    purchaseInvoiceFilter.subcontractor_id = sub ? sub.id : '';
-    purchaseInvoiceFilter.type = 'Sous-traitance';
-    router('purchase_invoices');
-};
-
 function renderAccountingExport() {
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -8443,7 +8565,7 @@ function renderAccountingExport() {
             <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
                 <div class="flex justify-between items-center p-4 border-b">
                     <h3 class="font-bold text-lg">Aperçu CSV comptable</h3>
-                    <button type="button" onclick="closeAccountingPreview()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                    <button type="button" onclick="closeAccountingPreview()" class="text-gray-400 hover:text-gray-600 btn-icon" aria-label="Fermer l'aperçu comptable"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
                 </div>
                 <div class="p-4 overflow-auto flex-1">
                     <p id="acc-preview-meta" class="text-sm text-gray-500 mb-3"></p>
@@ -8573,7 +8695,7 @@ function showAccountingWarnings(warnings) {
         return;
     }
     box.classList.remove('hidden');
-    box.innerHTML = `<strong>Alertes TVA :</strong><ul class="mt-2 list-disc pl-5">${warnings.map(w => `<li>${w}</li>`).join('')}</ul>`;
+    box.innerHTML = `<strong>Alertes TVA :</strong><ul class="mt-2 list-disc pl-5">${warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul>`;
 }
 
 window.closeAccountingPreview = function () {
@@ -8655,10 +8777,10 @@ function populateSubcontractorSelect(selectEl, selectedId) {
         s.status === 'ACTIF' && s.rc_pro_expiry && new Date(s.rc_pro_expiry) < new Date()
     );
     selectEl.innerHTML = '<option value="">-- Sélectionner --</option>' +
-        validSubcontractors.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        validSubcontractors.map(s => optionHtml(s.id, s.name)).join('');
     if (expired.length) {
         selectEl.innerHTML += '<option disabled>--- Expirés ---</option>' +
-            expired.map(s => `<option value="${s.id}">${s.name} ⚠️</option>`).join('');
+            expired.map(s => optionHtml(s.id, `${s.name} ⚠️`)).join('');
     }
     if (selectedId) selectEl.value = String(selectedId);
 }
@@ -9086,7 +9208,7 @@ function openAddOrderModal(prefill = {}) {
     if (agencySelect) {
         const agencies = db.agencies || [];
         agencySelect.innerHTML = '<option value="">— Par défaut —</option>' +
-            agencies.map(a => `<option value="${a.id}">${a.code} — ${a.name}</option>`).join('');
+            agencies.map(a => optionHtml(a.id, `${a.code} — ${a.name}`)).join('');
         if (currentUser?.agency_id) agencySelect.value = String(currentUser.agency_id);
     }
     const agencyWrap = document.getElementById('add-order-agency-wrap');
@@ -9248,7 +9370,7 @@ function populateEditOrderStatusSelect(order) {
             readonlyEl.textContent = `Statut verrouillé : ${current}`;
             readonlyEl.classList.remove('hidden');
         }
-        select.innerHTML = `<option value="${current}">${current}</option>`;
+        select.innerHTML = optionHtml(current, current);
         select.value = current;
         return;
     }
@@ -9259,7 +9381,7 @@ function populateEditOrderStatusSelect(order) {
 
     const nextStatuses = typeof getNextStatuses === 'function' ? getNextStatuses(current) : [];
     const options = [current, ...nextStatuses.filter(s => s !== current)];
-    select.innerHTML = options.map(s => `<option value="${s}">${s}</option>`).join('');
+    select.innerHTML = options.map(s => optionHtml(s, s)).join('');
     select.value = current;
 }
 
