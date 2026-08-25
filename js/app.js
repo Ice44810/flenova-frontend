@@ -230,6 +230,22 @@ function escapePublicHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+/** Alias court pour innerHTML avec données API. */
+function esc(value) {
+    return escapePublicHtml(value);
+}
+
+function escAttr(value) {
+    if (typeof escapeHtmlAttr === 'function') return escapeHtmlAttr(value);
+    return esc(value);
+}
+
+function optionHtml(value, label, selected) {
+    const sel = selected ? ' selected' : '';
+    return `<option value="${escAttr(value)}"${sel}>${esc(label)}</option>`;
+}
+
+
 function renderPublicReviewStars(rating) {
     const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
     return Array.from({ length: 5 }, (_, i) =>
@@ -4210,7 +4226,7 @@ function renderCreateInvoice() {
                             <div class="col-span-2">
                                 <label class="block text-gray-500 mb-1 font-medium">Client</label>
                                 <select id="invoice-client" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                                    ${db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                                    ${db.clients.map(c => optionHtml(c.id, c.name)).join('')}
                                 </select>
                             </div>
                             <div>
@@ -6558,7 +6574,7 @@ function openEditMissionModal(missionId) {
 
     // Populate drivers
     const driverSelect = document.getElementById('edit-mission-driver');
-    driverSelect.innerHTML = db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    driverSelect.innerHTML = db.drivers.map(d => optionHtml(d.id, d.name)).join('');
     driverSelect.value = mission.driver_id || '';
 
     // Populate vehicles
@@ -6601,11 +6617,11 @@ async function submitEditMission() {
         hideAllModals();
         // Populate clients
         const clientSelect = document.getElementById('add-mission-client');
-        clientSelect.innerHTML = db.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        clientSelect.innerHTML = db.clients.map(c => optionHtml(c.id, c.name)).join('');
 
         // Populate drivers
         const driverSelect = document.getElementById('add-mission-driver');
-        driverSelect.innerHTML = db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        driverSelect.innerHTML = db.drivers.map(d => optionHtml(d.id, d.name)).join('');
 
         // Populate vehicles
         const vehicleSelect = document.getElementById('add-mission-vehicle');
@@ -6856,21 +6872,21 @@ function openDriverCardModal(driverId) {
     content.innerHTML = `
         <div class="text-center mb-4">
             <div class="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-500 mx-auto mb-3">
-                ${initials}
+                ${esc(initials)}
             </div>
-            <h3 class="font-bold text-xl text-gray-800">${driver.name || '—'}</h3>
-            <span class="bg-${statusTone}-100 text-${statusTone}-800 px-3 py-1 rounded-full text-sm">${driver.status || '—'}</span>
+            <h3 class="font-bold text-xl text-gray-800">${esc(driver.name || '—')}</h3>
+            <span class="bg-${statusTone}-100 text-${statusTone}-800 px-3 py-1 rounded-full text-sm">${esc(driver.status || '—')}</span>
         </div>
         <div class="space-y-3">
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Téléphone</span><span class="font-medium">${driver.phone || '—'}</span></div>
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Permis</span><span class="font-medium">${driver.license || '—'}</span></div>
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Expiration permis</span><span class="font-medium">${formatDisplayDate(driver.license_expiry) || '—'}</span></div>
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Camion</span><span class="font-medium font-mono">${driver.default_vehicle_plate || '—'}</span></div>
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Remorque</span><span class="font-medium font-mono">${driver.default_trailer_plate || '—'}</span></div>
-            ${driver.invite_code ? `<div class="flex justify-between border-b pb-2"><span class="text-gray-500">Code mobile</span><span class="font-mono font-bold text-teal-700">${driver.invite_code}</span></div>` : ''}
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Téléphone</span><span class="font-medium">${esc(driver.phone || '—')}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Permis</span><span class="font-medium">${esc(driver.license || '—')}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Expiration permis</span><span class="font-medium">${esc(formatDisplayDate(driver.license_expiry) || '—')}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Camion</span><span class="font-medium font-mono">${esc(driver.default_vehicle_plate || '—')}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Remorque</span><span class="font-medium font-mono">${esc(driver.default_trailer_plate || '—')}</span></div>
+            ${driver.invite_code ? `<div class="flex justify-between border-b pb-2"><span class="text-gray-500">Code mobile</span><span class="font-mono font-bold text-teal-700">${esc(driver.invite_code)}</span></div>` : ''}
             ${driver.user_account_id ? '<div class="text-green-700 text-sm mt-2"><i class="fa-solid fa-circle-check mr-1"></i>Compte TMS Mobile activé</div>' : (driver.invite_code ? '<div class="text-teal-700 text-sm mt-2">Code à transmettre au chauffeur pour l\'inscription mobile</div>' : '')}
-            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Adresse</span><span class="font-medium">${driver.address || '—'}</span></div>
-            <div class="flex justify-between"><span class="text-gray-500">Notes</span><span class="font-medium">${driver.notes || '—'}</span></div>
+            <div class="flex justify-between border-b pb-2"><span class="text-gray-500">Adresse</span><span class="font-medium">${esc(driver.address || '—')}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Notes</span><span class="font-medium">${esc(driver.notes || '—')}</span></div>
         </div>
     `;
 
@@ -7815,7 +7831,7 @@ function openEditVehicleModal(vehicleId) {
     const driverSelect = document.getElementById('edit-vehicle-driver');
     if (driverSelect) {
         driverSelect.innerHTML = '<option value="">-- Aucun --</option>' +
-            db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            db.drivers.map(d => optionHtml(d.id, d.name)).join('');
         driverSelect.value = vehicle.driver_id || '';
     }
 
@@ -8074,7 +8090,7 @@ function toggleAddUserDriverField() {
     const show = role === 'chauffeur';
     wrap.classList.toggle('hidden', !show);
     if (show && db.drivers?.length) {
-        select.innerHTML = db.drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        select.innerHTML = db.drivers.map(d => optionHtml(d.id, d.name)).join('');
     }
 }
 
@@ -8769,7 +8785,7 @@ function getOrderCmrPayload(prefix) {
 function populateOrderUnloadDriverSelect(selectEl, selectedId) {
     if (!selectEl) return;
     selectEl.innerHTML = '<option value="">-- Même chauffeur --</option>' +
-        (db.drivers || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        (db.drivers || []).map(d => optionHtml(d.id, d.name)).join('');
     if (selectedId) selectEl.value = String(selectedId);
 }
 
@@ -8887,7 +8903,7 @@ window.loadDashboardPallets = async function (highlightClientId) {
 
     if (filterEl && filterEl.options.length <= 1) {
         filterEl.innerHTML = '<option value="">Tous les clients</option>' +
-            (db.clients || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            (db.clients || []).map(c => optionHtml(c.id, c.name)).join('');
         if (clientId) filterEl.value = clientId;
     }
 
@@ -8946,7 +8962,7 @@ function populateAddOrderClientSelect(selectedId) {
     const clientSelect = document.getElementById('add-order-client');
     if (!clientSelect) return;
     const clients = getClientsSortedForOrders();
-    clientSelect.innerHTML = clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    clientSelect.innerHTML = clients.map(c => optionHtml(c.id, c.name)).join('');
     const prefs = getOrderQuickPrefs();
     if (selectedId) clientSelect.value = String(selectedId);
     else if (prefs.lastClientId && clients.some(c => c.id === prefs.lastClientId)) {
@@ -9061,7 +9077,7 @@ function openAddOrderModal(prefill = {}) {
     const driverSelect = document.getElementById('add-order-driver');
     if (driverSelect) {
         driverSelect.innerHTML = '<option value="">— Plus tard —</option>' +
-            (db.drivers || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            (db.drivers || []).map(d => optionHtml(d.id, d.name)).join('');
     }
 
     populateSubcontractorSelect(document.getElementById('add-order-subcontractor'));
@@ -9257,7 +9273,7 @@ function openEditOrderModal(orderId) {
     document.getElementById('edit-order-ref').value = order.ref || '';
 
     const clientSelect = document.getElementById('edit-order-client');
-    clientSelect.innerHTML = (db.clients || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    clientSelect.innerHTML = (db.clients || []).map(c => optionHtml(c.id, c.name)).join('');
     clientSelect.value = order.client_id || '';
 
     const vehicleSelect = document.getElementById('edit-order-vehicle');
@@ -9265,7 +9281,7 @@ function openEditOrderModal(orderId) {
 
     const driverSelect = document.getElementById('edit-order-driver');
     driverSelect.innerHTML = '<option value="">-- Sélectionner un chauffeur --</option>' +
-        (db.drivers || []).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        (db.drivers || []).map(d => optionHtml(d.id, d.name)).join('');
     driverSelect.value = order.driver_id || '';
 
     populateSubcontractorSelect(document.getElementById('edit-order-subcontractor'), order.subcontractor_id);
