@@ -83,7 +83,7 @@ function fallbackCan(role, module, action) {
 }
 
 function canAccessRoute(routeName) {
-    if (routeName === 'platform_ops') return !!currentUser?.isPlatformAdmin;
+    if (routeName === 'platform_ops' || routeName === 'platform_crm') return !!currentUser?.isPlatformAdmin;
     if (currentUser?.isPlatformAdmin) return false;
     const openRoutes = new Set(['pricing', 'solutions', 'contact', 'about', 'tracking', 'onboarding', 'feedback', 'disputes']);
     if (openRoutes.has(routeName)) return true;

@@ -454,7 +454,7 @@ window.planHasFeature = function (featureKey) {
 };
 
 window.canAccessPlanRoute = function (routeName) {
-    if (routeName === 'platform_ops') return !!currentUser?.isPlatformAdmin;
+    if (routeName === 'platform_ops' || routeName === 'platform_crm') return !!currentUser?.isPlatformAdmin;
     const sub = window.cachedSubscription;
     const transportRoutes = sub?.transportRoutes || [
         'transports', 'planning', 'inprogress_transports', 'completed_transports',
