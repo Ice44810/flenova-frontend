@@ -53,12 +53,17 @@
     function buildStyle(config) {
         if (config.styleUrl) return config.styleUrl;
         if (config.rasterTileUrl) {
+            // Les tuiles passent par le proxy backend (la clé TomTom reste
+            // côté serveur), d'où une URL relative que MapLibre veut absolue.
+            const tileUrl = config.rasterTileUrl.startsWith('/')
+                ? `${global.location.origin}${config.rasterTileUrl}`
+                : config.rasterTileUrl;
             return {
                 version: 8,
                 sources: {
                     tomtom: {
                         type: 'raster',
-                        tiles: [config.rasterTileUrl],
+                        tiles: [tileUrl],
                         tileSize: 256,
                         attribution: '© TomTom'
                     }

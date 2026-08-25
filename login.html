@@ -36,7 +36,19 @@
                 </button>
             </form>
 
+            <div id="unverified-notice" class="hidden mt-4 p-4 rounded-lg bg-amber-50 border border-amber-200">
+                <p class="text-sm text-amber-900"><i class="fa-solid fa-envelope mr-2"></i><span id="unverified-msg"></span></p>
+                <button type="button" id="resend-verification"
+                    class="mt-3 text-sm font-medium text-amber-900 underline hover:text-amber-700">
+                    Renvoyer le lien de confirmation
+                </button>
+                <p id="resend-feedback" class="hidden text-xs text-amber-800 mt-2"></p>
+            </div>
+
             <div class="mt-6 text-center space-y-3">
+                <p class="text-sm">
+                    <a href="forgot-password.html" class="text-blue-600 hover:text-blue-800 font-medium">Mot de passe oublié ?</a>
+                </p>
                 <p class="text-sm text-gray-500">
                     Pas encore de compte ?
                     <a href="index.html?trial=1#contact" class="text-blue-600 hover:text-blue-800 font-medium">Demander un essai</a>
@@ -90,7 +102,12 @@
                     setTimeout(() => {
                         window.location.href = '/';
                     }, 500);
+                } else if (result.code === 'EMAIL_NOT_VERIFIED') {
+                    document.getElementById('unverified-msg').textContent =
+                        result.message || 'Confirmez votre adresse e-mail avant de vous connecter.';
+                    document.getElementById('unverified-notice').classList.remove('hidden');
                 } else {
+                    document.getElementById('unverified-notice').classList.add('hidden');
                     showToast(result.message || result.error || 'Identifiants incorrects', 'error');
                 }
             } catch (err) {
@@ -98,6 +115,34 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
+            }
+        });
+
+        document.getElementById('resend-verification').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+
+            try {
+                const email = document.getElementById('login-email').value.trim();
+                const response = await apiFetch('auth/resend-verification', {
+                    method: 'POST',
+                    body: { email }
+                });
+                const result = await response.json().catch(() => ({}));
+
+                if (response.status === 429) {
+                    showToast(result.error || 'Trop de demandes. Réessayez plus tard.', 'error');
+                    return;
+                }
+
+                const feedback = document.getElementById('resend-feedback');
+                feedback.textContent = result.message || 'Un nouveau lien vient d\'être envoyé.';
+                feedback.classList.remove('hidden');
+                btn.classList.add('hidden');
+            } catch (err) {
+                showToast('Impossible de contacter le serveur', 'error');
+            } finally {
+                btn.disabled = false;
             }
         });
     </script>

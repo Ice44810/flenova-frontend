@@ -20,8 +20,20 @@ async function apiFetch(url, options = {}) {
         fetchOptions.body = JSON.stringify(options.body);
     }
 
-    const isAuthRoute = url.includes('auth/login') || url.includes('auth/register') || url.includes('auth/me');
-    const isAuthPage = window.location.pathname.endsWith('login.html') || window.location.pathname.endsWith('register.html');
+    // Ces routes gèrent elles-mêmes leurs réponses d'erreur : les intercepter
+    // déclencherait une déconnexion ou une redirection intempestive sur des
+    // pages où l'utilisateur n'a précisément pas encore de session.
+    const AUTH_ROUTES = [
+        'auth/login', 'auth/register', 'auth/me',
+        'auth/forgot-password', 'auth/reset-password',
+        'auth/verify-email', 'auth/resend-verification'
+    ];
+    const AUTH_PAGES = [
+        'login.html', 'register.html',
+        'forgot-password.html', 'reset-password.html', 'verify-email.html'
+    ];
+    const isAuthRoute = AUTH_ROUTES.some((route) => url.includes(route));
+    const isAuthPage = AUTH_PAGES.some((page) => window.location.pathname.endsWith(page));
 
     try {
         const response = await fetch(fullUrl, fetchOptions);

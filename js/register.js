@@ -22,6 +22,71 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 4000);
 }
 
+/**
+ * Remplace le formulaire par une invitation à confirmer l'adresse.
+ * Le compte existe mais reste inaccessible jusque-là : sans cet écran,
+ * l'utilisateur ne comprendrait pas pourquoi sa connexion est refusée.
+ */
+function showVerificationNotice(email, trialDays) {
+    const form = document.getElementById('register-form');
+    if (!form) return;
+
+    const panel = document.createElement('div');
+    panel.className = 'p-5 rounded-lg bg-green-50 border border-green-200 space-y-3';
+
+    const title = document.createElement('p');
+    title.className = 'text-sm font-semibold text-green-900';
+    title.textContent = 'Compte créé. Une dernière étape.';
+
+    const body = document.createElement('p');
+    body.className = 'text-sm text-green-800';
+    // textContent : l'adresse vient d'une saisie utilisateur.
+    body.textContent = `Nous avons envoyé un lien de confirmation à ${email}. `
+        + `Cliquez-le pour activer votre compte et votre essai de ${trialDays} jours.`;
+
+    const hint = document.createElement('p');
+    hint.className = 'text-xs text-green-700';
+    hint.textContent = 'Pensez à consulter votre dossier de courriers indésirables. Le lien est valable 24 heures.';
+
+    const resend = document.createElement('button');
+    resend.type = 'button';
+    resend.className = 'text-sm font-medium text-green-900 underline hover:text-green-700';
+    resend.textContent = 'Renvoyer le lien';
+
+    const feedback = document.createElement('p');
+    feedback.className = 'text-xs text-green-800 hidden';
+
+    resend.addEventListener('click', async () => {
+        resend.disabled = true;
+        try {
+            const response = await apiFetch('auth/resend-verification', {
+                method: 'POST',
+                body: { email }
+            });
+            const result = await response.json().catch(() => ({}));
+            if (response.status === 429) {
+                showToast(result.error || 'Trop de demandes. Réessayez plus tard.', 'error');
+                return;
+            }
+            feedback.textContent = result.message || 'Un nouveau lien vient d\'être envoyé.';
+            feedback.classList.remove('hidden');
+            resend.classList.add('hidden');
+        } catch (err) {
+            showToast('Impossible de contacter le serveur', 'error');
+        } finally {
+            resend.disabled = false;
+        }
+    });
+
+    const loginLink = document.createElement('a');
+    loginLink.href = 'login.html';
+    loginLink.className = 'block text-sm text-blue-600 hover:text-blue-800 font-medium';
+    loginLink.textContent = 'J\'ai confirmé — aller à la connexion';
+
+    panel.append(title, body, hint, resend, feedback, loginLink);
+    form.replaceWith(panel);
+}
+
 function getSelectedPlan() {
     const params = new URLSearchParams(window.location.search);
     const fromUrl = (params.get('plan') || '').trim().toLowerCase();
@@ -104,12 +169,11 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
         try { result = await response.json(); } catch (e) { result = { error: 'Erreur serveur inattendue' }; }
 
         if (response.ok && result.success) {
-            setCurrentUser(result.user);
+            // Aucune session n'est ouverte à l'inscription : le compte reste
+            // inactif jusqu'à confirmation de l'adresse e-mail.
             const days = result.demo?.trialDays || 30;
-            showToast(`Compte créé ! Essai Premium ${days} jours activé. Redirection...`, 'success');
-            setTimeout(() => {
-                window.location.href = '/index.html';
-            }, 800);
+            showToast(`Compte créé ! Essai Premium ${days} jours activé.`, 'success');
+            showVerificationNotice(email, days);
         } else {
             showToast(result.error || result.message || 'Erreur lors de l\'inscription', 'error');
         }
