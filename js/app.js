@@ -5522,8 +5522,8 @@ async function renderPublicTrackingPage() {
         const timeline = (data.timeline || []).map(h => `
             <div class="flex gap-3 text-sm border-b pb-2 mb-2">
                 <span class="text-gray-400 font-mono text-xs">${h.changed_at ? new Date(h.changed_at).toLocaleString('fr-FR') : '—'}</span>
-                <span class="font-semibold">${h.status}</span>
-                ${h.comment ? `<span class="text-gray-500">${h.comment}</span>` : ''}
+                <span class="font-semibold">${escapeHtml(h.status)}</span>
+                ${h.comment ? `<span class="text-gray-500">${escapeHtml(h.comment)}</span>` : ''}
             </div>`).join('') || '<p class="text-gray-400 italic">Aucun événement</p>';
 
         const pos = data.lastPosition;
@@ -5534,19 +5534,19 @@ async function renderPublicTrackingPage() {
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <p class="text-xs uppercase text-gray-400 font-bold">Suivi donneur d'ordre · live</p>
-                        <h1 class="text-2xl font-black text-gray-900 mt-1">${data.ref || 'Transport'}</h1>
-                        <p class="font-mono text-teal-700 mt-2">${data.trackingCode}</p>
+                        <h1 class="text-2xl font-black text-gray-900 mt-1">${escapeHtml(data.ref || 'Transport')}</h1>
+                        <p class="font-mono text-teal-700 mt-2">${escapeHtml(data.trackingCode)}</p>
                     </div>
                     <span id="public-live-stamp" class="text-xs text-gray-400 whitespace-nowrap">${hasGps && pos.recorded_at ? `MAJ ${new Date(pos.recorded_at).toLocaleTimeString('fr-FR')}` : ''}</span>
                 </div>
                 <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
-                    <div><span class="text-gray-400 text-xs uppercase">Statut</span><p class="font-bold">${data.status}</p></div>
-                    <div><span class="text-gray-400 text-xs uppercase">Mode</span><p>${data.transportMode || '—'}</p></div>
-                    <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Trajet</span><p>${data.origin || '—'} → ${data.destination || '—'}</p></div>
-                    <div><span class="text-gray-400 text-xs uppercase">Poids taxé</span><p>${data.taxableWeightKg ? `${data.taxableWeightKg} kg` : '—'}</p></div>
-                    <div><span class="text-gray-400 text-xs uppercase">Km PL</span><p>${data.routeKmHgv ? `${data.routeKmHgv} km` : '—'}</p></div>
-                    <div><span class="text-gray-400 text-xs uppercase">Chauffeur</span><p>${data.driverName || '—'}</p></div>
-                    <div><span class="text-gray-400 text-xs uppercase">Véhicule</span><p>${data.vehiclePlate || '—'}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Statut</span><p class="font-bold">${escapeHtml(data.status)}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Mode</span><p>${escapeHtml(data.transportMode || '—')}</p></div>
+                    <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Trajet</span><p>${escapeHtml(data.origin || '—')} → ${escapeHtml(data.destination || '—')}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Poids taxé</span><p>${data.taxableWeightKg ? `${escapeHtml(data.taxableWeightKg)} kg` : '—'}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Km PL</span><p>${data.routeKmHgv ? `${escapeHtml(data.routeKmHgv)} km` : '—'}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Chauffeur</span><p>${escapeHtml(data.driverName || '—')}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Véhicule</span><p>${escapeHtml(data.vehiclePlate || '—')}</p></div>
                 </div>
                 <div class="mt-6">
                     <div id="public-live-map" class="public-live-map"></div>
@@ -5562,7 +5562,7 @@ async function renderPublicTrackingPage() {
     } catch (e) {
         window._lastPublicTrackingData = null;
         return `<div class="max-w-xl mx-auto py-20 px-6 text-center">
-            <p class="text-red-600 font-semibold mb-4">${e.message}</p>
+            <p class="text-red-600 font-semibold mb-4">${escapeHtml(e.message)}</p>
             <button type="button" onclick="publicRouter('tracking')" class="text-blue-600">Réessayer</button>
         </div>`;
     }
