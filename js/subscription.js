@@ -149,7 +149,7 @@ function renderPublicPlansSection() {
         <div class="public-section-inner">
             <p class="public-page-eyebrow">Tarifs transparents</p>
             <h2 class="public-section-title" id="public-plans-title">Trois forfaits, une couverture complète</h2>
-            <p class="public-section-lead">Du transporteur solo à la PME multi-agences : choisissez le forfait adapté à votre volume. Essai Premium 30 jours sur demande · <strong>Sans engagement de durée</strong>.</p>
+            <p class="public-section-lead">Du transporteur solo à la PME multi-agences : choisissez le forfait adapté à votre volume. Essai Premium 30 jours à l’inscription · <strong>Sans engagement de durée</strong>.</p>
             ${renderPublicPlansComparison()}
             ${renderUpgradeVsAddonsBlock({ showAll: true, context: 'public' })}
             <div class="public-plans-cards mt-12">
@@ -187,7 +187,7 @@ function renderPricingCards(options = {}) {
 
         let buttonHtml;
         if (mode === 'public') {
-            buttonHtml = `<button type="button" onclick="publicRouterContactTrial('${plan.id}')" class="block w-full py-2.5 text-center ${plan.popular ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-blue-600 text-blue-600 hover:bg-blue-50'} rounded-lg font-semibold transition">Demander un essai</button>`;
+            buttonHtml = `<button type="button" onclick="publicRouterContactTrial('${plan.id}')" class="block w-full py-2.5 text-center ${plan.popular ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-blue-600 text-blue-600 hover:bg-blue-50'} rounded-lg font-semibold transition">Commencer l'essai</button>`;
         } else if (selectedPlan === plan.id) {
             buttonHtml = `<div class="w-full py-2.5 text-center bg-green-50 border border-green-200 text-green-800 rounded-lg font-semibold">Votre forfait actuel</div>`;
         } else if (mode === 'app' && window.cachedSubscription?.needsPayment) {
@@ -207,7 +207,7 @@ function renderPricingCards(options = {}) {
     }).join('');
 
     return `<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">${cards}</div>
-        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>Essai Premium sur demande</strong> via le formulaire contact · <strong>Sans engagement de durée</strong>.<br>
+        <p class="mt-12 text-center text-gray-600">Tous les tarifs sont hors taxes. <strong>Essai Premium 30 jours</strong> à l’inscription · <strong>Sans engagement de durée</strong>.<br>
         <span class="text-sm text-gray-500">Facturation mensuelle · Prélèvement SEPA · Résiliation possible à tout moment, sous réserve d’un préavis d’1 mois (effet en fin de période mensuelle) · Suppléments : +29 €/utilisateur PC · +19 €/chauffeur mobile / mois · +1,50 €/confirmation affrètement au-delà du quota (20/mois Indépendant · 50/mois PME · illimité Premium).</span></p>`;
 }
 
@@ -358,7 +358,7 @@ function renderUpgradeVsAddonsBlock(options = {}) {
         const cta = context === 'app' && typeof window.subscribeToPlan === 'function'
             ? `<button type="button" onclick="subscribeToPlan('${s.toId}')" class="mt-4 w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Passer au forfait ${s.toName}</button>`
             : context === 'public'
-                ? `<button type="button" onclick="publicRouterContactTrial('${s.toId}')" class="mt-4 w-full py-2.5 border border-blue-600 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-50 transition">Demander un essai ${s.toName}</button>`
+                ? `<button type="button" onclick="publicRouterContactTrial('${s.toId}')" class="mt-4 w-full py-2.5 border border-blue-600 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-50 transition">Commencer l'essai ${s.toName}</button>`
                 : '';
         return `<div class="border border-gray-200 rounded-xl p-5 bg-white text-left shadow-sm">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">${s.fromName} → capacité ${s.toName}</p>

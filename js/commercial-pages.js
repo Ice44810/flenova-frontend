@@ -34,7 +34,7 @@ const ONBOARDING_STEPS = [
         title: 'Invitez chauffeurs & véhicules',
         desc: 'Créez vos chauffeurs et associez-les à la flotte pour le planning.',
         route: 'drivers',
-        tip: 'Les chauffeurs se connectent à l\'app mobile Flenova avec le même e-mail.'
+        tip: 'Chaque chauffeur reçoit un code d\'activation TF- : il s\'inscrit dans l\'app mobile avec ce code et un mot de passe, pas avec votre e-mail exploitant.'
     },
     {
         n: 4,

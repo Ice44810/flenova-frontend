@@ -126,7 +126,7 @@ function getTermsHtml() {
         <h2 class="text-lg font-bold text-gray-800 mt-6">2. Création de compte et essai</h2>
         <ul class="list-disc pl-5 space-y-1">
             <li>L'inscription crée un espace entreprise isolé (multi-tenant).</li>
-            <li>L'essai Premium est activé sur demande via le <a href="#" onclick="publicRouterContactTrial(); return false;" class="text-blue-600 hover:underline">formulaire contact</a> ; à l'issue de l'essai, le forfait choisi s'applique selon les <a href="#" onclick="openLegalPage('cgv'); return false;" class="text-blue-600 hover:underline">CGV</a>. L'abonnement payant est <strong>sans engagement de durée</strong> ; la résiliation est possible à tout moment sous réserve d'un <strong>préavis d'un (1) mois</strong> (voir CGV).</li>
+            <li>L'essai Premium (30 jours) est activé automatiquement à l'<a href="register.html" class="text-blue-600 hover:underline">inscription en ligne</a> ; à l'issue de l'essai, le forfait choisi s'applique selon les <a href="#" onclick="openLegalPage('cgv'); return false;" class="text-blue-600 hover:underline">CGV</a>. L'abonnement payant est <strong>sans engagement de durée</strong> ; la résiliation est possible à tout moment sous réserve d'un <strong>préavis d'un (1) mois</strong> (voir CGV).</li>
             <li>L'utilisateur garantit l'exactitude des informations fournies et les met à jour sans délai.</li>
         </ul>
 
@@ -173,7 +173,7 @@ function getCgvHtml() {
         <h2 class="text-lg font-bold text-gray-800 mt-6">2. Commande et essai gratuit</h2>
         <ul class="list-disc pl-5 space-y-1">
             <li>La souscription s'effectue en ligne (inscription + choix de forfait) ou sur devis accepté par le Client.</li>
-            <li>L'essai Premium est proposé sur demande via le formulaire contact ; à son terme, le forfait choisi devient facturable sauf résiliation préalable. L'abonnement est ensuite <strong>sans engagement de durée</strong>.</li>
+            <li>L'essai Premium (30 jours) est activé automatiquement à l'inscription en ligne ; à son terme, le forfait choisi devient facturable sauf résiliation préalable. L'abonnement est ensuite <strong>sans engagement de durée</strong>.</li>
             <li>L'activation du mandat de prélèvement SEPA vaut acceptation des CGV.</li>
         </ul>
 

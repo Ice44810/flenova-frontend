@@ -590,7 +590,7 @@
         }
         const steps = [
             { id: 'order', label: 'Créer un premier ordre de transport', go: () => openAddOrderModal() },
-            { id: 'assign', label: 'Affecter un chauffeur ou affréter', go: () => router('planning') },
+            { id: 'assign', label: 'Affecter un chauffeur (code TF-) ou affréter', go: () => router('planning') },
             { id: 'invoice', label: 'Générer une préfacture', go: () => router('preinvoicing') },
             { id: 'pricing', label: 'Vérifier mon forfait / quotas', go: () => router('pricing') }
         ];

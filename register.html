@@ -4,30 +4,88 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0f172a">
-    <title>Flenova — Demander un essai</title>
+    <title>Flenova — Créer un essai</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/responsive-touch.css">
 </head>
 <body class="min-h-screen text-gray-800 login-bg flex items-center justify-center p-6">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-8">
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">Essai Flenova</h1>
-        <p class="text-sm text-gray-600 leading-relaxed mb-6">
-            L’inscription self-service n’est pas ouverte. Un essai est créé après une demande
-            (formulaire contact) : nous activons le compte, l’e-mail de vérification, puis vous
-            pouvez inviter vos chauffeurs (codes TF-).
-        </p>
-        <ol class="text-sm text-gray-700 space-y-2 mb-8 list-decimal list-inside">
-            <li>Décrivez votre flotte via le formulaire contact</li>
-            <li>Recevez l’accès exploitant (e-mail + mot de passe)</li>
-            <li>Invitez les chauffeurs depuis Ressources → Chauffeurs</li>
-        </ol>
-        <a href="index.html?trial=1#contact"
-           class="block w-full text-center py-2 px-4 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-            Demander un essai
-        </a>
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-600 mb-4">
+                <img src="assets/flenova_icon_512.jpg" class="w-8 h-8" alt="">
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">Essai Flenova — 30 jours</h1>
+            <p class="text-sm text-gray-500 mt-1">Créez votre espace entreprise. Sans carte bancaire, sans attendre un opérateur.</p>
+        </div>
+
+        <form id="register-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700" for="reg-company">Société</label>
+                <input id="reg-company" type="text" required maxlength="255" autocomplete="organization"
+                    placeholder="Ex. Transports Dupont"
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 placeholder:text-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700" for="reg-name">Votre nom</label>
+                <input id="reg-name" type="text" required maxlength="255" autocomplete="name"
+                    placeholder="Prénom Nom"
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 placeholder:text-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700" for="reg-email">E-mail professionnel</label>
+                <input id="reg-email" type="email" required autocomplete="email"
+                    placeholder="vous@societe.fr"
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 placeholder:text-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700" for="reg-password">Mot de passe</label>
+                    <input id="reg-password" type="password" required minlength="8" autocomplete="new-password"
+                        placeholder="8 caractères min."
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 placeholder:text-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700" for="reg-password-confirm">Confirmation</label>
+                    <input id="reg-password-confirm" type="password" required minlength="8" autocomplete="new-password"
+                        placeholder="Retapez le mot de passe"
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 placeholder:text-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700" for="reg-plan">Forfait après essai</label>
+                <select id="reg-plan"
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="independant">Indépendant</option>
+                    <option value="pme" selected>PME</option>
+                    <option value="premium">Premium</option>
+                </select>
+                <p id="reg-plan-label" class="mt-1 text-xs text-gray-500"></p>
+                <p class="mt-1 text-xs text-gray-500">L’essai débloque Premium 30 jours, quel que soit ce choix.</p>
+            </div>
+            <label class="flex items-start gap-2 text-sm text-gray-600">
+                <input id="reg-privacy" type="checkbox" required class="mt-1">
+                <span>J’accepte la <a href="/#privacy" class="text-blue-600 hover:underline">politique de confidentialité</a> et les <a href="/#cgu" class="text-blue-600 hover:underline">CGU</a>.</span>
+            </label>
+            <div id="register-turnstile" class="hidden flex justify-center"></div>
+            <button type="submit"
+                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                Créer mon essai gratuit
+            </button>
+        </form>
+
         <p class="mt-4 text-center text-sm text-gray-500">
             Déjà un compte ? <a href="login.html" class="text-blue-600 hover:text-blue-800 font-medium">Se connecter</a>
         </p>
     </div>
+
+    <div id="toast-container"></div>
+
+    <script src="js/security.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/turnstile-auth.js"></script>
+    <script src="js/register.js"></script>
+    <script>initTurnstileWidget('register-turnstile');</script>
 </body>
 </html>

@@ -11,13 +11,16 @@ const PLAN_LABELS = {
 
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast border-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500`;
     const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
-    toast.innerHTML = `
-        <i class="fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3"></i>
-        <span class="text-sm text-gray-700">${message}</span>
-    `;
+    const icon = document.createElement('i');
+    icon.className = `fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3`;
+    const span = document.createElement('span');
+    span.className = 'text-sm text-gray-700';
+    span.textContent = String(message || '');
+    toast.append(icon, span);
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
 }
@@ -113,7 +116,8 @@ function initPlanSelector() {
 
 initPlanSelector();
 
-document.getElementById('register-form').addEventListener('submit', async (e) => {
+const registerForm = document.getElementById('register-form');
+if (registerForm) registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
     const originalText = btn.innerHTML;
@@ -173,11 +177,14 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
         try { result = await response.json(); } catch (e) { result = { error: 'Erreur serveur inattendue' }; }
 
         if (response.ok && result.success) {
-            // Aucune session n'est ouverte à l'inscription : le compte reste
-            // inactif jusqu'à confirmation de l'adresse e-mail.
             const days = result.demo?.trialDays || 30;
-            showToast(`Compte créé ! Essai Premium ${days} jours activé.`, 'success');
-            showVerificationNotice(email, days);
+            if (result.emailVerificationRequired) {
+                showToast(`Compte créé ! Essai Premium ${days} jours activé.`, 'success');
+                showVerificationNotice(email, days);
+            } else {
+                showToast(`Compte créé. Essai Premium ${days} jours — vous pouvez vous connecter.`, 'success');
+                window.location.href = 'login.html?registered=1';
+            }
         } else {
             showToast(result.error || result.message || 'Erreur lors de l\'inscription', 'error');
         }

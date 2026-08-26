@@ -412,7 +412,7 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'Comment fonctionne l\'essai gratuit ?',
-        a: 'Contactez-nous via le formulaire : nous activons une période d\'essai Premium (30 jours) avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait et activez le prélèvement SEPA mensuel. <strong>Sans engagement de durée</strong> : résiliation possible à tout moment, sous réserve d\'un <strong>préavis d\'1 mois</strong> (effet en fin de période mensuelle).'
+        a: 'Inscrivez-vous en ligne : chaque société obtient son propre espace et 30 jours Premium, sans carte bancaire. Plusieurs entreprises peuvent démarrer en parallèle. Ensuite, choisissez votre forfait. <strong>Sans engagement de durée</strong> : résiliation possible à tout moment, sous réserve d\'un <strong>préavis d\'1 mois</strong> (effet en fin de période mensuelle).'
     },
     {
         q: 'Y a-t-il un engagement de durée ?',
@@ -611,7 +611,7 @@ function renderPublicCtaBand(title, subtitle) {
             <h2>${escapePublicHtml(title)}</h2>
             <p>${escapePublicHtml(subtitle)}</p>
             <div class="public-cta-band-actions">
-                <button type="button" class="public-btn-primary" onclick="publicRouterContactTrial()">Demander un essai gratuit</button>
+                <button type="button" class="public-btn-primary" onclick="publicRouterContactTrial()">Commencer l'essai gratuit</button>
                 <button type="button" class="public-btn-secondary" onclick="publicRouter('contact')">Demander une démo</button>
             </div>
         </div>
@@ -645,7 +645,7 @@ function renderPublicModuleDetail(module) {
                 <p class="public-module-lead">${escapePublicHtml(module.lead)}</p>
                 <ul class="public-module-bullets">${bullets}</ul>
                 <div class="public-module-actions">
-                    <button type="button" class="public-btn-primary public-btn-primary--sm" onclick="publicRouterContactTrial()">Demander un essai gratuit</button>
+                    <button type="button" class="public-btn-primary public-btn-primary--sm" onclick="publicRouterContactTrial()">Commencer l'essai gratuit</button>
                     <button type="button" class="public-pillar-link" onclick="publicRouter('contact')">Planifier une démo</button>
                 </div>
             </div>
@@ -665,10 +665,10 @@ function renderPublicHome() {
                     <h1 class="public-hero-title">Le TMS pensé pour les transporteurs PME</h1>
                     <p class="public-hero-subtitle">Moins de ressaisie, plus de visibilité, plus de marge. Centralisez commandes, planning, mobile chauffeurs et facturation.</p>
                     <div class="public-hero-cta">
-                        <button type="button" class="public-btn-primary" onclick="publicRouterContactTrial()">Demander un essai gratuit</button>
+                        <button type="button" class="public-btn-primary" onclick="publicRouterContactTrial()">Commencer l'essai gratuit</button>
                         <button type="button" class="public-btn-secondary" onclick="publicRouter('contact')">Demander une démo</button>
                     </div>
-                    <p class="public-hero-note">À partir de <strong>129 €/mois HT</strong> · <strong>Sans engagement de durée</strong> · Essai Premium sur demande</p>
+                    <p class="public-hero-note">À partir de <strong>129 €/mois HT</strong> · <strong>Sans engagement de durée</strong> · Essai Premium 30 jours à l’inscription</p>
                 </div>
                 <div class="public-hero-image-wrap">
                     <img src="assets/public-hero-illustration.png" alt="Tableau de bord TMS Flenova — cartes, statistiques et flotte" class="public-hero-image" width="1024" height="622">
@@ -770,7 +770,7 @@ function renderPublicFeatures() {
 
         ${renderPublicMvpCycle(true)}
         ${renderPublicFaq()}
-        ${renderPublicCtaBand('Testez Flenova gratuitement pendant 30 jours', 'Demandez votre essai Premium via le formulaire contact — toutes les fonctionnalités débloquées, sans carte bancaire.')}
+        ${renderPublicCtaBand('Testez Flenova gratuitement pendant 30 jours', 'Créez votre compte en ligne — essai Premium, toutes les fonctionnalités, sans carte bancaire.')}
     </div>`;
 }
 
@@ -813,8 +813,8 @@ function applyPublicContactPrefill() {
 }
 
 window.publicRouterContactTrial = function publicRouterContactTrial(planId) {
-    window.__publicContactPrefill = buildTrialContactPrefill(planId || null);
-    publicRouter('contact');
+    const plan = planId ? `?plan=${encodeURIComponent(planId)}` : '';
+    window.location.href = `register.html${plan}`;
 };
 
 function renderPublicContact() {
