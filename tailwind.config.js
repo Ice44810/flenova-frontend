@@ -6,7 +6,7 @@ module.exports = {
   ],
   theme: {
     extend: {
-      /* Laptop-first : lg (1024px) = référence principale ; réduire avec max-* ou grilles 1 col */
+      /* lg (1024px) = sidebar fixe ; < lg = tiroir tactile (téléphone + tablette) */
       screens: {
         xs: '480px',
         sm: '640px',

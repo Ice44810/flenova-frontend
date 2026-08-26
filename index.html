@@ -3,7 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Flenova - TMS Complet</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Tailwind CSS -->
@@ -17,6 +19,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/dashboard-v2.css">
     <link rel="stylesheet" href="css/a11y.css">
+    <link rel="stylesheet" href="css/responsive-touch.css">
 </head>
 
 <body class="h-screen overflow-hidden text-gray-800">
@@ -60,8 +63,11 @@
     <!-- APP SCREEN -->
     <div id="app-screen" class="hidden flex h-full w-full">
 
-        <!-- SIDEBAR -->
-        <aside class="w-64 bg-slate-900 text-white flex-col hidden md:flex shadow-xl z-20 h-full shrink-0" aria-label="Navigation principale">
+        <div id="app-nav-overlay" class="app-nav-overlay" hidden aria-hidden="true"></div>
+
+        <!-- SIDEBAR (tiroir < lg ; colonne fixe ≥ lg) -->
+        <aside id="app-sidebar" class="app-sidebar w-64 bg-slate-900 text-white flex-col shadow-xl h-full shrink-0"
+            aria-label="Navigation principale">
             <div class="h-16 flex items-center px-6 border-b border-slate-700 gap-2">
                 <img src="assets/flenova_icon_512.jpg" alt="" class="w-8 h-8" aria-hidden="true">
                 <span class="text-xl font-bold tracking-wide">Flenova</span>
@@ -360,16 +366,24 @@
         </aside>
 
         <!-- MAIN CONTENT -->
-        <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-gray-50">
-            <header class="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10 shrink-0">
-                <div>
-                    <h2 id="page-title" class="text-xl font-bold text-gray-800">Tableau de bord</h2>
-                    <p id="header-company-name" class="text-xs text-gray-500 hidden"></p>
+        <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-gray-50 min-w-0">
+            <header class="h-16 bg-white shadow-sm flex items-center justify-between px-4 sm:px-6 z-10 shrink-0 gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                    <button type="button" id="app-nav-toggle" class="app-nav-toggle" aria-controls="app-sidebar"
+                        aria-expanded="false" aria-label="Ouvrir le menu">
+                        <i class="fa-solid fa-bars" aria-hidden="true"></i>
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                    <div class="min-w-0">
+                        <h2 id="page-title" class="text-xl font-bold text-gray-800 truncate">Tableau de bord</h2>
+                        <p id="header-company-name" class="text-xs text-gray-500 hidden truncate"></p>
+                    </div>
                 </div>
-                <div class="flex items-center gap-4">
-                    <button onclick="logout()"
-                        class="hidden md:flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded transition">
-                        <i class="fa-solid fa-power-off"></i>
+                <div class="flex items-center gap-2 sm:gap-4 shrink-0">
+                    <button type="button" onclick="logout()"
+                        class="app-header-logout flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded transition"
+                        aria-label="Déconnexion">
+                        <i class="fa-solid fa-power-off" aria-hidden="true"></i>
                         <span>Déconnexion</span>
                     </button>
                     <img id="header-user-avatar" src="assets/flenova_icon_512.jpg" alt="" class="w-10 h-10 rounded-full border border-gray-200" width="40" height="40">

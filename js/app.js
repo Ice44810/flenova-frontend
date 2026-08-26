@@ -1092,6 +1092,94 @@ function initSidebarGroups() {
     if (route) syncSidebarGroups(route);
 }
 
+const MOBILE_NAV_MQ = '(max-width: 1023.98px)';
+
+function isMobileNavLayout() {
+    try {
+        return window.matchMedia(MOBILE_NAV_MQ).matches;
+    } catch (_) {
+        return window.innerWidth < 1024;
+    }
+}
+
+window.closeMobileNav = function () {
+    document.body.classList.remove('nav-open');
+    const toggle = document.getElementById('app-nav-toggle');
+    const overlay = document.getElementById('app-nav-overlay');
+    const sidebar = document.getElementById('app-sidebar');
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Ouvrir le menu');
+    }
+    if (overlay) {
+        overlay.hidden = true;
+        overlay.setAttribute('aria-hidden', 'true');
+    }
+    if (sidebar) sidebar.setAttribute('aria-hidden', isMobileNavLayout() ? 'true' : 'false');
+};
+
+window.openMobileNav = function () {
+    if (!isMobileNavLayout()) return;
+    document.body.classList.add('nav-open');
+    const toggle = document.getElementById('app-nav-toggle');
+    const overlay = document.getElementById('app-nav-overlay');
+    const sidebar = document.getElementById('app-sidebar');
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.setAttribute('aria-label', 'Fermer le menu');
+    }
+    if (overlay) {
+        overlay.hidden = false;
+        overlay.setAttribute('aria-hidden', 'false');
+    }
+    if (sidebar) sidebar.setAttribute('aria-hidden', 'false');
+};
+
+window.toggleMobileNav = function () {
+    if (document.body.classList.contains('nav-open')) {
+        window.closeMobileNav();
+    } else {
+        window.openMobileNav();
+    }
+};
+
+function initMobileNav() {
+    const toggle = document.getElementById('app-nav-toggle');
+    const overlay = document.getElementById('app-nav-overlay');
+    if (toggle && !toggle.dataset.navBound) {
+        toggle.dataset.navBound = '1';
+        toggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.toggleMobileNav();
+        });
+    }
+    if (overlay && !overlay.dataset.navBound) {
+        overlay.dataset.navBound = '1';
+        overlay.addEventListener('click', () => window.closeMobileNav());
+    }
+    if (!document.body.dataset.navEscBound) {
+        document.body.dataset.navEscBound = '1';
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.body.classList.contains('nav-open')) {
+                window.closeMobileNav();
+            }
+        });
+    }
+    try {
+        const mq = window.matchMedia(MOBILE_NAV_MQ);
+        const onChange = () => {
+            if (!mq.matches) window.closeMobileNav();
+            const sidebar = document.getElementById('app-sidebar');
+            if (sidebar && !mq.matches) sidebar.setAttribute('aria-hidden', 'false');
+        };
+        if (mq.addEventListener) mq.addEventListener('change', onChange);
+        else if (mq.addListener) mq.addListener(onChange);
+        onChange();
+    } catch (_) { /* ignore */ }
+    window.closeMobileNav();
+}
+
+
 (async () => {
     // On vérifie systématiquement la validité de la session avec le serveur au démarrage.
     // Cela évite de lancer des requêtes de données en parallèle si le jeton est expiré.
@@ -1147,6 +1235,7 @@ function initSidebarGroups() {
         const ok = await fetchAllData();
         if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
         if (typeof initSidebarGroups === 'function') initSidebarGroups();
+        if (typeof initMobileNav === 'function') initMobileNav();
         if (typeof applyDemoBanner === 'function') applyDemoBanner();
 
         const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
@@ -5969,6 +6058,7 @@ async function router(route) {
         publicRouter(PUBLIC_ROUTES.includes(route) ? route : 'home');
         return;
     }
+    if (typeof closeMobileNav === 'function') closeMobileNav();
     if (currentUser?.isPlatformAdmin && route !== 'platform_ops' && route !== 'platform_crm') {
         route = 'platform_ops';
     }
@@ -7163,6 +7253,7 @@ window.copyDriverInviteCode = copyDriverInviteCode;
 window.regenerateDriverInviteCode = regenerateDriverInviteCode;
 
 document.addEventListener('DOMContentLoaded', () => {
+    if (typeof initMobileNav === 'function') initMobileNav();
     const addOrderModal = document.getElementById('add-order-modal');
     if (addOrderModal) {
         addOrderModal.addEventListener('keydown', (e) => {

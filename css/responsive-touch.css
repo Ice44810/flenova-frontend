@@ -1,0 +1,257 @@
+/**
+ * Responsive + tactile — smartphone & tablette
+ * Breakpoints alignés Tailwind : sm 640 / md 768 / lg 1024
+ */
+
+:root {
+    --touch-min: 44px;
+    --app-sidebar-width: 16rem;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* ── Overlay drawer ─────────────────────────── */
+.app-nav-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(15, 23, 42, 0.55);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+body.nav-open .app-nav-overlay {
+    display: block;
+}
+
+body.nav-open {
+    overflow: hidden;
+}
+
+/* ── Bouton menu (hamburger) ────────────────── */
+.app-nav-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: var(--touch-min);
+    height: var(--touch-min);
+    margin-left: calc(-1 * var(--safe-left));
+    padding: 0;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #1e293b;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.app-nav-toggle:hover,
+.app-nav-toggle:focus-visible {
+    background: #f1f5f9;
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.app-nav-toggle .fa-xmark {
+    display: none;
+}
+
+body.nav-open .app-nav-toggle .fa-bars {
+    display: none;
+}
+
+body.nav-open .app-nav-toggle .fa-xmark {
+    display: inline-block;
+}
+
+/* ── Sidebar : desktop (≥ lg) ───────────────── */
+#app-sidebar.app-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: var(--app-sidebar-width);
+    flex-shrink: 0;
+    z-index: 20;
+}
+
+/* ── Sidebar : téléphone & tablette (< lg) ──── */
+@media (max-width: 1023.98px) {
+    .app-nav-toggle {
+        display: inline-flex;
+    }
+
+    #app-sidebar.app-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        height: 100%;
+        height: 100dvh;
+        max-width: min(var(--app-sidebar-width), 86vw);
+        padding-top: var(--safe-top);
+        padding-bottom: var(--safe-bottom);
+        padding-left: var(--safe-left);
+        transform: translateX(-105%);
+        transition: transform 0.22s ease-out;
+        z-index: 50;
+        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.25);
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    body.nav-open #app-sidebar.app-sidebar {
+        transform: translateX(0);
+    }
+
+    #app-screen > main > header {
+        padding-left: max(1rem, var(--safe-left));
+        padding-right: max(1rem, var(--safe-right));
+        gap: 0.5rem;
+    }
+
+    #page-title {
+        font-size: 1.05rem;
+        line-height: 1.3;
+    }
+
+    #app-content {
+        padding: 1rem;
+        padding-bottom: max(1rem, var(--safe-bottom));
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+    }
+
+    /* Déconnexion toujours accessible */
+    .app-header-logout {
+        display: inline-flex !important;
+        min-height: var(--touch-min);
+        min-width: var(--touch-min);
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
+    }
+
+    .app-header-logout span {
+        display: none;
+    }
+
+    /* Modales : une colonne sur petit écran */
+    #app-modals .grid-cols-2,
+    #app-modals .grid-cols-3,
+    #app-content .grid-cols-2:not(.dash-keep-cols),
+    #app-content .grid-cols-3:not(.dash-keep-cols) {
+        grid-template-columns: 1fr !important;
+    }
+
+    #app-modals .fixed > div {
+        max-height: min(92dvh, 92vh);
+        margin: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+    }
+
+    /* Tables : scroll tactile horizontal */
+    #app-content .overflow-x-auto,
+    #app-content .overflow-auto {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+        touch-action: pan-x pan-y;
+    }
+}
+
+/* Tablette (md–lg) : un peu plus d’air, sidebar toujours en tiroir */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+    #app-sidebar.app-sidebar {
+        max-width: var(--app-sidebar-width);
+    }
+
+    #app-content {
+        padding: 1.25rem 1.5rem;
+    }
+
+    .app-header-logout span {
+        display: inline;
+    }
+
+    /* Formulaire 2 colonnes OK sur tablette */
+    #app-modals .grid-cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+/* Desktop : overlay & toggle masqués ; layout colonne fixe */
+@media (min-width: 1024px) {
+    .app-nav-overlay,
+    .app-nav-toggle {
+        display: none !important;
+    }
+
+    body.nav-open {
+        overflow: unset;
+    }
+
+    #app-sidebar.app-sidebar {
+        position: relative;
+        transform: none !important;
+        max-width: none;
+        box-shadow: none;
+    }
+}
+
+/* ── Cibles tactiles (pointeur grossier) ────── */
+@media (pointer: coarse) {
+    #app-sidebar .nav-item,
+    #app-sidebar .sidebar-group-toggle,
+    #app-sidebar .nav-item-sub {
+        min-height: var(--touch-min);
+    }
+
+    #app-content button:not(.btn-icon-sm),
+    #app-content .btn,
+    #app-modals button:not(.btn-icon-sm),
+    .app-header-logout,
+    .app-nav-toggle {
+        min-height: var(--touch-min);
+    }
+
+    #app-content input:not([type="checkbox"]):not([type="radio"]),
+    #app-content select,
+    #app-content textarea,
+    #app-modals input:not([type="checkbox"]):not([type="radio"]),
+    #app-modals select,
+    #app-modals textarea {
+        min-height: var(--touch-min);
+        font-size: 16px; /* évite le zoom iOS */
+    }
+
+    a, button, .nav-item, .public-nav-btn {
+        -webkit-tap-highlight-color: rgba(59, 130, 246, 0.15);
+        touch-action: manipulation;
+    }
+}
+
+/* ── Auth (login / register / reset) ────────── */
+@media (max-width: 639.98px) {
+    body.login-bg > div {
+        padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
+        align-items: flex-start;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    body.login-bg > div > div {
+        margin-top: 1.5rem;
+        margin-bottom: 1.5rem;
+        padding: 1.5rem !important;
+        max-width: 100%;
+    }
+}
+
+@media (pointer: coarse) {
+    body.login-bg input,
+    body.login-bg button[type="submit"] {
+        min-height: var(--touch-min);
+        font-size: 16px;
+    }
+}
