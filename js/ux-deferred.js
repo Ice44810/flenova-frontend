@@ -56,8 +56,8 @@
 
     async function applyPlanningDrop({ orderId, loadDate, driverId }) {
         if (dndBusy || !orderId) return;
-        const order = (db.orders || []).find((o) => String(o.id) === String(orderId));
-        if (order && typeof canEditPlanningOrder === 'function' && !canEditPlanningOrder(order)) {
+        const existing = (db.orders || []).find((o) => String(o.id) === String(orderId));
+        if (existing && typeof canEditPlanningOrder === 'function' && !canEditPlanningOrder(existing)) {
             showToast('Ce transport ne peut plus être déplacé', 'error');
             return;
         }
@@ -92,9 +92,20 @@
                         : 'Chauffeur mis à jour',
                 'success'
             );
-            if (typeof loadData === 'function') await loadData();
-            else if (typeof fetchAllData === 'function') await fetchAllData();
-            router('planning');
+            if (existing) {
+                if (loadDate) existing.load_date = loadDate;
+                if (driverId !== undefined) {
+                    existing.driver_id = driverId === null || driverId === '' || driverId === 'none' ? null : Number(driverId);
+                    if (existing.driver_id) {
+                        const d = (db.drivers || []).find((x) => x.id === existing.driver_id);
+                        existing.driver_name = d?.name || existing.driver_name;
+                        existing.assignment_type = 'INTERNAL';
+                    } else {
+                        existing.driver_name = null;
+                    }
+                }
+            }
+            if (typeof router === 'function') router('planning');
         } catch (e) {
             showToast(e.message || 'Erreur réseau', 'error');
         } finally {
@@ -145,17 +156,27 @@
                 setTimeout(() => { card.dataset.wasDragged = '0'; }, 120);
             });
 
-            // Tactile
+            // Tactile — long-press 200 ms puis drag (évite conflit scroll)
             card.addEventListener('touchstart', (e) => {
                 if (e.touches.length !== 1) return;
                 const t = e.touches[0];
+                const orderId = card.getAttribute('data-planning-order-id');
                 touchState = {
-                    orderId: card.getAttribute('data-planning-order-id'),
+                    orderId,
                     startX: t.clientX,
                     startY: t.clientY,
                     moved: false,
-                    ghost: null
+                    armed: false,
+                    ghost: null,
+                    holdTimer: null
                 };
+                touchState.holdTimer = setTimeout(() => {
+                    if (touchState && touchState.orderId === orderId) {
+                        touchState.armed = true;
+                        card.classList.add('ring-2', 'ring-indigo-400');
+                        if (navigator.vibrate) try { navigator.vibrate(12); } catch { /* ignore */ }
+                    }
+                }, 200);
             }, { passive: true });
 
             card.addEventListener('touchmove', (e) => {
@@ -163,7 +184,19 @@
                 const t = e.touches[0];
                 const dx = t.clientX - touchState.startX;
                 const dy = t.clientY - touchState.startY;
-                if (!touchState.moved && Math.hypot(dx, dy) < 12) return;
+                const dist = Math.hypot(dx, dy);
+
+                // Annule le long-press si l'utilisateur scrolle avant 200 ms
+                if (!touchState.armed) {
+                    if (dist > 10 && touchState.holdTimer) {
+                        clearTimeout(touchState.holdTimer);
+                        touchState.holdTimer = null;
+                        touchState = null;
+                    }
+                    return;
+                }
+
+                if (!touchState.moved && dist < 8) return;
                 touchState.moved = true;
                 card.dataset.wasDragged = '1';
                 if (e.cancelable) e.preventDefault();
@@ -188,13 +221,24 @@
                 if (!touchState) return;
                 const state = touchState;
                 touchState = null;
+                if (state.holdTimer) clearTimeout(state.holdTimer);
+                card.classList.remove('ring-2', 'ring-indigo-400');
                 if (state.ghost) state.ghost.remove();
                 clearDropHighlights();
-                if (!state.moved) return;
+                if (!state.armed || !state.moved) return;
                 const t = e.changedTouches[0];
                 const under = document.elementFromPoint(t.clientX, t.clientY);
                 const drop = resolveDropTarget(under);
                 if (drop) await applyPlanningDrop({ orderId: state.orderId, ...drop });
+            });
+
+            card.addEventListener('touchcancel', () => {
+                if (!touchState) return;
+                if (touchState.holdTimer) clearTimeout(touchState.holdTimer);
+                if (touchState.ghost) touchState.ghost.remove();
+                card.classList.remove('ring-2', 'ring-indigo-400');
+                clearDropHighlights();
+                touchState = null;
             });
 
             // Click détail : ignorer si drag
@@ -309,27 +353,27 @@
     window.exportWeeklyExcelReport = async function () {
         const kpi = computeWeeklyKpis();
 
-        // Préférer l'export dashboard serveur (CA, remplissage, détail OT) si dispo
         try {
             const res = await apiFetch('dashboard/report/export', {
                 method: 'POST',
                 body: {
                     startDate: kpi.from,
                     endDate: kpi.to,
-                    reportName: `Rapport hebdo ${kpi.from} → ${kpi.to}`
+                    reportName: `Rapport hebdo ${kpi.from} → ${kpi.to}`,
+                    format: 'xlsx'
                 }
             });
             if (res.ok) {
                 const blob = await res.blob();
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = `flenova_rapport_hebdo_${kpi.from}_${kpi.to}.csv`;
+                a.download = `flenova_rapport_hebdo_${kpi.from}_${kpi.to}.xlsx`;
                 a.click();
                 URL.revokeObjectURL(a.href);
-                showToast('Export Excel (CSV serveur) téléchargé', 'success');
+                showToast('Export Excel (.xlsx) téléchargé', 'success');
                 return;
             }
-        } catch { /* fallback local */ }
+        } catch { /* fallback local CSV */ }
 
         const rows = [
             ['Rapport hebdomadaire Flenova'],
@@ -352,7 +396,7 @@
             ]);
         });
         downloadCsv(`flenova_rapport_hebdo_${kpi.from}_${kpi.to}.csv`, rows);
-        showToast('Export Excel (CSV) téléchargé', 'success');
+        showToast('Export CSV (fallback) téléchargé', 'info');
     };
 
     window.getWeeklyReportPref = function () {
@@ -464,27 +508,27 @@
             id: 'first_order',
             title: 'Créer votre premier OT',
             steps: [
-                { sel: '#dash-quick-actions button, [onclick*="openAddOrderModal"]', text: 'Cliquez sur « Créer OT » pour ouvrir le formulaire d’ordre de transport.' },
-                { sel: '#add-order-modal, #order-template-select', text: 'Renseignez client, trajet et dates. Vous pouvez aussi appliquer un modèle récurrent.' },
-                { sel: '#add-order-modal button[type="submit"], #add-order-modal .bg-blue-600', text: 'Enregistrez — l’OT apparaît ensuite dans Transports et Planning.' }
+                { sel: '[data-tour="first_order_cta"], #dash-quick-actions button, [onclick*="openAddOrderModal"]', text: 'Cliquez sur « Créer OT » pour ouvrir le formulaire d’ordre de transport.' },
+                { sel: '[data-tour="order_templates"], #order-template-select, #add-order-modal', text: 'Renseignez client, trajet et dates. Vous pouvez aussi appliquer un modèle récurrent.' },
+                { sel: '[data-tour="order_submit"], #add-order-modal button[type="submit"], #add-order-modal .bg-blue-600', text: 'Enregistrez — l’OT apparaît ensuite dans Transports et Planning.' }
             ]
         },
         first_affretement: {
             id: 'first_affretement',
             title: 'Premier affrètement',
             steps: [
-                { sel: '[onclick*="chartered_transports"], [data-nav-route="chartered_transports"]', text: 'Ouvrez « Affréter » pour les transports à sous-traiter.' },
-                { sel: '[onclick*="openDispatchModal"], .fa-handshake', text: 'Choisissez un OT puis Affréter — vérifiez le quota (≥ 80 % = alerte coût).' },
-                { sel: '#notification-center-btn, [onclick*="pricing"]', text: 'Le centre de notifications rappelle le quota et les ST expirants.' }
+                { sel: '[data-tour="nav_affretement"], [onclick*="chartered_transports"], [data-nav-route="chartered_transports"]', text: 'Ouvrez « Affréter » pour les transports à sous-traiter.' },
+                { sel: '[data-tour="dispatch_action"], [onclick*="openDispatchModal"], .fa-handshake', text: 'Choisissez un OT puis Affréter — vérifiez le quota (≥ 80 % = alerte coût).' },
+                { sel: '[data-tour="notifications"], #notification-center-btn, [onclick*="pricing"]', text: 'Le centre de notifications rappelle le quota et les ST expirants.' }
             ]
         },
         first_invoice: {
             id: 'first_invoice',
             title: 'Première préfacture',
             steps: [
-                { sel: '[onclick*="preinvoicing"], [data-nav-route="preinvoicing"]', text: 'Allez dans « À préfacturer » pour les livraisons non facturées.' },
-                { sel: '#preinvoice-select-all, [onclick*="bulkCreateInvoiceDrafts"]', text: 'Cochez plusieurs OT et validez en masse pour accélérer la clôture.' },
-                { sel: '[data-nav-route="accounting_export"], [onclick*="accounting_export"]', text: 'Exportez ensuite vers Pennylane, Quadra ou Sage depuis Export comptable.' }
+                { sel: '[data-tour="nav_prefacture"], [onclick*="preinvoicing"], [data-nav-route="preinvoicing"]', text: 'Allez dans « À préfacturer » pour les livraisons non facturées.' },
+                { sel: '[data-tour="prefacture_bulk"], #prefacture-bulk-btn, #prefacture-select-all, [onclick*="bulkCreateInvoiceDrafts"]', text: 'Filtrez par client/période, cochez plusieurs OT et validez en masse.' },
+                { sel: '[data-tour="nav_accounting"], [data-nav-route="accounting_export"], [onclick*="accounting_export"]', text: 'Exportez ensuite vers Pennylane, Quadra ou Sage — ou connectez Pennylane en OAuth.' }
             ]
         }
     };
@@ -595,4 +639,26 @@
         if (typeof prevInit === 'function') prevInit();
         setTimeout(() => enhanceOnboardingWithTours(), 100);
     };
+
+    // Raccourcis clavier N / ? /
+    document.addEventListener('keydown', (e) => {
+        const tag = (e.target && e.target.tagName) || '';
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || e.target?.isContentEditable) return;
+        if (!window.isAuthenticated && typeof isAuthenticated !== 'undefined' && !isAuthenticated) return;
+        if (e.key === 'n' || e.key === 'N') {
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            e.preventDefault();
+            if (typeof openAddOrderModal === 'function') openAddOrderModal();
+        } else if (e.key === '/') {
+            e.preventDefault();
+            document.getElementById('global-search-input')?.focus();
+        } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+            e.preventDefault();
+            document.getElementById('keyboard-help-modal')?.classList.remove('hidden');
+        } else if (e.key === 'Escape') {
+            document.getElementById('keyboard-help-modal')?.classList.add('hidden');
+            document.getElementById('notification-center-panel')?.classList.add('hidden');
+            document.getElementById('global-search-results')?.classList.add('hidden');
+        }
+    });
 })();

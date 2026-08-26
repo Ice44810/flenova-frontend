@@ -1239,11 +1239,17 @@ function initMobileNav() {
         if (typeof initUxImprovements === 'function') initUxImprovements();
         const onboardingMount = document.getElementById('onboarding-checklist-mount');
         if (onboardingMount) onboardingMount.classList.remove('hidden');
+        const suspended = typeof applySubscriptionAccessGate === 'function' && applySubscriptionAccessGate();
         if (typeof applyDemoBanner === 'function') applyDemoBanner();
 
         const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
         const initialRoute = hashRoute || 'dashboard';
-        if (ok) {
+        if (suspended) {
+            if (window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
+                /* écran plein prioritaire — pas de modal */
+            }
+            router('pricing');
+        } else if (ok) {
             router(initialRoute);
         }
     } else {
@@ -1259,7 +1265,12 @@ function initMobileNav() {
         }
     });
     if (!isOperator && window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
-        showOverdueBillingModal(window.cachedSubscription.billingAlert);
+        const alert = window.cachedSubscription.billingAlert;
+        if (alert.type === 'grace_period' || window.cachedSubscription.gracePeriod) {
+            showOverdueBillingModal(alert);
+        } else if (!window.cachedSubscription.accessSuspended) {
+            showOverdueBillingModal(alert);
+        }
     }
 
     // Rendre les modaux déplaçables après le premier rendu
@@ -1666,9 +1677,11 @@ window.changePlanningWeek = function (offset) {
 
 async function fetchAllData() {
     try {
+        let sawPaymentRequired = false;
         const fetchJson = async (url) => {
             const res = await apiFetch(url);
             if (res.status === 402) {
+                sawPaymentRequired = true;
                 console.warn(`Abonnement requis pour ${url}`);
                 return [];
             }
@@ -1685,7 +1698,10 @@ async function fetchAllData() {
             while (true) {
                 const sep = url.includes('?') ? '&' : '?';
                 const res = await apiFetch(`${url}${sep}limit=${pageSize}&offset=${offset}`);
-                if (res.status === 402) return all;
+                if (res.status === 402) {
+                    sawPaymentRequired = true;
+                    return all;
+                }
                 if (!res.ok) break;
                 const data = await res.json();
                 const chunk = Array.isArray(data.data) ? data.data : [];
@@ -1710,6 +1726,17 @@ async function fetchAllData() {
             (typeof canManageUsers === 'function' && canManageUsers()) ? fetchJson('agencies') : Promise.resolve([])
         ]);
         db = { orders, clients, missions, drivers, vehicles, users, sales_invoices: sales, purchase_invoices: purchase, subcontractors, agencies: agencies || [] };
+        if (sawPaymentRequired) {
+            if (window.cachedSubscription) {
+                window.cachedSubscription.isActive = false;
+                window.cachedSubscription.needsPayment = true;
+                window.cachedSubscription.accessSuspended = true;
+                window.cachedSubscription.gracePeriod = false;
+            } else {
+                window.cachedSubscription = { isActive: false, needsPayment: true, accessSuspended: true };
+            }
+            if (typeof applySubscriptionAccessGate === 'function') applySubscriptionAccessGate();
+        }
         if (typeof refreshNotificationBadge === 'function') refreshNotificationBadge();
         if (typeof renderOnboardingChecklist === 'function') {
             /* checklist auto-refresh via initUxImprovements patterns */
@@ -1718,7 +1745,7 @@ async function fetchAllData() {
                 initUxImprovements();
             }
         }
-        return true;
+        return !sawPaymentRequired;
     } catch (error) {
         showToast("Erreur de connexion au serveur", "error");
         return false;
@@ -2564,10 +2591,10 @@ function renderDashboard(stats = {}) {
             <div>
                 <p class="dash-v2-subtitle">Vue d'ensemble de votre activité</p>
                 <div class="flex flex-wrap gap-2 mt-3" id="dash-quick-actions">
-                    <button type="button" onclick="openAddOrderModal()" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">
+                    <button type="button" onclick="openAddOrderModal()" data-tour="first_order_cta" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">
                         <i class="fa-solid fa-plus" aria-hidden="true"></i> Créer OT
                     </button>
-                    <button type="button" onclick="router('chartered_transports')" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 text-sm font-semibold hover:bg-indigo-100">
+                    <button type="button" onclick="router('chartered_transports')" data-tour="dispatch_action" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 text-sm font-semibold hover:bg-indigo-100">
                         <i class="fa-solid fa-handshake" aria-hidden="true"></i> Affréter
                     </button>
                     <button type="button" onclick="router('preinvoicing')" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100">
@@ -3295,16 +3322,14 @@ async function sendAffretementConfirmation() {
         const unitLabel = String(unit).replace('.', ',');
         const atLimit = remaining === 0;
         const nearLimit = !atLimit && used >= Math.ceil(quota.limit * 0.8);
-        if (atLimit) {
-            if (!confirm(
-                `Quota mensuel atteint (${quota.limit}/mois).\n` +
-                `Cet envoi sera facturé ${unitLabel} € HT en supplément.\n\nConfirmer l'envoi ?`
-            )) return;
-        } else if (nearLimit) {
-            if (!confirm(
-                `Vous avez utilisé ${used}/${quota.limit} confirmations (≥ 80 % du quota).\n` +
-                `Il reste ${remaining} envoi(s) inclus ; au-delà : ${unitLabel} € HT / envoi.\n\nContinuer ?`
-            )) return;
+        if (atLimit || nearLimit) {
+            const ok = await window.openAffretementQuotaModal({
+                title: atLimit ? 'Envoi hors quota' : 'Quota bientôt atteint',
+                body: atLimit
+                    ? `Quota mensuel atteint (${quota.limit}/mois).<br><strong>Cet envoi sera facturé ${unitLabel} € HT</strong> en supplément sur votre facture Flenova.`
+                    : `Vous avez utilisé <strong>${used}/${quota.limit}</strong> confirmations (≥ 80 %).<br>Il reste <strong>${remaining}</strong> envoi(s) inclus ; au-delà : <strong>${unitLabel} € HT</strong> / envoi.`
+            });
+            if (!ok) return;
         }
     }
 
@@ -3327,15 +3352,38 @@ async function sendAffretementConfirmation() {
             showToast(payload.data?.message || 'Confirmation envoyée', payload.data?.simulated ? 'info' : 'success');
         }
         await loadAffretementConfirmationPage();
-        if (typeof hydrateSubscription === 'function' && window.cachedSubscription) {
-            /* quota rafraîchi via reload page */
-        }
+        if (typeof updateNavQuotaWidget === 'function') updateNavQuotaWidget();
     } catch (e) {
         showToast(e.message, 'error');
     } finally {
         if (sendBtn) sendBtn.disabled = false;
     }
 }
+
+window.openAffretementQuotaModal = function ({ title, body }) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('affretement-quota-modal');
+        const bodyEl = document.getElementById('affretement-quota-modal-body');
+        const confirmBtn = document.getElementById('affretement-quota-confirm-btn');
+        if (!modal || !bodyEl || !confirmBtn) {
+            resolve(window.confirm(String(body || '').replace(/<[^>]+>/g, ' ')));
+            return;
+        }
+        modal.querySelector('h3').textContent = title || 'Confirmation';
+        bodyEl.innerHTML = body || '';
+        const finish = (val) => {
+            modal.classList.add('hidden');
+            confirmBtn.onclick = null;
+            resolve(val);
+        };
+        window.closeAffretementQuotaModal = () => finish(false);
+        confirmBtn.onclick = () => finish(true);
+        modal.classList.remove('hidden');
+    });
+};
+window.closeAffretementQuotaModal = function () {
+    document.getElementById('affretement-quota-modal')?.classList.add('hidden');
+};
 
 window.openAffretementConfirmation = openAffretementConfirmation;
 window.sendAffretementConfirmation = sendAffretementConfirmation;
@@ -6230,8 +6278,15 @@ async function router(route) {
         }
     }
     if (typeof canAccessPlanRoute === 'function' && !canAccessPlanRoute(route)) {
-        showToast("Fonctionnalité non incluse dans votre forfait", "error");
-        route = 'dashboard';
+        const sub = window.cachedSubscription;
+        if (sub?.accessSuspended || (sub?.needsPayment && !sub?.gracePeriod && !sub?.isActive)) {
+            showToast('Accès suspendu — régularisez votre facture Flenova', 'error');
+            if (typeof applyAccessSuspendedScreen === 'function') applyAccessSuspendedScreen();
+            route = 'pricing';
+        } else {
+            showToast('Fonctionnalité non incluse dans votre forfait', 'error');
+            route = 'dashboard';
+        }
     }
     if ((route === 'platform_ops' || route === 'platform_crm') && !currentUser?.isPlatformAdmin) {
         showToast("Accès réservé à l'équipe Flenova", "error");
@@ -6391,6 +6446,7 @@ async function router(route) {
                 toggleAccountingCustomPeriod();
                 loadAccountingSettingsForm();
                 loadAccountingExportHistory();
+                if (typeof refreshPennylaneStatus === 'function') refreshPennylaneStatus();
             }, 0);
             break;
         case 'invoice_settings':
@@ -8048,6 +8104,27 @@ async function submitDispatch() {
         return;
     }
 
+    const st = (db.subcontractors || []).find((s) => s.id === subcontractorId);
+    if (st) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const expiredDocs = ['rc_pro_expiry', 'urssaf_expiry', 'kbis_expiry']
+            .filter((f) => st[f] && new Date(st[f]) < today)
+            .map((f) => (f === 'rc_pro_expiry' ? 'RC Pro' : f === 'urssaf_expiry' ? 'URSSAF' : 'KBIS'));
+        if (expiredDocs.length) {
+            const reason = prompt(
+                `Sous-traitant avec document(s) expiré(s) : ${expiredDocs.join(', ')}.\n` +
+                `Justification obligatoire pour continuer l'affrètement :`
+            );
+            if (reason == null) return;
+            if (!String(reason).trim()) {
+                showToast('Justification requise pour un ST non conforme', 'error');
+                return;
+            }
+            window._lastDispatchJustification = String(reason).trim();
+        }
+    }
+
     const order = (db.orders || []).find(o => o.id === orderId);
     if (order && isOrderSubcontracted(order)
         && Number(order.subcontractor_id) === subcontractorId
@@ -8798,9 +8875,18 @@ function renderAccountingExport() {
             </div>
 
             <div class="grid sm:grid-cols-3 gap-3 mt-6">
-                <div class="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-emerald-900">
+                <div class="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-emerald-900" id="pennylane-connect-card">
                     <p class="font-bold mb-1"><i class="fa-solid fa-plug mr-1"></i>Pennylane</p>
-                    Export → Imports → Écritures. Colonnes Date, Libellé, Débit/Crédit, Compte.
+                    <p class="mb-2">Export CSV → Imports → Écritures, ou connexion OAuth partenaire.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" onclick="connectPennylaneOAuth()" class="px-2 py-1 rounded bg-emerald-700 text-white text-[11px] font-semibold hover:bg-emerald-800">
+                            Connecter OAuth
+                        </button>
+                        <button type="button" onclick="disconnectPennylaneOAuth()" class="px-2 py-1 rounded border border-emerald-300 text-emerald-900 text-[11px] hover:bg-white">
+                            Déconnecter
+                        </button>
+                    </div>
+                    <p id="pennylane-status-label" class="mt-2 text-[11px] text-emerald-800/80">Statut : …</p>
                 </div>
                 <div class="rounded-lg border border-sky-100 bg-sky-50/50 p-3 text-xs text-sky-900">
                     <p class="font-bold mb-1"><i class="fa-solid fa-plug mr-1"></i>Quadra</p>
@@ -9047,6 +9133,59 @@ window.generateAccountingExport = async function () {
 function exportAccounting(type) {
     router('accounting_export');
 }
+
+window.refreshPennylaneStatus = async function () {
+    const label = document.getElementById('pennylane-status-label');
+    if (!label) return;
+    try {
+        const res = await apiFetch('integrations/pennylane/status');
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            label.textContent = 'Statut : indisponible';
+            return;
+        }
+        const d = payload.data || {};
+        if (!d.configured) {
+            label.textContent = 'OAuth non configuré (PENNYLANE_CLIENT_ID) — CSV toujours dispo';
+            return;
+        }
+        label.textContent = d.connected
+            ? `Connecté${d.connectedAt ? ` depuis ${String(d.connectedAt).slice(0, 10)}` : ''}`
+            : 'Non connecté — CSV import écritures disponible';
+    } catch {
+        label.textContent = 'Statut : hors ligne';
+    }
+};
+
+window.connectPennylaneOAuth = async function () {
+    try {
+        const res = await apiFetch('integrations/pennylane/connect?redirect=0');
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || payload.message || 'Connexion impossible');
+        if (payload.data?.url) {
+            window.location.href = payload.data.url;
+            return;
+        }
+        showToast('URL OAuth manquante', 'error');
+    } catch (e) {
+        showToast(e.message || 'Pennylane OAuth indisponible', 'error');
+    }
+};
+
+window.disconnectPennylaneOAuth = async function () {
+    if (!confirm('Déconnecter Pennylane pour cette entreprise ?')) return;
+    try {
+        const res = await apiFetch('integrations/pennylane', { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Déconnexion impossible');
+        }
+        showToast('Pennylane déconnecté', 'success');
+        refreshPennylaneStatus();
+    } catch (e) {
+        showToast(e.message || 'Erreur', 'error');
+    }
+};
 
 // --- ORDER FUNCTIONS ---
 
@@ -9559,6 +9698,7 @@ function openAddOrderModal(prefill = {}) {
     modal.classList.remove('hidden');
     if (!modal.classList.contains('flex')) modal.classList.add('flex', 'items-center', 'justify-center');
     setTimeout(() => document.getElementById('add-order-client')?.focus(), 50);
+    if (typeof loadOrderTemplates === 'function') void loadOrderTemplates();
 }
 window.openAddOrderModal = openAddOrderModal;
 

@@ -56,6 +56,16 @@ describe('apiFetch Interceptor', () => {
         expect(window.location.href).toBe('/login.html');
     });
 
+    it('ne devrait pas déconnecter sur 402 (abonnement suspendu)', async () => {
+        fetch.mockResponseOnce(JSON.stringify({ error: 'Abonnement actif requis' }), { status: 402 });
+
+        const response = await apiFetch('transport-orders');
+
+        expect(response.status).toBe(402);
+        expect(window.location.href).toBe('');
+        expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it('devrait rejeter l\'erreur en cas de problème réseau', async () => {
         const networkError = new Error('DNS lookup failed');
         fetch.mockRejectOnce(networkError);

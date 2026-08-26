@@ -146,7 +146,7 @@
                             </button>
                         </li>
 
-                        <li data-nav-route="chartered_transports"><button type="button" onclick="router('chartered_transports')"
+                        <li data-nav-route="chartered_transports" data-tour="nav_affretement"><button type="button" onclick="router('chartered_transports')"
                             class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-cube w-6" aria-hidden="true"></i>
                             <span>Transports affrétés</span>
@@ -202,7 +202,7 @@
 
                 <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Finances & Admin</p>
                 <ul class="space-y-1 mb-4">
-                    <li data-nav-route="preinvoicing">
+                    <li data-nav-route="preinvoicing" data-tour="nav_prefacture">
                         <button type="button" onclick="router('preinvoicing')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-file-circle-check w-6" aria-hidden="true"></i>
@@ -245,7 +245,7 @@
 
                 <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Comptabilité</p>
                 <ul class="space-y-1 mb-4">
-                    <li data-nav-route="accounting_export">
+                    <li data-nav-route="accounting_export" data-tour="nav_accounting">
                         <button type="button" onclick="router('accounting_export')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                             <i class="fa-solid fa-file-csv w-6" aria-hidden="true"></i>
@@ -389,7 +389,7 @@
                         <div id="global-search-results" class="hidden absolute right-0 top-full mt-1 w-80 max-w-[90vw] bg-white border border-gray-200 rounded-lg shadow-lg z-40 overflow-hidden"></div>
                     </div>
                     <div class="relative">
-                        <button type="button" id="notification-center-btn" onclick="toggleNotificationCenter()"
+                        <button type="button" id="notification-center-btn" data-tour="notifications" onclick="toggleNotificationCenter()"
                             class="relative w-10 h-10 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
                             aria-label="Notifications">
                             <i class="fa-solid fa-bell" aria-hidden="true"></i>
@@ -415,6 +415,15 @@
             </header>
             <div id="demo-banner" class="hidden shrink-0 bg-gradient-to-r from-purple-700 to-blue-600 text-white px-6 py-2.5 text-sm">
                 <span id="demo-banner-text"><i class="fa-solid fa-gift mr-2"></i>Essai Premium en cours</span>
+            </div>
+            <div id="grace-banner" class="hidden shrink-0 bg-amber-600 text-white px-4 sm:px-6 py-3 text-sm" role="alert">
+                <div class="flex flex-wrap items-center justify-between gap-3 max-w-6xl mx-auto">
+                    <p id="grace-banner-text" class="font-medium">Période de grâce — régularisez votre paiement.</p>
+                    <button type="button" id="grace-banner-cta" onclick="router('pricing')"
+                        class="shrink-0 px-4 py-2 rounded-lg bg-white text-amber-800 text-xs font-bold hover:bg-amber-50">
+                        Régulariser mon paiement
+                    </button>
+                </div>
             </div>
             <div id="onboarding-checklist-mount" class="shrink-0 px-6 pt-4 hidden"></div>
             <div id="app-content" class="flex-1 overflow-auto p-6" tabindex="-1"></div>
@@ -478,12 +487,17 @@
                 <button type="button" onclick="prefillAddOrderFromLast()" class="text-xs font-semibold text-teal-700 hover:text-teal-900 px-2 py-1 rounded hover:bg-teal-50">
                     <i class="fa-solid fa-rotate-left mr-1"></i>Reprendre la dernière
                 </button>
-                <select id="order-template-select" onchange="onOrderTemplateSelect()"
-                    class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 max-w-[11rem]">
+                <select id="order-template-select" data-tour="order_templates" onchange="onOrderTemplateSelect()"
+                    class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 max-w-[14rem]"
+                    title="Modèles partagés dans l'entreprise + suggestions de trajets fréquents">
                     <option value="">Modèle récurrent…</option>
                 </select>
-                <button type="button" onclick="saveCurrentOrderAsTemplate()" class="text-xs font-semibold text-indigo-700 hover:text-indigo-900 px-2 py-1 rounded hover:bg-indigo-50">
+                <button type="button" onclick="saveCurrentOrderAsTemplate()" class="text-xs font-semibold text-indigo-700 hover:text-indigo-900 px-2 py-1 rounded hover:bg-indigo-50"
+                    title="Enregistrer pour toute l'entreprise">
                     <i class="fa-solid fa-bookmark mr-1"></i>Sauver modèle
+                </button>
+                <button type="button" onclick="deleteSelectedOrderTemplate()" class="text-xs text-gray-500 hover:text-red-600 px-1.5 py-1 rounded hover:bg-red-50" title="Supprimer le modèle sélectionné">
+                    <i class="fa-solid fa-trash"></i>
                 </button>
                 <span class="text-[11px] text-gray-400 ml-auto hidden sm:inline">Ctrl+Entrée pour créer</span>
             </div>
@@ -697,7 +711,7 @@
                 <p id="add-order-quick-hint" class="text-xs text-gray-500">4 champs suffisent : client, chargement, livraison, date.</p>
                 <div class="flex gap-2 shrink-0">
                 <button onclick="closeAddOrderModal()" class="px-4 py-2 border rounded text-gray-600">Annuler</button>
-                <button id="add-order-submit-btn" onclick="submitAddOrder()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold">Créer la commande</button>
+                <button id="add-order-submit-btn" data-tour="order_submit" onclick="submitAddOrder()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold">Créer la commande</button>
                 </div>
             </div>
         </div>
@@ -1911,7 +1925,7 @@
     </div>
     </div>
 
-    <!-- MODAL IMPAYÉ SAAS -->
+    <!-- MODAL IMPAYÉ / GRÂCE SAAS (non oubliable en période de grâce) -->
     <div id="saas-overdue-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
         <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 fade-in">
             <div class="flex items-start gap-3 mb-4">
@@ -1923,10 +1937,69 @@
                     <p id="saas-overdue-message" class="text-sm text-gray-600 mt-2"></p>
                 </div>
             </div>
-            <button type="button" onclick="dismissSaasOverdueModal()"
-                class="w-full py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
-                OK
-            </button>
+            <div class="flex flex-col gap-2">
+                <button type="button" id="saas-overdue-pay-btn" onclick="goToSubscriptionPayment()"
+                    class="w-full py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                    Régulariser mon paiement
+                </button>
+                <button type="button" id="saas-overdue-dismiss-btn" onclick="dismissSaasOverdueModal()"
+                    class="w-full py-2 text-sm text-gray-500 hover:text-gray-700 hidden">
+                    Continuer (rappel permanent en bandeau)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ÉCRAN ACCÈS SUSPENDU (après grâce) -->
+    <div id="access-suspended-screen" class="hidden fixed inset-0 z-[110] bg-slate-900 text-white flex items-center justify-center p-6">
+        <div class="max-w-lg w-full text-center space-y-4">
+            <div class="mx-auto w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+                <i class="fa-solid fa-lock text-2xl text-red-300"></i>
+            </div>
+            <h2 class="text-2xl font-bold">Accès suspendu</h2>
+            <p id="access-suspended-message" class="text-slate-300 text-sm leading-relaxed">
+                Votre abonnement Flenova n'est plus actif. Régularisez votre paiement pour retrouver Transports, Planning et Facturation.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                <button type="button" onclick="goToSubscriptionPayment()"
+                    class="px-5 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-400 font-semibold text-sm">
+                    Régulariser maintenant
+                </button>
+                <button type="button" onclick="logout()"
+                    class="px-5 py-2.5 rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-800 text-sm">
+                    Déconnexion
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 pt-4">Facture Flenova (abonnement SaaS) — distincte de vos factures clients TMS.</p>
+        </div>
+    </div>
+
+    <!-- MODALE AFFRÈTEMENT QUOTA -->
+    <div id="affretement-quota-modal" class="hidden fixed inset-0 z-[95] flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Confirmation hors quota</h3>
+            <p id="affretement-quota-modal-body" class="text-sm text-gray-600 mb-4"></p>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeAffretementQuotaModal()" class="px-4 py-2 border rounded-lg text-sm text-gray-600">Annuler</button>
+                <button type="button" id="affretement-quota-confirm-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold">Envoyer quand même</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AIDE RACCOURCIS -->
+    <div id="keyboard-help-modal" class="hidden fixed inset-0 z-[95] flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-bold text-lg">Raccourcis clavier</h3>
+                <button type="button" onclick="document.getElementById('keyboard-help-modal').classList.add('hidden')" class="text-gray-400" aria-label="Fermer"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li><kbd class="px-1.5 py-0.5 bg-gray-100 rounded border text-xs">N</kbd> Nouvel ordre de transport</li>
+                <li><kbd class="px-1.5 py-0.5 bg-gray-100 rounded border text-xs">/</kbd> Recherche globale</li>
+                <li><kbd class="px-1.5 py-0.5 bg-gray-100 rounded border text-xs">?</kbd> Afficher cette aide</li>
+                <li><kbd class="px-1.5 py-0.5 bg-gray-100 rounded border text-xs">Esc</kbd> Fermer panneaux / modales</li>
+            </ul>
+            <p class="text-xs text-gray-400 mt-4">Ignorés quand un champ texte est actif.</p>
         </div>
     </div>
 

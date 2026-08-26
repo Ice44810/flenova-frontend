@@ -26,13 +26,16 @@
         } catch { /* ignore */ }
     }
 
-    // ── Templates d'ordres ──────────────────────────────────────────
-    function getOrderTemplates() {
+    // ── Templates d'ordres (API entreprise + migration localStorage) ─
+    let cachedTemplates = [];
+    let templatesLoaded = false;
+
+    function getLocalOrderTemplates() {
         return readJson(companyKey(TEMPLATE_KEY), []);
     }
 
-    function saveOrderTemplates(list) {
-        writeJson(companyKey(TEMPLATE_KEY), list.slice(0, 20));
+    function clearLocalOrderTemplates() {
+        try { localStorage.removeItem(companyKey(TEMPLATE_KEY)); } catch { /* ignore */ }
     }
 
     function collectOrderFormSnapshot() {
@@ -52,30 +55,7 @@
         };
     }
 
-    window.saveCurrentOrderAsTemplate = function () {
-        const name = prompt('Nom du modèle d\'ordre récurrent :');
-        if (!name || !name.trim()) return;
-        const snap = collectOrderFormSnapshot();
-        if (!snap.origin || !snap.dest) {
-            showToast('Renseignez au moins chargement et livraison', 'error');
-            return;
-        }
-        const list = getOrderTemplates();
-        list.unshift({
-            id: `tpl_${Date.now()}`,
-            name: name.trim(),
-            createdAt: new Date().toISOString(),
-            data: snap
-        });
-        saveOrderTemplates(list);
-        refreshOrderTemplateSelect();
-        showToast('Modèle enregistré', 'success');
-    };
-
-    window.applyOrderTemplate = function (templateId) {
-        const tpl = getOrderTemplates().find((t) => t.id === templateId);
-        if (!tpl) return;
-        const d = tpl.data || {};
+    function applyTemplateData(d) {
         if (typeof openAddOrderModal === 'function') {
             openAddOrderModal({
                 client_id: d.client_id,
@@ -94,23 +74,138 @@
         set('add-order-weight', d.weight);
         set('add-order-volume', d.volume);
         set('add-order-pallets', d.pallets);
-        showToast(`Modèle « ${tpl.name} » appliqué — ajustez les dates`, 'info');
+        if (d.assignment_type) set('add-order-assignment-type', d.assignment_type);
+    }
+
+    async function migrateLocalTemplatesIfNeeded() {
+        const local = getLocalOrderTemplates();
+        if (!local.length) return;
+        try {
+            const res = await apiFetch('transport-orders/templates/import', {
+                method: 'POST',
+                body: { templates: local }
+            });
+            if (res.ok) {
+                clearLocalOrderTemplates();
+                const payload = await res.json().catch(() => ({}));
+                if (payload.imported > 0) {
+                    showToast(`${payload.imported} modèle(s) local(aux) synchronisé(s)`, 'info');
+                }
+            }
+        } catch { /* offline — garde local */ }
+    }
+
+    window.loadOrderTemplates = async function () {
+        try {
+            await migrateLocalTemplatesIfNeeded();
+            const [tplRes, sugRes] = await Promise.all([
+                apiFetch('transport-orders/templates'),
+                apiFetch('transport-orders/templates/suggestions?minCount=3')
+            ]);
+            const templates = tplRes.ok ? ((await tplRes.json()).data || []) : [];
+            const suggestions = sugRes.ok ? ((await sugRes.json()).data || []) : [];
+            cachedTemplates = [
+                ...templates,
+                ...suggestions.map((s) => ({ ...s, id: s.id, suggested: true }))
+            ];
+            templatesLoaded = true;
+        } catch {
+            cachedTemplates = getLocalOrderTemplates();
+            templatesLoaded = true;
+        }
+        refreshOrderTemplateSelect();
+        return cachedTemplates;
     };
 
-    window.deleteOrderTemplate = function (templateId) {
-        if (!confirm('Supprimer ce modèle ?')) return;
-        saveOrderTemplates(getOrderTemplates().filter((t) => t.id !== templateId));
-        refreshOrderTemplateSelect();
-        showToast('Modèle supprimé', 'success');
+    window.saveCurrentOrderAsTemplate = async function () {
+        const name = prompt('Nom du modèle d\'ordre récurrent :');
+        if (!name || !name.trim()) return;
+        const snap = collectOrderFormSnapshot();
+        if (!snap.origin || !snap.dest) {
+            showToast('Renseignez au moins chargement et livraison', 'error');
+            return;
+        }
+        try {
+            const res = await apiFetch('transport-orders/templates', {
+                method: 'POST',
+                body: { name: name.trim(), data: snap }
+            });
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload.error || 'Enregistrement impossible');
+            showToast('Modèle synchronisé pour toute l\'entreprise', 'success');
+            await loadOrderTemplates();
+        } catch (e) {
+            // Fallback local
+            const list = getLocalOrderTemplates();
+            list.unshift({
+                id: `tpl_${Date.now()}`,
+                name: name.trim(),
+                createdAt: new Date().toISOString(),
+                data: snap
+            });
+            writeJson(companyKey(TEMPLATE_KEY), list.slice(0, 20));
+            cachedTemplates = list;
+            refreshOrderTemplateSelect();
+            showToast(e.message || 'Modèle enregistré en local (hors-ligne)', 'info');
+        }
+    };
+
+    window.applyOrderTemplate = function (templateId) {
+        const tpl = cachedTemplates.find((t) => String(t.id) === String(templateId));
+        if (!tpl) return;
+        const d = tpl.data || {};
+        applyTemplateData(d);
+        showToast(
+            tpl.suggested
+                ? `Suggestion « ${tpl.name} » appliquée — ajustez les dates`
+                : `Modèle « ${tpl.name} » appliqué — ajustez les dates`,
+            'info'
+        );
+    };
+
+    window.deleteOrderTemplate = async function (templateId) {
+        const tpl = cachedTemplates.find((t) => String(t.id) === String(templateId));
+        if (tpl?.suggested) {
+            showToast('Les suggestions ne se suppriment pas — créez un modèle si besoin', 'info');
+            return;
+        }
+        if (!confirm('Supprimer ce modèle pour toute l\'entreprise ?')) return;
+        try {
+            const res = await apiFetch(`transport-orders/templates/${templateId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || 'Suppression impossible');
+            }
+            showToast('Modèle supprimé', 'success');
+            await loadOrderTemplates();
+        } catch (e) {
+            const list = getLocalOrderTemplates().filter((t) => String(t.id) !== String(templateId));
+            writeJson(companyKey(TEMPLATE_KEY), list);
+            cachedTemplates = list;
+            refreshOrderTemplateSelect();
+            showToast(e.message || 'Modèle retiré en local', 'info');
+        }
     };
 
     function refreshOrderTemplateSelect() {
         const sel = document.getElementById('order-template-select');
         if (!sel) return;
-        const list = getOrderTemplates();
+        const list = cachedTemplates.length ? cachedTemplates : getLocalOrderTemplates();
         const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
-        sel.innerHTML = `<option value="">Modèle récurrent…</option>` +
-            list.map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+        const saved = list.filter((t) => !t.suggested);
+        const suggested = list.filter((t) => t.suggested);
+        let html = `<option value="">Modèle récurrent…</option>`;
+        if (saved.length) {
+            html += `<optgroup label="Modèles entreprise">` +
+                saved.map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('') +
+                `</optgroup>`;
+        }
+        if (suggested.length) {
+            html += `<optgroup label="Suggestions (trajets fréquents ≥ 3×)">` +
+                suggested.map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('') +
+                `</optgroup>`;
+        }
+        sel.innerHTML = html;
     }
 
     window.onOrderTemplateSelect = function () {
@@ -118,67 +213,121 @@
         if (sel?.value) applyOrderTemplate(sel.value);
     };
 
-    // ── Recherche globale ───────────────────────────────────────────
-    function searchGlobal(query) {
+    window.deleteSelectedOrderTemplate = function () {
+        const sel = document.getElementById('order-template-select');
+        if (!sel?.value) {
+            showToast('Sélectionnez un modèle à supprimer', 'info');
+            return;
+        }
+        void deleteOrderTemplate(sel.value);
+    };
+
+    window.getOrderTemplatesCache = () => cachedTemplates;
+
+    // ── Recherche globale (serveur + fallback local) ────────────────
+    let searchDebounceTimer = null;
+    let searchSeq = 0;
+
+    function searchGlobalLocal(query) {
         const q = String(query || '').trim().toLowerCase();
         if (q.length < 2) return [];
         const results = [];
-        const push = (type, label, route, meta) => {
-            results.push({ type, label, route, meta });
+        const push = (type, label, route, meta, detailId) => {
+            results.push({ type, label, route, meta, detailId });
         };
 
         (db.orders || []).forEach((o) => {
             const hay = `${o.ref || ''} ${o.id} ${o.client_name || ''} ${o.origin || ''} ${o.dest || ''}`.toLowerCase();
             if (hay.includes(q)) {
-                push('OT', o.ref || `#${o.id}`, () => {
-                    if (typeof openTransportDetail === 'function') openTransportDetail(o.id);
-                    else router('transports');
-                }, o.status);
+                push('OT', o.ref || `#${o.id}`, 'transports', o.status, o.id);
             }
         });
         (db.clients || []).forEach((c) => {
             const hay = `${c.name || ''} ${c.siret || ''} ${c.email || ''}`.toLowerCase();
             if (hay.includes(q)) {
-                push('Client', c.name, () => router('clients'), c.siret || '');
+                push('Client', c.name, 'clients', c.siret || '');
             }
         });
         (db.sales_invoices || []).forEach((inv) => {
             const hay = `${inv.invoice_number || ''} ${inv.id} ${inv.client_name || ''}`.toLowerCase();
             if (hay.includes(q)) {
-                push('Facture', inv.invoice_number || inv.id, () => {
-                    if (inv.status === 'Brouillon' || inv.status === 'Draft') router('sales_invoices_draft');
-                    else router('sales_invoices');
-                }, inv.status);
+                const draft = inv.status === 'Brouillon' || inv.status === 'Draft';
+                push('Facture', inv.invoice_number || inv.id, draft ? 'sales_invoices_draft' : 'sales_invoices', inv.status);
             }
         });
         (db.vehicles || []).forEach((v) => {
             const hay = `${v.plate || ''} ${v.brand || ''} ${v.model || ''}`.toLowerCase();
             if (hay.includes(q)) {
-                push('Véhicule', v.plate || v.id, () => router('fleet'), v.brand || '');
+                push('Véhicule', v.plate || v.id, 'fleet', v.brand || '');
             }
         });
         (db.drivers || []).forEach((d) => {
             const hay = `${d.name || ''} ${d.phone || ''}`.toLowerCase();
             if (hay.includes(q)) {
-                push('Chauffeur', d.name, () => router('drivers'), d.phone || '');
+                push('Chauffeur', d.name, 'drivers', d.phone || '');
             }
         });
 
         return results.slice(0, 12);
     }
 
+    function navigateSearchHit(item) {
+        if (!item) return;
+        if (item.type === 'OT' && item.detailId && typeof openTransportDetail === 'function') {
+            openTransportDetail(item.detailId);
+            return;
+        }
+        if (typeof item.route === 'function') {
+            item.route();
+            return;
+        }
+        if (item.route && typeof router === 'function') router(item.route);
+    }
+
+    async function searchGlobalServer(query) {
+        const res = await apiFetch(`search?q=${encodeURIComponent(query)}&limit=12`);
+        if (!res.ok) throw new Error('search_failed');
+        const payload = await res.json().catch(() => ({}));
+        return (payload.data || []).map((r) => ({
+            type: r.type,
+            label: r.label,
+            meta: r.meta,
+            route: r.route,
+            detailId: r.detailId || (r.type === 'OT' ? r.id : null)
+        }));
+    }
+
     window.renderGlobalSearchResults = function (query) {
         const box = document.getElementById('global-search-results');
         if (!box) return;
-        const results = searchGlobal(query);
-        const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
-        if (!query || query.trim().length < 2) {
+        const q = String(query || '').trim();
+        if (q.length < 2) {
             box.classList.add('hidden');
             box.innerHTML = '';
             return;
         }
+
+        clearTimeout(searchDebounceTimer);
+        const seq = ++searchSeq;
+        box.innerHTML = `<p class="px-3 py-2 text-sm text-gray-400">Recherche…</p>`;
+        box.classList.remove('hidden');
+
+        searchDebounceTimer = setTimeout(async () => {
+            let results = searchGlobalLocal(q);
+            try {
+                results = await searchGlobalServer(q);
+            } catch {
+                /* garde le fallback local */
+            }
+            if (seq !== searchSeq) return;
+            paintSearchResults(box, results, q);
+        }, 220);
+    };
+
+    function paintSearchResults(box, results, query) {
+        const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
         if (!results.length) {
-            box.innerHTML = `<p class="px-3 py-2 text-sm text-gray-500">Aucun résultat</p>`;
+            box.innerHTML = `<p class="px-3 py-2 text-sm text-gray-500">Aucun résultat pour « ${esc(query)} »</p>`;
             box.classList.remove('hidden');
             return;
         }
@@ -197,9 +346,73 @@
                 const item = box._results?.[Number(btn.dataset.idx)];
                 box.classList.add('hidden');
                 document.getElementById('global-search-input').value = '';
-                if (typeof item?.route === 'function') item.route();
+                navigateSearchHit(item);
             });
         });
+    }
+
+    // ── Push web (opt-in si VAPID configuré) ─────────────────────────
+    async function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+    }
+
+    window.initWebPushIfAvailable = async function () {
+        if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+            return;
+        }
+        try {
+            const res = await apiFetch('push/config');
+            if (!res.ok) return;
+            const { data } = await res.json();
+            if (!data?.enabled || !data.publicKey) return;
+            if (Notification.permission === 'denied') return;
+
+            const reg = await navigator.serviceWorker.register('/sw-push.js').catch(() => null);
+            if (!reg) return;
+
+            if (Notification.permission === 'default') {
+                // Ne pas forcer — bouton optionnel dans le centre notifs
+                window.__flenovaPushReady = { publicKey: data.publicKey, reg };
+                return;
+            }
+            await subscribeWebPush(data.publicKey, reg);
+        } catch { /* ignore */ }
+    };
+
+    async function subscribeWebPush(publicKey, reg) {
+        const existing = await reg.pushManager.getSubscription();
+        const sub = existing || await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: await urlBase64ToUint8Array(publicKey)
+        });
+        await apiFetch('push/subscribe', {
+            method: 'POST',
+            body: { subscription: sub.toJSON() }
+        });
+    }
+
+    window.enableWebPushNotifications = async function () {
+        try {
+            const res = await apiFetch('push/config');
+            const { data } = await res.json();
+            if (!data?.enabled) {
+                showToast('Push non configuré côté serveur (VAPID)', 'info');
+                return;
+            }
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') {
+                showToast('Permission notifications refusée', 'info');
+                return;
+            }
+            const reg = await navigator.serviceWorker.register('/sw-push.js');
+            await subscribeWebPush(data.publicKey, reg);
+            showToast('Notifications push activées', 'success');
+        } catch (e) {
+            showToast(e.message || 'Activation push impossible', 'error');
+        }
     };
 
     // ── Centre de notifications ─────────────────────────────────────
@@ -283,9 +496,14 @@
             info: 'border-l-blue-500 bg-blue-50'
         };
         panel.innerHTML = `
-            <div class="p-3 border-b flex justify-between items-center">
+            <div class="p-3 border-b flex justify-between items-center gap-2">
                 <span class="text-sm font-bold text-gray-800">Notifications</span>
-                <span class="text-xs text-gray-500">${items.length}</span>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="enableWebPushNotifications()" class="text-[10px] font-semibold text-indigo-700 hover:underline" title="Activer les notifications navigateur">
+                        Push
+                    </button>
+                    <span class="text-xs text-gray-500">${items.length}</span>
+                </div>
             </div>
             <div class="max-h-80 overflow-y-auto">
                 ${items.length ? items.map((it, i) => `
@@ -409,11 +627,15 @@
     };
 
     // ── Résiliation self-service (demande locale + email intent) ────
-    window.requestSubscriptionCancellation = function () {
+    window.requestSubscriptionCancellation = async function () {
         const sub = window.cachedSubscription || {};
         const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
         if (!user || user.role !== 'admin') {
             showToast('Réservé à l\'administrateur de l\'entreprise', 'error');
+            return;
+        }
+        if (sub.cancellationEffectDate) {
+            showToast(`Résiliation déjà demandée — effet le ${sub.cancellationEffectDate}`, 'info');
             return;
         }
         const effect = new Date();
@@ -421,31 +643,33 @@
         const effectStr = effect.toISOString().slice(0, 10);
         if (!confirm(
             `Demander la résiliation avec préavis d'1 mois ?\n` +
-            `Date d'effet estimée : ${effectStr} (fin de période mensuelle).\n` +
+            `Date d'effet estimée : ${effectStr}.\n` +
             `Tout mois entamé reste dû (CGV).`
         )) return;
 
-        const payload = {
-            requestedAt: new Date().toISOString(),
-            effectDate: effectStr,
-            companyId: user.company_id,
-            companyName: user.company_name,
-            email: user.email,
-            plan: sub.planName || sub.plan
-        };
-        writeJson(companyKey(CANCEL_KEY), payload);
-
-        const subject = encodeURIComponent(`Résiliation abonnement Flenova — ${user.company_name || ''}`);
-        const body = encodeURIComponent(
-            `Bonjour,\n\nJe souhaite résilier l'abonnement Flenova de ${user.company_name || 'mon entreprise'}.\n` +
-            `Forfait : ${payload.plan || '—'}\n` +
-            `Date de demande : ${payload.requestedAt}\n` +
-            `Date d'effet souhaitée (préavis 1 mois) : ${effectStr}\n\n` +
-            `Cordialement,\n${user.name || ''} (${user.email || ''})`
-        );
-        window.open(`mailto:support@flenova.fr?subject=${subject}&body=${body}`, '_blank');
-        showToast(`Demande enregistrée — effet estimé le ${effectStr}`, 'success');
-        if (typeof router === 'function') router('pricing');
+        try {
+            const res = await apiFetch('subscription/cancel-request', { method: 'POST', body: {} });
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload.error || 'Demande impossible');
+            if (payload.data) window.cachedSubscription = payload.data;
+            const date = payload.data?.cancellationEffectDate || effectStr;
+            writeJson(companyKey(CANCEL_KEY), {
+                requestedAt: new Date().toISOString(),
+                effectDate: date,
+                companyId: user.company_id
+            });
+            showToast(`Demande enregistrée — effet estimé le ${date}. Un e-mail de confirmation a été envoyé.`, 'success');
+            if (typeof router === 'function') router('pricing');
+        } catch (e) {
+            // Fallback mailto
+            const subject = encodeURIComponent(`Résiliation abonnement Flenova — ${user.company_name || ''}`);
+            const body = encodeURIComponent(
+                `Bonjour,\n\nJe souhaite résilier l'abonnement Flenova de ${user.company_name || 'mon entreprise'}.\n` +
+                `Date d'effet souhaitée (préavis 1 mois) : ${effectStr}\n\nCordialement,\n${user.name || ''} (${user.email || ''})`
+            );
+            window.open(`mailto:support@flenova.fr?subject=${subject}&body=${body}`, '_blank');
+            showToast(e.message || 'Demande ouverte par e-mail', 'info');
+        }
     };
 
     window.getCancellationRequest = function () {
@@ -455,9 +679,14 @@
     // ── Init hooks ──────────────────────────────────────────────────
     window.initUxImprovements = function () {
         initUiDensity();
-        refreshOrderTemplateSelect();
         refreshNotificationBadge();
         renderOnboardingChecklist();
+        if (typeof loadOrderTemplates === 'function') {
+            void loadOrderTemplates();
+        } else {
+            refreshOrderTemplateSelect();
+        }
+        void initWebPushIfAvailable();
     };
 
     document.addEventListener('click', (e) => {

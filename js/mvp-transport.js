@@ -374,26 +374,127 @@ function renderTransportList() {
     </div>`;
 }
 
+window.prefactureFilters = window.prefactureFilters || {
+    clientId: '',
+    period: 'all',
+    startDate: '',
+    endDate: ''
+};
+
+function getPrefactureDateRange(f = window.prefactureFilters) {
+    const period = f?.period || 'all';
+    if (period === 'all') return { start: null, end: null };
+    if (period === 'custom') {
+        return {
+            start: f.startDate || null,
+            end: f.endDate || null
+        };
+    }
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = now.getMonth();
+    if (period === 'prev_month') {
+        if (month === 0) {
+            year -= 1;
+            month = 11;
+        } else {
+            month -= 1;
+        }
+    }
+    const mm = String(month + 1).padStart(2, '0');
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    return {
+        start: `${year}-${mm}-01`,
+        end: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`
+    };
+}
+
+function orderPrefactureDate(o) {
+    return String(o.delivery_date || o.load_date || '').slice(0, 10);
+}
+
+function filterPrefactureCandidates(all) {
+    const f = window.prefactureFilters || {};
+    const range = getPrefactureDateRange(f);
+    return (all || []).filter((o) => {
+        if (o.status !== 'Validé' || o.invoice_draft_id) return false;
+        if (f.clientId && String(o.client_id) !== String(f.clientId)) return false;
+        const d = orderPrefactureDate(o);
+        if (range.start || range.end) {
+            if (!d) return false;
+            if (range.start && d < range.start) return false;
+            if (range.end && d > range.end) return false;
+        }
+        return true;
+    });
+}
+
 function renderPreInvoicing() {
-    const candidates = (db.orders || []).filter(o => o.status === 'Validé' && !o.invoice_draft_id);
+    const f = window.prefactureFilters;
+    const allCandidates = (db.orders || []).filter((o) => o.status === 'Validé' && !o.invoice_draft_id);
+    const candidates = filterPrefactureCandidates(db.orders);
     const canFinance = typeof canManageFinance === 'function' && canManageFinance();
     const total = candidates.reduce((sum, o) => sum + Number(o.price || 0), 0);
     const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
+    const clientOptions = ['<option value="">Tous les clients</option>']
+        .concat((db.clients || []).map((c) =>
+            `<option value="${esc(c.id)}" ${String(f.clientId) === String(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`
+        ))
+        .join('');
+    const filteredHint = candidates.length !== allCandidates.length
+        ? ` · ${allCandidates.length} au total`
+        : '';
+    const colSpan = canFinance ? 7 : 6;
 
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
-        <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div>
                 <h3 class="font-bold text-lg text-gray-800">À préfacturer</h3>
-                <p class="text-xs text-gray-500">Transports validés non encore facturés — clôturez le mois plus vite</p>
+                <p class="text-xs text-gray-500">Transports validés non encore facturés — filtrez par client ou période de livraison</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">${candidates.length} en attente · ${total.toLocaleString('fr-FR')} €</span>
+                <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">${candidates.length} affiché(s)${filteredHint} · ${total.toLocaleString('fr-FR')} €</span>
                 ${canFinance && candidates.length ? `
                 <button type="button" onclick="selectAllPrefactureCandidates(true)" class="text-xs px-3 py-1.5 border rounded-lg hover:bg-gray-50">Tout sélectionner</button>
-                <button type="button" onclick="bulkCreateInvoiceDrafts()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700">
+                <button type="button" id="prefacture-bulk-btn" data-tour="prefacture_bulk" onclick="bulkCreateInvoiceDrafts()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700">
                     <i class="fa-solid fa-file-invoice mr-1"></i>Générer les préfactures sélectionnées
                 </button>` : ''}
             </div>
+        </div>
+        <div class="flex flex-wrap items-end gap-2 mb-5 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+            <label class="text-xs text-gray-600">
+                <span class="block mb-1 font-medium">Client</span>
+                <select id="prefacture-filter-client" onchange="prefactureFilters.clientId=this.value; router('preinvoicing')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]">${clientOptions}</select>
+            </label>
+            <label class="text-xs text-gray-600">
+                <span class="block mb-1 font-medium">Période (livraison)</span>
+                <select id="prefacture-filter-period" onchange="prefactureFilters.period=this.value; router('preinvoicing')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="all" ${f.period === 'all' ? 'selected' : ''}>Toutes</option>
+                    <option value="month" ${f.period === 'month' ? 'selected' : ''}>Mois en cours</option>
+                    <option value="prev_month" ${f.period === 'prev_month' ? 'selected' : ''}>Mois précédent</option>
+                    <option value="custom" ${f.period === 'custom' ? 'selected' : ''}>Personnalisée</option>
+                </select>
+            </label>
+            ${f.period === 'custom' ? `
+            <label class="text-xs text-gray-600">
+                <span class="block mb-1 font-medium">Du</span>
+                <input type="date" id="prefacture-filter-start" value="${esc(f.startDate || '')}"
+                    onchange="prefactureFilters.startDate=this.value; router('preinvoicing')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white">
+            </label>
+            <label class="text-xs text-gray-600">
+                <span class="block mb-1 font-medium">Au</span>
+                <input type="date" id="prefacture-filter-end" value="${esc(f.endDate || '')}"
+                    onchange="prefactureFilters.endDate=this.value; router('preinvoicing')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white">
+            </label>` : ''}
+            ${(f.clientId || f.period !== 'all') ? `
+            <button type="button" onclick="prefactureFilters.clientId=''; prefactureFilters.period='all'; prefactureFilters.startDate=''; prefactureFilters.endDate=''; router('preinvoicing')"
+                class="text-xs px-3 py-2 border rounded-lg hover:bg-white text-gray-600">
+                Réinitialiser
+            </button>` : ''}
         </div>
         <div class="overflow-x-auto">
         <table class="w-full text-sm text-left text-gray-500">
@@ -402,6 +503,7 @@ function renderPreInvoicing() {
                     ${canFinance ? `<th class="px-4 py-3 w-10"><input type="checkbox" id="prefacture-select-all" onchange="selectAllPrefactureCandidates(this.checked)" aria-label="Sélectionner tout"></th>` : ''}
                     <th class="px-4 py-3">Réf.</th>
                     <th class="px-4 py-3">Client</th>
+                    <th class="px-4 py-3">Livraison</th>
                     <th class="px-4 py-3">Trajet</th>
                     <th class="px-4 py-3">Montant</th>
                     <th class="px-4 py-3">Action</th>
@@ -413,12 +515,13 @@ function renderPreInvoicing() {
                         ${canFinance ? `<td class="px-4 py-3"><input type="checkbox" class="prefacture-row-cb" value="${o.id}" aria-label="Sélectionner ${esc(o.ref || o.id)}"></td>` : ''}
                         <td class="px-4 py-3 font-medium">${esc(o.ref || o.id)}</td>
                         <td class="px-4 py-3">${esc(o.client_name || '-')}</td>
+                        <td class="px-4 py-3 text-xs whitespace-nowrap">${formatDisplayDate(orderPrefactureDate(o)) || '—'}</td>
                         <td class="px-4 py-3 text-xs">${esc(o.origin)} → ${esc(o.dest)}</td>
                         <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString('fr-FR')} €</td>
                         <td class="px-4 py-3">
                             ${canFinance ? `<button type="button" onclick="createInvoiceDraftFromTransport(${o.id})" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"><i class="fa-solid fa-file-invoice mr-1"></i>Préfacture</button>` : '-'}
                         </td>
-                    </tr>`).join('') : `<tr><td colspan="${canFinance ? 6 : 5}" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport à préfacturer</td></tr>`}
+                    </tr>`).join('') : `<tr><td colspan="${colSpan}" class="px-4 py-10 text-center text-gray-400 italic">${allCandidates.length ? 'Aucun transport pour ces filtres' : 'Aucun transport à préfacturer'}</td></tr>`}
             </tbody>
         </table>
         </div>
@@ -438,6 +541,8 @@ window.bulkCreateInvoiceDrafts = async function () {
         showToast('Action non autorisée', 'error');
         return;
     }
+    const btn = document.getElementById('prefacture-bulk-btn');
+    if (btn?.dataset.busy === '1') return;
     const ids = [...document.querySelectorAll('.prefacture-row-cb:checked')].map((cb) => parseInt(cb.value, 10)).filter(Boolean);
     if (!ids.length) {
         showToast('Sélectionnez au moins un transport', 'info');
@@ -445,19 +550,35 @@ window.bulkCreateInvoiceDrafts = async function () {
     }
     if (!confirm(`Générer ${ids.length} préfacture(s) brouillon ?`)) return;
 
-    let ok = 0;
-    let fail = 0;
+    if (btn) {
+        btn.dataset.busy = '1';
+        btn.disabled = true;
+        btn.classList.add('opacity-60');
+    }
+    const results = [];
     for (const id of ids) {
         try {
             const res = await apiFetch(`transport-orders/${id}/invoice-draft`, { method: 'POST' });
-            if (res.ok) ok += 1;
-            else fail += 1;
-        } catch (_) {
-            fail += 1;
+            const payload = await res.json().catch(() => ({}));
+            if (res.ok) results.push({ id, ok: true });
+            else results.push({ id, ok: false, error: payload.error || `HTTP ${res.status}` });
+        } catch (e) {
+            results.push({ id, ok: false, error: e.message || 'Erreur réseau' });
         }
     }
-    if (ok) showToast(`${ok} préfacture(s) créée(s)${fail ? ` · ${fail} échec(s)` : ''}`, fail ? 'info' : 'success');
-    else showToast('Aucune préfacture créée', 'error');
+    const ok = results.filter((r) => r.ok).length;
+    const fail = results.filter((r) => !r.ok);
+    if (fail.length) {
+        const detail = fail.slice(0, 5).map((f) => `#${f.id}: ${f.error}`).join('\n');
+        alert(`${ok} OK · ${fail.length} échec(s)\n\n${detail}${fail.length > 5 ? '\n…' : ''}`);
+    } else {
+        showToast(`${ok} préfacture(s) créée(s)`, 'success');
+    }
+    if (btn) {
+        btn.dataset.busy = '0';
+        btn.disabled = false;
+        btn.classList.remove('opacity-60');
+    }
     if (typeof loadData === 'function') await loadData();
     else if (typeof router === 'function') router('preinvoicing');
 };

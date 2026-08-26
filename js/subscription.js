@@ -409,17 +409,19 @@ function renderAppPricingPage() {
             ${warnings}
             <p class="text-sm text-gray-500 mt-4">Abonnement <strong>sans engagement de durée</strong> · Facturation mensuelle · Prélèvement SEPA · Résiliation possible à tout moment, sous réserve d’un préavis d’1 mois (effet en fin de période mensuelle).</p>
             <p class="text-sm mt-3"><a href="/index.html#tarifs" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">Consulter les tarifs et comparatif des forfaits →</a></p>
-            ${sub.needsPayment && !sub.isDemo ? `<button type="button" onclick="subscribeToPlan('${sub.targetPlan || sub.plan}')" class="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">Activer mon abonnement</button>` : ''}
+            ${sub.needsPayment && !sub.isDemo ? `<button type="button" onclick="subscribeToPlan('${sub.targetPlan || sub.plan}')" class="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">${sub.accessSuspended ? 'Régulariser mon paiement' : 'Activer mon abonnement'}</button>` : ''}
         </div>
         ${(() => {
             const cancelReq = typeof getCancellationRequest === 'function' ? getCancellationRequest() : null;
+            const effectDate = sub.cancellationEffectDate || cancelReq?.effectDate;
+            const requestedAt = sub.cancellationRequestedAt || cancelReq?.requestedAt;
             const isAdmin = (typeof getCurrentUser === 'function' ? getCurrentUser()?.role : null) === 'admin';
             if (sub.isDemo) return '';
             return `<div class="mt-6 max-w-xl mx-auto text-left bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
                 <h3 class="font-bold text-gray-800 mb-1">Résiliation</h3>
                 <p class="text-sm text-gray-500 mb-3">Sans engagement de durée · préavis obligatoire d'1 mois · effet en fin de période mensuelle · tout mois entamé est dû (CGV).</p>
-                ${cancelReq ? `<p class="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3 mb-3">Demande enregistrée le ${new Date(cancelReq.requestedAt).toLocaleDateString('fr-FR')} — effet estimé <strong>${cancelReq.effectDate}</strong>. Un e-mail de confirmation a été préparé vers support@flenova.fr.</p>` : ''}
-                ${isAdmin ? `<button type="button" onclick="requestSubscriptionCancellation()" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-50">Demander la résiliation (préavis 1 mois)</button>` : `<p class="text-xs text-gray-500">Contactez l'administrateur de votre entreprise pour résilier.</p>`}
+                ${effectDate ? `<p class="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3 mb-3">Résiliation demandée${requestedAt ? ` le ${new Date(requestedAt).toLocaleDateString('fr-FR')}` : ''} — effet estimé <strong>${effectDate}</strong>.</p>` : ''}
+                ${isAdmin && !effectDate ? `<button type="button" onclick="requestSubscriptionCancellation()" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-50">Demander la résiliation (préavis 1 mois)</button>` : (!isAdmin ? `<p class="text-xs text-gray-500">Contactez l'administrateur de votre entreprise pour résilier.</p>` : '')}
             </div>`;
         })()}
         ${renderAddonsPanel(sub)}
@@ -563,6 +565,10 @@ window.planHasFeature = function (featureKey) {
 window.canAccessPlanRoute = function (routeName) {
     if (routeName === 'platform_ops' || routeName === 'platform_crm') return !!currentUser?.isPlatformAdmin;
     const sub = window.cachedSubscription;
+    // Accès suspendu : seules pages de régularisation
+    if (sub?.accessSuspended || (sub?.needsPayment && !sub?.gracePeriod && !sub?.isDemo)) {
+        return ['pricing', 'contact', 'feedback', 'about'].includes(routeName);
+    }
     const transportRoutes = sub?.transportRoutes || [
         'transports', 'planning', 'inprogress_transports', 'completed_transports',
         'closed_transports', 'cancelled_transports', 'chartered_transports',
@@ -576,21 +582,119 @@ window.canAccessPlanRoute = function (routeName) {
     return sub.allowedRoutes.includes(routeName);
 };
 
+window.goToSubscriptionPayment = function () {
+    document.getElementById('saas-overdue-modal')?.classList.add('hidden');
+    if (typeof router === 'function') router('pricing');
+};
+
 function showOverdueBillingModal(alert) {
-    if (!alert || sessionStorage.getItem('overdue_dismissed') === '1') return;
+    if (!alert) return;
+    const sub = window.cachedSubscription || {};
+    // Grâce : modal non oubliable (pas de dismiss session) — CTA paiement obligatoire
+    if (alert.type === 'grace_period' || sub.gracePeriod) {
+        const modal = document.getElementById('saas-overdue-modal');
+        if (!modal) return;
+        document.getElementById('saas-overdue-title').textContent = alert.title || 'Période de grâce';
+        document.getElementById('saas-overdue-message').textContent = alert.message || '';
+        const payBtn = document.getElementById('saas-overdue-pay-btn');
+        if (payBtn) payBtn.textContent = alert.cta || 'Régulariser mon paiement';
+        const dismissBtn = document.getElementById('saas-overdue-dismiss-btn');
+        if (dismissBtn) {
+            dismissBtn.classList.remove('hidden');
+            dismissBtn.textContent = 'Continuer (le bandeau reste affiché)';
+        }
+        modal.classList.remove('hidden');
+        return;
+    }
+    if (alert.type === 'payment_required' || sub.accessSuspended) {
+        // Géré par l'écran plein accès suspendu
+        return;
+    }
+    if (sessionStorage.getItem('overdue_dismissed') === '1') return;
     const modal = document.getElementById('saas-overdue-modal');
     if (!modal) return;
-    document.getElementById('saas-overdue-title').textContent = alert.title || 'Facture en retard';
+    document.getElementById('saas-overdue-title').textContent = alert.title || 'Facture Flenova en retard';
     document.getElementById('saas-overdue-message').textContent = alert.message || '';
+    const dismissBtn = document.getElementById('saas-overdue-dismiss-btn');
+    if (dismissBtn) dismissBtn.classList.remove('hidden');
     modal.classList.remove('hidden');
 }
 
 window.dismissSaasOverdueModal = async function () {
+    const sub = window.cachedSubscription || {};
     document.getElementById('saas-overdue-modal')?.classList.add('hidden');
+    // En grâce : on ne masque PAS le bandeau ; dismiss modal seulement
+    if (sub.gracePeriod) return;
     sessionStorage.setItem('overdue_dismissed', '1');
     try {
         await apiFetch('subscription/overdue/dismiss', { method: 'POST', body: {} });
     } catch (e) { /* ignore */ }
+};
+
+window.applyGraceBanner = function () {
+    const banner = document.getElementById('grace-banner');
+    const textEl = document.getElementById('grace-banner-text');
+    if (!banner || !textEl) return;
+    const sub = window.cachedSubscription;
+    if (!sub?.gracePeriod) {
+        banner.classList.add('hidden');
+        return;
+    }
+    const days = sub.graceDaysRemaining ?? '?';
+    const endLabel = sub.graceEndsAt
+        ? new Date(sub.graceEndsAt).toLocaleDateString('fr-FR')
+        : '';
+    textEl.innerHTML = `<i class="fa-solid fa-clock mr-2"></i><strong>Période de grâce — J-${days}</strong> : accès maintenu${endLabel ? ` jusqu'au ${endLabel}` : ''}. Régularisez votre <em>facture Flenova</em> (abonnement) pour éviter la suspension.`;
+    banner.classList.remove('hidden');
+};
+
+window.applyAccessSuspendedScreen = function () {
+    const screen = document.getElementById('access-suspended-screen');
+    if (!screen) return false;
+    const sub = window.cachedSubscription;
+    const suspended = !!(sub && (sub.accessSuspended || (sub.needsPayment && !sub.gracePeriod && !sub.isDemo && !sub.isActive)));
+    if (!suspended || currentUser?.isPlatformAdmin) {
+        screen.classList.add('hidden');
+        return false;
+    }
+    const msg = document.getElementById('access-suspended-message');
+    if (msg && sub.billingAlert?.message) msg.textContent = sub.billingAlert.message;
+    screen.classList.remove('hidden');
+    // Masquer le contenu métier
+    document.getElementById('onboarding-checklist-mount')?.classList.add('hidden');
+    return true;
+};
+
+window.applySubscriptionAccessGate = function () {
+    if (typeof applyDemoBanner === 'function') applyDemoBanner();
+    applyGraceBanner();
+    const suspended = applyAccessSuspendedScreen();
+    updateNavQuotaWidget();
+    return suspended;
+};
+
+window.updateNavQuotaWidget = function () {
+    let el = document.getElementById('nav-quota-widget');
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar) return;
+    const aff = window.cachedSubscription?.affretementUsage;
+    if (!aff || aff.limit == null) {
+        el?.remove();
+        return;
+    }
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'nav-quota-widget';
+        el.className = 'px-3 py-2 mx-2 mb-2 rounded-lg bg-slate-800 text-[11px] text-slate-300';
+        const footer = sidebar.querySelector('.mt-auto') || sidebar.lastElementChild;
+        sidebar.insertBefore(el, footer);
+    }
+    const used = aff.sendsThisMonth || 0;
+    const pct = Math.min(100, Math.round((used / aff.limit) * 100));
+    const tone = used >= aff.limit ? 'text-amber-300' : used >= aff.limit * 0.8 ? 'text-amber-200' : 'text-slate-300';
+    el.innerHTML = `<div class="flex justify-between ${tone} font-semibold mb-1"><span>Affrètements</span><span>${used}/${aff.limit}</span></div>
+        <div class="h-1.5 bg-slate-700 rounded overflow-hidden"><div class="h-full bg-indigo-400" style="width:${pct}%"></div></div>
+        ${used >= aff.limit ? `<p class="mt-1 text-amber-300/90">Hors quota : +${String(aff.unitPrice ?? 1.5).replace('.', ',')} € HT / envoi</p>` : ''}`;
 };
 
 window.renderAppPricingPage = renderAppPricingPage;
@@ -607,6 +711,7 @@ window.hydrateSubscription = function (payload) {
             extra_pc_users: payload.subscription.addons?.extraPcUsers ?? 0,
             extra_mobile_drivers: payload.subscription.addons?.extraMobileDrivers ?? 0
         };
+        applySubscriptionAccessGate();
     }
 };
 
