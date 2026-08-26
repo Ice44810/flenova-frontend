@@ -57,6 +57,7 @@ describe('apiFetch Interceptor', () => {
     });
 
     it('ne devrait pas déconnecter sur 402 (abonnement suspendu)', async () => {
+        window.applySubscriptionAccessGate = jest.fn();
         fetch.mockResponseOnce(JSON.stringify({ error: 'Abonnement actif requis' }), { status: 402 });
 
         const response = await apiFetch('transport-orders');
@@ -64,6 +65,7 @@ describe('apiFetch Interceptor', () => {
         expect(response.status).toBe(402);
         expect(window.location.href).toBe('');
         expect(fetch).toHaveBeenCalledTimes(1);
+        expect(window.applySubscriptionAccessGate).toHaveBeenCalled();
     });
 
     it('devrait rejeter l\'erreur en cas de problème réseau', async () => {

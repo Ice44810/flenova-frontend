@@ -51,6 +51,19 @@ async function apiFetch(url, options = {}) {
             return response;
         }
 
+        if (response.status === 402 && !isAuthRoute && !isAuthPage) {
+            if (window.cachedSubscription) {
+                window.cachedSubscription.isActive = false;
+                window.cachedSubscription.needsPayment = true;
+                window.cachedSubscription.accessSuspended = true;
+                window.cachedSubscription.gracePeriod = false;
+            } else {
+                window.cachedSubscription = { isActive: false, needsPayment: true, accessSuspended: true };
+            }
+            if (typeof applySubscriptionAccessGate === 'function') applySubscriptionAccessGate();
+            return response;
+        }
+
         return response;
     } catch (networkErr) {
         console.error('API Error:', networkErr);

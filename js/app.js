@@ -1678,11 +1678,22 @@ window.changePlanningWeek = function (offset) {
 async function fetchAllData() {
     try {
         let sawPaymentRequired = false;
+        const markPaymentRequired = () => {
+            sawPaymentRequired = true;
+            if (window.cachedSubscription) {
+                window.cachedSubscription.isActive = false;
+                window.cachedSubscription.needsPayment = true;
+                window.cachedSubscription.accessSuspended = true;
+                window.cachedSubscription.gracePeriod = false;
+            } else {
+                window.cachedSubscription = { isActive: false, needsPayment: true, accessSuspended: true };
+            }
+            if (typeof applySubscriptionAccessGate === 'function') applySubscriptionAccessGate();
+        };
         const fetchJson = async (url) => {
             const res = await apiFetch(url);
             if (res.status === 402) {
-                sawPaymentRequired = true;
-                console.warn(`Abonnement requis pour ${url}`);
+                markPaymentRequired();
                 return [];
             }
             if (!res.ok) return [];
@@ -1699,7 +1710,7 @@ async function fetchAllData() {
                 const sep = url.includes('?') ? '&' : '?';
                 const res = await apiFetch(`${url}${sep}limit=${pageSize}&offset=${offset}`);
                 if (res.status === 402) {
-                    sawPaymentRequired = true;
+                    markPaymentRequired();
                     return all;
                 }
                 if (!res.ok) break;
@@ -1725,18 +1736,11 @@ async function fetchAllData() {
             mayView('carriers') ? fetchJson('subcontractors') : Promise.resolve([]),
             (typeof canManageUsers === 'function' && canManageUsers()) ? fetchJson('agencies') : Promise.resolve([])
         ]);
-        db = { orders, clients, missions, drivers, vehicles, users, sales_invoices: sales, purchase_invoices: purchase, subcontractors, agencies: agencies || [] };
         if (sawPaymentRequired) {
-            if (window.cachedSubscription) {
-                window.cachedSubscription.isActive = false;
-                window.cachedSubscription.needsPayment = true;
-                window.cachedSubscription.accessSuspended = true;
-                window.cachedSubscription.gracePeriod = false;
-            } else {
-                window.cachedSubscription = { isActive: false, needsPayment: true, accessSuspended: true };
-            }
-            if (typeof applySubscriptionAccessGate === 'function') applySubscriptionAccessGate();
+            if (typeof refreshNotificationBadge === 'function') refreshNotificationBadge();
+            return false;
         }
+        db = { orders, clients, missions, drivers, vehicles, users, sales_invoices: sales, purchase_invoices: purchase, subcontractors, agencies: agencies || [] };
         if (typeof refreshNotificationBadge === 'function') refreshNotificationBadge();
         if (typeof renderOnboardingChecklist === 'function') {
             /* checklist auto-refresh via initUxImprovements patterns */
@@ -3215,7 +3219,12 @@ async function loadAffretementConfirmationPage() {
     const sendBtn = document.getElementById('affretement-send-btn');
 
     if (!orderId) {
-        if (preview) preview.innerHTML = '<p class="p-8 text-center text-red-500">Aucune commande sélectionnée.</p>';
+        if (preview) {
+            const empty = document.createElement('p');
+            empty.className = 'p-8 text-center text-red-500';
+            empty.textContent = 'Aucune commande sélectionnée.';
+            preview.replaceChildren(empty);
+        }
         return;
     }
 
@@ -3233,7 +3242,7 @@ async function loadAffretementConfirmationPage() {
                 : '';
             subtitle.textContent = `Commande ${data.orderRef} — ${data.subcontractor?.name || 'Sous-traitant'}${agencyPart}`;
         }
-        if (preview) preview.innerHTML = data.html || '<p class="p-8 text-center text-gray-400">Aucun contenu</p>';
+        renderSecureHtmlPreview(preview, data.html, 'Aucun contenu');
         if (emailInput) emailInput.value = data.subcontractor?.email || '';
 
         const quotaEl = document.getElementById('affretement-quota-banner');
@@ -3288,7 +3297,12 @@ async function loadAffretementConfirmationPage() {
             if (emailInput) emailInput.disabled = !canSend;
         }
     } catch (e) {
-        if (preview) preview.innerHTML = `<p class="p-8 text-center text-red-500">${esc(e.message)}</p>`;
+        if (preview) {
+            const errEl = document.createElement('p');
+            errEl.className = 'p-8 text-center text-red-500';
+            errEl.textContent = e.message || 'Erreur de chargement';
+            preview.replaceChildren(errEl);
+        }
         showToast(e.message, 'error');
     }
 }
@@ -4163,7 +4177,7 @@ window.openInvoiceModal = async function (invoiceId) {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-gray-50/80 transition-colors even:bg-gray-50/40";
         tr.innerHTML = `
-            <td class="px-5 py-4 font-medium text-gray-800">${l.desc || ''}</td>
+            <td class="px-5 py-4 font-medium text-gray-800">${esc(l.desc || '')}</td>
             <td class="px-5 py-4 text-center font-mono tabular-nums">${qty}</td>
             <td class="px-5 py-4 text-right font-mono tabular-nums">${price.toLocaleString('fr-FR')} €</td>
             <td class="px-5 py-4 text-right font-semibold font-mono tabular-nums">${lineHT.toLocaleString('fr-FR')} €</td>
@@ -4707,7 +4721,7 @@ function renderLines() {
     container.innerHTML = invoiceLines.map((l, i) => `
         <div class="group flex gap-3 items-start bg-gray-50 p-4 rounded-xl border border-transparent hover:border-blue-200 hover:bg-white transition-all">
             <div class="w-32 flex items-center">
-                <input value="${l.desc}" oninput="updateLine(${i}, 'desc', this.value)" 
+                <input value="${escAttr(l.desc)}" oninput="updateLine(${i}, 'desc', this.value)" 
                     class="w-full bg-transparent text-left font-bold text-gray-700 outline-none" placeholder="Description de la prestation">
             </div>
             <div class="w-2">
@@ -4750,7 +4764,7 @@ function previewInvoice() {
         total += lineTotal;
         return `
             <tr class="border-b border-gray-100">
-                <td class="py-3 text-xs">${l.desc || '<em>Sans description</em>'}</td>
+                <td class="py-3 text-xs">${l.desc ? esc(l.desc) : '<em>Sans description</em>'}</td>
                 <td class="py-3 text-xs text-center">${l.qty}</td>
                 <td class="py-3 text-xs text-right">${Number(l.price).toLocaleString()} €</td>
                 <td class="py-3 text-xs text-right font-bold">${lineTotal.toLocaleString()} €</td>
@@ -4771,24 +4785,24 @@ function previewInvoice() {
                     <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Document Provisoire</p>
                 </div>
                 <div class="text-right">
-                    <p class="font-bold text-lg">${invNumber}</p>
-                    <p class="text-xs text-gray-500">${formatDisplayDate(invDate)}</p>
+                    <p class="font-bold text-lg">${esc(invNumber)}</p>
+                    <p class="text-xs text-gray-500">${esc(formatDisplayDate(invDate))}</p>
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-8 mb-12">
                 <div>
                     <p class="text-[9px] uppercase font-bold text-gray-400 mb-2 tracking-wider">Émetteur</p>
-                    <p class="font-bold text-sm">${companyName}</p>
-                    <p class="text-[11px] text-gray-500">${companyAddress}</p>
-                    <p class="text-[10px] text-gray-400 mt-1">SIRET : ${companySiret || '-'}</p>
-                    <p class="text-[10px] text-gray-400">TVA : ${companyTva || '-'}</p>
+                    <p class="font-bold text-sm">${esc(companyName)}</p>
+                    <p class="text-[11px] text-gray-500">${esc(companyAddress)}</p>
+                    <p class="text-[10px] text-gray-400 mt-1">SIRET : ${esc(companySiret || '-')}</p>
+                    <p class="text-[10px] text-gray-400">TVA : ${esc(companyTva || '-')}</p>
                 </div>
                 <div class="text-right">
                     <p class="text-[9px] uppercase font-bold text-gray-400 mb-2 tracking-wider">Client</p>
-                    <p class="font-bold text-sm">${client?.name || '-'}</p>
-                    <p class="text-[11px] text-gray-500">${client?.address || ''}</p>
-                    <p class="text-[11px] text-gray-500">${client?.tva || ''}</p>
+                    <p class="font-bold text-sm">${esc(client?.name || '-')}</p>
+                    <p class="text-[11px] text-gray-500">${esc(client?.address || '')}</p>
+                    <p class="text-[11px] text-gray-500">${esc(client?.tva || '')}</p>
                 </div>
             </div>
 

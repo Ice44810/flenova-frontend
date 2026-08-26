@@ -757,10 +757,16 @@ window.openTransportBordereau = async function (orderId, type) {
             throw new Error(err.error || 'Génération impossible');
         }
         const html = await res.text();
-        const w = window.open('', '_blank');
+        const w = window.open('', '_blank', 'noopener,noreferrer');
         if (w) {
-            w.document.write(html);
-            w.document.close();
+            w.document.title = type === 'pickup' ? 'Bordereau enlèvement' : 'Bordereau livraison';
+            w.document.body.style.margin = '0';
+            const iframe = w.document.createElement('iframe');
+            iframe.setAttribute('sandbox', 'allow-same-origin');
+            iframe.setAttribute('title', 'Bordereau');
+            iframe.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
+            iframe.srcdoc = html;
+            w.document.body.appendChild(iframe);
         } else {
             showToast('Autorisez les pop-ups pour afficher le bordereau', 'error');
         }
