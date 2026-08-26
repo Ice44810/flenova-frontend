@@ -8900,19 +8900,36 @@ function renderAccountingExport() {
             <div id="acc-export-warnings" class="mt-4 hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3"></div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h4 class="font-semibold text-gray-800 mb-4"><i class="fa-solid fa-sliders mr-2 text-gray-500"></i>Plan comptable paramétrable</h4>
-            <div class="grid md:grid-cols-3 gap-4">
-                <label class="text-sm">Compte ventes<input id="acc-setting-sales" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="706000"></label>
-                <label class="text-sm">Compte achats<input id="acc-setting-purchase" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="604000"></label>
-                <label class="text-sm">TVA collectée<input id="acc-setting-vat-collected" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="445710"></label>
-                <label class="text-sm">TVA déductible<input id="acc-setting-vat-deductible" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="445660"></label>
-                <label class="text-sm">Centre analytique<input id="acc-setting-cost-center" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="TRANSPORT"></label>
-                <label class="text-sm">Taux TVA par défaut (%)<input id="acc-setting-vat-rate" type="number" step="0.1" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="20"></label>
+        <div id="acc-plan-comptable-card" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div id="acc-plan-comptable-summary" class="hidden">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h4 class="font-semibold text-gray-800">
+                            <i class="fa-solid fa-check-circle mr-2 text-emerald-600" aria-hidden="true"></i>
+                            Plan comptable enregistré
+                        </h4>
+                        <p id="acc-plan-comptable-summary-text" class="mt-2 text-sm text-gray-600"></p>
+                    </div>
+                    <button type="button" onclick="expandAccountingPlanForm()"
+                        class="shrink-0 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50">
+                        <i class="fa-solid fa-pen mr-1" aria-hidden="true"></i> Modifier
+                    </button>
+                </div>
             </div>
-            <button type="button" onclick="saveAccountingSettings()" class="mt-4 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900">
-                <i class="fa-solid fa-save mr-1"></i> Enregistrer le plan comptable
-            </button>
+            <div id="acc-plan-comptable-form">
+                <h4 class="font-semibold text-gray-800 mb-4"><i class="fa-solid fa-sliders mr-2 text-gray-500"></i>Plan comptable paramétrable</h4>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <label class="text-sm">Compte ventes<input id="acc-setting-sales" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="706000"></label>
+                    <label class="text-sm">Compte achats<input id="acc-setting-purchase" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="604000"></label>
+                    <label class="text-sm">TVA collectée<input id="acc-setting-vat-collected" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="445710"></label>
+                    <label class="text-sm">TVA déductible<input id="acc-setting-vat-deductible" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="445660"></label>
+                    <label class="text-sm">Centre analytique<input id="acc-setting-cost-center" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="TRANSPORT"></label>
+                    <label class="text-sm">Taux TVA par défaut (%)<input id="acc-setting-vat-rate" type="number" step="0.1" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="20"></label>
+                </div>
+                <button type="button" onclick="saveAccountingSettings()" class="mt-4 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900">
+                    <i class="fa-solid fa-save mr-1"></i> Enregistrer le plan comptable
+                </button>
+            </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -8985,6 +9002,62 @@ function getAccountingExportOptions() {
     };
 }
 
+function accPlanCollapsedStorageKey() {
+    const companyId = window.currentUser?.company_id || '0';
+    return `flenova_acc_plan_collapsed_${companyId}`;
+}
+
+function isAccountingPlanCollapsed() {
+    try {
+        return localStorage.getItem(accPlanCollapsedStorageKey()) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+function setAccountingPlanCollapsed(collapsed) {
+    try {
+        localStorage.setItem(accPlanCollapsedStorageKey(), collapsed ? '1' : '0');
+    } catch (_) { /* ignore */ }
+}
+
+function readAccountingPlanFormValues() {
+    return {
+        sales: document.getElementById('acc-setting-sales')?.value || '706000',
+        purchase: document.getElementById('acc-setting-purchase')?.value || '604000',
+        vatCollected: document.getElementById('acc-setting-vat-collected')?.value || '445710',
+        vatDeductible: document.getElementById('acc-setting-vat-deductible')?.value || '445660',
+        costCenter: document.getElementById('acc-setting-cost-center')?.value || '—',
+        vatRate: document.getElementById('acc-setting-vat-rate')?.value || '20'
+    };
+}
+
+function updateAccountingPlanSummary() {
+    const el = document.getElementById('acc-plan-comptable-summary-text');
+    if (!el) return;
+    const v = readAccountingPlanFormValues();
+    el.textContent = `Ventes ${v.sales} · Achats ${v.purchase} · TVA coll. ${v.vatCollected} · TVA déd. ${v.vatDeductible} · Analytique ${v.costCenter || '—'} · TVA ${v.vatRate}%`;
+}
+
+window.collapseAccountingPlanForm = function () {
+    const form = document.getElementById('acc-plan-comptable-form');
+    const summary = document.getElementById('acc-plan-comptable-summary');
+    if (!form || !summary) return;
+    updateAccountingPlanSummary();
+    form.classList.add('hidden');
+    summary.classList.remove('hidden');
+    setAccountingPlanCollapsed(true);
+};
+
+window.expandAccountingPlanForm = function () {
+    const form = document.getElementById('acc-plan-comptable-form');
+    const summary = document.getElementById('acc-plan-comptable-summary');
+    if (!form || !summary) return;
+    summary.classList.add('hidden');
+    form.classList.remove('hidden');
+    setAccountingPlanCollapsed(false);
+};
+
 async function loadAccountingSettingsForm() {
     try {
         const res = await apiFetch('accounting/settings');
@@ -8996,6 +9069,11 @@ async function loadAccountingSettingsForm() {
         document.getElementById('acc-setting-vat-deductible').value = data.account_vat_deductible || '445660';
         document.getElementById('acc-setting-cost-center').value = data.cost_center || '';
         document.getElementById('acc-setting-vat-rate').value = data.default_vat_rate ?? 20;
+        if (isAccountingPlanCollapsed()) {
+            collapseAccountingPlanForm();
+        } else {
+            expandAccountingPlanForm();
+        }
     } catch (e) { /* ignore */ }
 }
 
@@ -9040,6 +9118,7 @@ window.saveAccountingSettings = async function () {
         const res = await apiFetch('accounting/settings', { method: 'PUT', body });
         if (!res.ok) throw new Error('Enregistrement impossible');
         showToast('Plan comptable enregistré', 'success');
+        collapseAccountingPlanForm();
     } catch (e) {
         showToast(e.message || 'Erreur enregistrement plan comptable', 'error');
     }
