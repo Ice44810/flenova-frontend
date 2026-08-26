@@ -675,6 +675,7 @@
         if (open) {
             panel.classList.remove('hidden');
             btn?.setAttribute('aria-expanded', 'true');
+            placeFixedPanelNear(btn, panel, { preferRight: true });
         } else {
             closeAccountMenu();
         }
