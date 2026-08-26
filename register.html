@@ -4,20 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0f172a">
-    <title>Flenova - Redirection</title>
-    <script>
-        (function () {
-            var params = new URLSearchParams(window.location.search);
-            var plan = params.get('plan');
-            var url = new URL('index.html', window.location.href);
-            url.searchParams.set('trial', '1');
-            if (plan) url.searchParams.set('plan', plan);
-            url.hash = 'contact';
-            window.location.replace(url.pathname + url.search + url.hash);
-        })();
-    </script>
+    <title>Flenova — Demander un essai</title>
+    <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
-    <p>Redirection vers le formulaire de contact…</p>
+<body class="min-h-screen text-gray-800 login-bg flex items-center justify-center p-6">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-8">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Essai Flenova</h1>
+        <p class="text-sm text-gray-600 leading-relaxed mb-6">
+            L’inscription self-service n’est pas ouverte. Un essai est créé après une demande
+            (formulaire contact) : nous activons le compte, l’e-mail de vérification, puis vous
+            pouvez inviter vos chauffeurs (codes TF-).
+        </p>
+        <ol class="text-sm text-gray-700 space-y-2 mb-8 list-decimal list-inside">
+            <li>Décrivez votre flotte via le formulaire contact</li>
+            <li>Recevez l’accès exploitant (e-mail + mot de passe)</li>
+            <li>Invitez les chauffeurs depuis Ressources → Chauffeurs</li>
+        </ol>
+        <a href="index.html?trial=1#contact"
+           class="block w-full text-center py-2 px-4 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+            Demander un essai
+        </a>
+        <p class="mt-4 text-center text-sm text-gray-500">
+            Déjà un compte ? <a href="login.html" class="text-blue-600 hover:text-blue-800 font-medium">Se connecter</a>
+        </p>
+    </div>
 </body>
 </html>

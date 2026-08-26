@@ -835,6 +835,7 @@ window.assignTransportFromDetail = async function (orderId) {
 
     const drivers = mapData?.drivers || [];
     const loading = mapData?.loadingPoint;
+    const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
 
     if (subtitle) {
         subtitle.textContent = loading?.address
@@ -848,21 +849,21 @@ window.assignTransportFromDetail = async function (orderId) {
     }
 
     listEl.innerHTML = drivers.map((d) => `
-        <button type="button" onclick="confirmAssignDriver(${orderId}, ${d.id})"
+        <button type="button" onclick="confirmAssignDriver(${Number(orderId)}, ${Number(d.id)})"
             class="w-full text-left border border-gray-200 rounded-lg p-3 hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors">
             <div class="flex justify-between items-start gap-2">
                 <div>
-                    <p class="font-semibold text-gray-800">${d.name}</p>
-                    <p class="text-xs text-gray-500 mt-0.5">${[d.default_vehicle_plate, d.default_trailer_plate].filter(Boolean).join(' + ') || 'Flotte non définie'}</p>
+                    <p class="font-semibold text-gray-800">${esc(d.name)}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">${esc([d.default_vehicle_plate, d.default_trailer_plate].filter(Boolean).join(' + ') || 'Flotte non définie')}</p>
                 </div>
-                <span class="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">${d.scores?.combined ?? '—'}/100</span>
+                <span class="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">${esc(d.scores?.combined ?? '—')}/100</span>
             </div>
             <div class="flex flex-wrap gap-3 mt-2 text-xs text-gray-600">
-                ${d.distanceKm != null ? `<span><i class="fa-solid fa-route mr-1"></i>${d.distanceKm} km</span>` : ''}
-                ${d.etaMinutes ? `<span><i class="fa-solid fa-clock mr-1"></i>~${d.etaMinutes} min</span>` : ''}
+                ${d.distanceKm != null ? `<span><i class="fa-solid fa-route mr-1"></i>${esc(d.distanceKm)} km</span>` : ''}
+                ${d.etaMinutes ? `<span><i class="fa-solid fa-clock mr-1"></i>~${esc(d.etaMinutes)} min</span>` : ''}
                 <span><i class="fa-solid fa-location-dot mr-1"></i>${d.position?.source === 'availability_gps' ? 'GPS live' : (d.position?.source === 'base_address' || d.position?.source === 'base_address_geocoded' ? 'Base' : 'Dernière position')}</span>
             </div>
-            <p class="text-[10px] text-gray-400 mt-1">${d.compliance?.license || ''} · ${d.compliance?.vehicleInsurance || ''}</p>
+            <p class="text-[10px] text-gray-400 mt-1">${esc(d.compliance?.license || '')} · ${esc(d.compliance?.vehicleInsurance || '')}</p>
         </button>
     `).join('');
 };

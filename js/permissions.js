@@ -28,7 +28,8 @@ const PERM_MODULES = {
     BILLING: 'billing',
     REPORTS: 'reports',
     SETTINGS: 'settings',
-    DISPUTES: 'disputes'
+    DISPUTES: 'disputes',
+    USERS: 'users'
 };
 
 let cachedPermissions = null;
@@ -160,6 +161,9 @@ window.canManageClients = () => can(PERM_MODULES.CLIENTS, PERM_ACTIONS.CREATE) |
 window.canDeleteClients = () => can(PERM_MODULES.CLIENTS, PERM_ACTIONS.DELETE);
 window.canManageCarriers = () => can(PERM_MODULES.CARRIERS, PERM_ACTIONS.CREATE) || can(PERM_MODULES.CARRIERS, PERM_ACTIONS.EDIT);
 window.canDeleteCarriers = () => can(PERM_MODULES.CARRIERS, PERM_ACTIONS.DELETE);
+window.canManageDisputes = () => can(PERM_MODULES.DISPUTES, PERM_ACTIONS.EDIT)
+    || can(PERM_MODULES.DISPUTES, PERM_ACTIONS.RESOLVE);
+window.canScanDisputes = () => can(PERM_MODULES.DISPUTES, PERM_ACTIONS.EDIT);
 window.isAdmin = () => getUserRole() === 'admin';
 window.getUserRole = getUserRole;
 

@@ -73,9 +73,10 @@ function renderDisputesPage() {
                 <p class="text-sm text-gray-600 mt-1">Preuves centralisées, alertes automatiques et suivi collaboratif (flotte & sous-traitance).</p>
             </div>
             <div class="flex flex-wrap gap-2">
+                ${canManageDisputes() ? `
                 <button type="button" onclick="runDisputeScanAll()" class="px-4 py-2 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50">
                     <i class="fa-solid fa-radar mr-1"></i>Détecter anomalies
-                </button>
+                </button>` : ''}
             </div>
         </div>
         <div id="disputes-kpi" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
@@ -178,6 +179,10 @@ window.filterDisputesList = function (filter) {
 
 window.runDisputeScanAll = async function () {
     try {
+        if (typeof canManageDisputes === 'function' && !canManageDisputes()) {
+            if (typeof showToast === 'function') showToast('Action réservée à l’exploitation', 'error');
+            return;
+        }
         const res = await apiFetch('disputes/scan', { method: 'POST' });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error || 'Scan impossible');

@@ -76,10 +76,13 @@
             const toast = document.createElement('div');
             toast.className = `toast border-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500`;
             const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
-            toast.innerHTML = `
-                <i class="fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3"></i>
-                <span class="text-sm text-gray-700">${message}</span>
-            `;
+            const icon = document.createElement('i');
+            icon.className = `fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3`;
+            const span = document.createElement('span');
+            span.className = 'text-sm text-gray-700';
+            span.textContent = String(message || '');
+            toast.appendChild(icon);
+            toast.appendChild(span);
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 4000);
         }

@@ -76,6 +76,15 @@
         return 'https://tiles.openfreemap.org/styles/liberty';
     }
 
+    function esc(value) {
+        if (typeof escapeHtml === 'function') return escapeHtml(value);
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     function createTruckEl(color, label) {
         const el = document.createElement('button');
         el.type = 'button';
@@ -113,13 +122,13 @@
         panel.classList.remove('hidden');
         panel.innerHTML = `
             <div class="dash-live-follow-head">
-                <strong>${mission.ref || 'Mission'}</strong>
+                <strong>${esc(mission.ref || 'Mission')}</strong>
                 <button type="button" class="dash-live-unfollow" onclick="LiveMap.unfollow()">✕</button>
             </div>
-            <p class="dash-live-follow-meta">${mission.status || ''} · ${mission.driverName || 'Chauffeur n/a'} · ${mission.vehiclePlate || '—'}</p>
-            <p class="dash-live-follow-route">${mission.origin || '—'} → ${mission.dest || '—'}</p>
-            <p class="dash-live-follow-pos"><i class="fa-solid fa-satellite-dish"></i> ${pos ? `${Number(pos.latitude).toFixed(5)}, ${Number(pos.longitude).toFixed(5)}` : 'Pas encore de GPS'} · ${age}</p>
-            ${mission.trackingCode ? `<a class="dash-live-public-link" href="?code=${encodeURIComponent(mission.trackingCode)}#tracking" target="_blank">Suivi public ${mission.trackingCode}</a>` : ''}
+            <p class="dash-live-follow-meta">${esc(mission.status || '')} · ${esc(mission.driverName || 'Chauffeur n/a')} · ${esc(mission.vehiclePlate || '—')}</p>
+            <p class="dash-live-follow-route">${esc(mission.origin || '—')} → ${esc(mission.dest || '—')}</p>
+            <p class="dash-live-follow-pos"><i class="fa-solid fa-satellite-dish"></i> ${pos ? `${Number(pos.latitude).toFixed(5)}, ${Number(pos.longitude).toFixed(5)}` : 'Pas encore de GPS'} · ${esc(age)}</p>
+            ${mission.trackingCode ? `<a class="dash-live-public-link" href="?code=${encodeURIComponent(mission.trackingCode)}#tracking" target="_blank">Suivi public ${esc(mission.trackingCode)}</a>` : ''}
         `;
     }
 
@@ -149,7 +158,7 @@
                 const marker = new maplibregl.Marker({ element: el })
                     .setLngLat([m.position.longitude, m.position.latitude])
                     .setPopup(new maplibregl.Popup({ offset: 18 }).setHTML(
-                        `<strong>${m.ref || 'Mission'}</strong><br>${m.driverName || '—'} · ${m.vehiclePlate || '—'}<br>${m.origin || ''} → ${m.dest || ''}<br><button type="button" onclick="LiveMap.follow(${m.id})" class="dash-live-popup-btn">Suivre</button>`
+                        `<strong>${esc(m.ref || 'Mission')}</strong><br>${esc(m.driverName || '—')} · ${esc(m.vehiclePlate || '—')}<br>${esc(m.origin || '')} → ${esc(m.dest || '')}<br><button type="button" onclick="LiveMap.follow(${Number(m.id)})" class="dash-live-popup-btn">Suivre</button>`
                     ))
                     .addTo(operationalMap);
                 operationalMarkers.set(m.id, marker);
@@ -446,7 +455,7 @@
                     const marker = new maplibregl.Marker({ element: el })
                         .setLngLat([d.position.longitude, d.position.latitude])
                         .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(
-                            `<strong>${d.name}</strong><br>${d.distanceKm != null ? d.distanceKm + ' km' : '—'}${d.etaMinutes ? ' · ~' + d.etaMinutes + ' min' : ''}<br>Score ${d.scores?.combined ?? '—'}`
+                            `<strong>${esc(d.name)}</strong><br>${d.distanceKm != null ? esc(d.distanceKm) + ' km' : '—'}${d.etaMinutes ? ' · ~' + esc(d.etaMinutes) + ' min' : ''}<br>Score ${esc(d.scores?.combined ?? '—')}`
                         ))
                         .addTo(assignmentMap);
                     assignmentMarkers.push(marker);
@@ -460,7 +469,11 @@
 
             return data;
         } catch (err) {
-            container.innerHTML = `<p class="text-sm text-red-500 p-4">${err.message}</p>`;
+            container.textContent = '';
+            const errP = document.createElement('p');
+            errP.className = 'text-sm text-red-500 p-4';
+            errP.textContent = err.message || 'Carte indisponible';
+            container.appendChild(errP);
             return null;
         }
     }
