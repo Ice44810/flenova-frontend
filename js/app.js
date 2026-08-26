@@ -2590,17 +2590,6 @@ function renderDashboard(stats = {}) {
         <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
             <div>
                 <p class="dash-v2-subtitle">Vue d'ensemble de votre activité</p>
-                <div class="flex flex-wrap gap-2 mt-3" id="dash-quick-actions">
-                    <button type="button" onclick="openAddOrderModal()" data-tour="first_order_cta" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">
-                        <i class="fa-solid fa-plus" aria-hidden="true"></i> Créer OT
-                    </button>
-                    <button type="button" onclick="router('chartered_transports')" data-tour="dispatch_action" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 text-sm font-semibold hover:bg-indigo-100">
-                        <i class="fa-solid fa-handshake" aria-hidden="true"></i> Affréter
-                    </button>
-                    <button type="button" onclick="router('preinvoicing')" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100">
-                        <i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Préfacturer
-                    </button>
-                </div>
             </div>
             <div class="dash-v2-period" role="status"><i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i> Période ${periodLabel}</div>
         </div>
@@ -6582,6 +6571,8 @@ async function router(route) {
     if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
     if (typeof initSidebarGroups === 'function') initSidebarGroups();
     if (typeof applyDemoBanner === 'function') applyDemoBanner();
+    if (typeof updateAppActionRail === 'function') updateAppActionRail(route);
+    if (typeof closeAccountMenu === 'function') closeAccountMenu();
 }
 
 // --- TOAST NOTIFICATIONS ---

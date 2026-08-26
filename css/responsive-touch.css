@@ -271,6 +271,26 @@ body.ui-density-comfortable #app-content {
     padding: 1.5rem;
 }
 
+/* Recherche mobile (option 1) */
+@media (max-width: 639px) {
+    #global-search-wrap.mobile-search-open {
+        display: block !important;
+        position: absolute;
+        left: 0.75rem;
+        right: 0.75rem;
+        top: 4rem;
+        z-index: 30;
+        background: #fff;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+    }
+    #global-search-wrap.mobile-search-open #global-search-input {
+        width: 100%;
+    }
+}
+
 /* Planning DnD + tours guidés */
 .planning-drop-active{outline:2px solid #2563eb;outline-offset:-2px;background-color:#eff6ff!important}
 .planning-drop-zone{transition:background-color .15s,outline .15s}

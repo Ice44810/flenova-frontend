@@ -777,6 +777,9 @@ window.applySubscriptionAccessGate = function () {
     applyGraceBanner();
     const suspended = applyAccessSuspendedScreen();
     updateNavQuotaWidget();
+    if (typeof updateAppActionRail === 'function') {
+        updateAppActionRail(window.currentAppRoute || 'dashboard');
+    }
     return suspended;
 };
 

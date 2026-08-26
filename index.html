@@ -379,8 +379,12 @@
                         <p id="header-company-name" class="text-xs text-gray-500 hidden truncate"></p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 sm:gap-4 shrink-0">
-                    <div class="relative hidden sm:block">
+                <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <button type="button" id="global-search-toggle" class="sm:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
+                        aria-label="Ouvrir la recherche" onclick="toggleMobileGlobalSearch()">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                    </button>
+                    <div id="global-search-wrap" class="relative hidden sm:block">
                         <label for="global-search-input" class="sr-only">Recherche globale</label>
                         <input type="search" id="global-search-input" placeholder="OT, client, facture, plaque…"
                             autocomplete="off"
@@ -395,33 +399,76 @@
                             <i class="fa-solid fa-bell" aria-hidden="true"></i>
                             <span id="notification-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">0</span>
                         </button>
-                        <div id="notification-center-panel" class="hidden absolute right-0 top-full mt-1 w-80 max-w-[90vw] bg-white border border-gray-200 rounded-lg shadow-lg z-40 overflow-hidden"></div>
+                        <div id="notification-center-panel"
+                            class="hidden fixed z-[80] w-[min(22rem,calc(100vw-1.5rem))] max-h-[min(28rem,calc(100vh-5rem))] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+                            role="dialog" aria-label="Notifications"></div>
                     </div>
-                    <label for="ui-density-select" class="sr-only">Densité d'affichage</label>
-                    <select id="ui-density-select" onchange="applyUiDensity(this.value)"
-                        class="hidden md:block border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 bg-white"
-                        title="Densité d'affichage">
-                        <option value="comfortable">Confort</option>
-                        <option value="compact">Densifié</option>
-                    </select>
-                    <button type="button" onclick="logout()"
-                        class="app-header-logout flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-1.5 rounded transition"
-                        aria-label="Déconnexion">
-                        <i class="fa-solid fa-power-off" aria-hidden="true"></i>
-                        <span>Déconnexion</span>
-                    </button>
-                    <img id="header-user-avatar" src="assets/flenova_icon_512.jpg" alt="" class="w-10 h-10 rounded-full border border-gray-200" width="40" height="40">
+                    <div class="relative">
+                        <button type="button" id="account-menu-btn" onclick="toggleAccountMenu()"
+                            class="flex items-center rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-haspopup="true" aria-expanded="false" aria-controls="account-menu-panel" aria-label="Menu compte">
+                            <img id="header-user-avatar" src="assets/flenova_icon_512.jpg" alt="" class="w-10 h-10 rounded-full border border-gray-200" width="40" height="40">
+                        </button>
+                        <div id="account-menu-panel" class="hidden absolute right-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-40 overflow-hidden py-1" role="menu">
+                            <div class="px-3 py-2 border-b border-gray-100">
+                                <p class="text-xs text-gray-500">Densité d'affichage</p>
+                                <label for="ui-density-select" class="sr-only">Densité d'affichage</label>
+                                <select id="ui-density-select" onchange="applyUiDensity(this.value)"
+                                    class="mt-1 w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white">
+                                    <option value="comfortable">Confort</option>
+                                    <option value="compact">Densifié</option>
+                                </select>
+                            </div>
+                            <button type="button" role="menuitem" onclick="closeAccountMenu(); router('pricing')"
+                                class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                <i class="fa-solid fa-tags w-5 text-gray-400" aria-hidden="true"></i> Tarifs / forfait
+                            </button>
+                            <button type="button" role="menuitem" onclick="closeAccountMenu(); router('contact')"
+                                class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                <i class="fa-solid fa-headset w-5 text-gray-400" aria-hidden="true"></i> Support
+                            </button>
+                            <button type="button" role="menuitem" onclick="closeAccountMenu(); logout()"
+                                class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-gray-100">
+                                <i class="fa-solid fa-power-off w-5" aria-hidden="true"></i> Déconnexion
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </header>
+
+            <!-- Barre d'actions métier (option 1) -->
+            <div id="app-action-rail" class="hidden shrink-0 bg-slate-50 border-b border-gray-200 px-3 sm:px-6 py-2.5 z-[9]"
+                role="toolbar" aria-label="Actions rapides">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" data-tour="first_order_cta" onclick="openAddOrderModal()"
+                        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                        Créer OT
+                        <kbd class="hidden sm:inline text-[10px] font-bold bg-white/20 border border-white/30 rounded px-1.5 py-0.5">N</kbd>
+                    </button>
+                    <button type="button" data-tour="dispatch_action" onclick="router('chartered_transports')"
+                        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 text-sm font-semibold hover:bg-indigo-100">
+                        <i class="fa-solid fa-handshake" aria-hidden="true"></i> Affréter
+                    </button>
+                    <button type="button" data-tour="nav_prefacture" onclick="router('preinvoicing')"
+                        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100">
+                        <i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Préfacturer
+                    </button>
+                    <button type="button" onclick="document.getElementById('keyboard-help-modal')?.classList.remove('hidden')"
+                        class="ml-auto w-9 h-9 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-bold hover:bg-gray-50"
+                        title="Raccourcis clavier" aria-label="Aide raccourcis clavier">?</button>
+                </div>
+            </div>
+
             <div id="demo-banner" class="hidden shrink-0 bg-gradient-to-r from-purple-700 to-blue-600 text-white px-6 py-2.5 text-sm">
                 <span id="demo-banner-text"><i class="fa-solid fa-gift mr-2"></i>Essai Premium en cours</span>
             </div>
             <div id="grace-banner" class="hidden shrink-0 bg-amber-600 text-white px-4 sm:px-6 py-3 text-sm" role="alert">
                 <div class="flex flex-wrap items-center justify-between gap-3 max-w-6xl mx-auto">
                     <p id="grace-banner-text" class="font-medium">Période de grâce — régularisez votre paiement.</p>
-                    <button type="button" id="grace-banner-cta" onclick="router('pricing')"
+                    <button type="button" id="grace-banner-cta" onclick="goToSubscriptionPayment()"
                         class="shrink-0 px-4 py-2 rounded-lg bg-white text-amber-800 text-xs font-bold hover:bg-amber-50">
-                        Régulariser mon paiement
+                        Mettre à jour mon paiement
                     </button>
                 </div>
             </div>

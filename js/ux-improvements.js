@@ -481,13 +481,34 @@
         return items.slice(0, 15);
     }
 
+    function placeFixedPanelNear(anchorEl, panel, { offset = 8, preferRight = true } = {}) {
+        if (!anchorEl || !panel) return;
+        const rect = anchorEl.getBoundingClientRect();
+        const margin = 12;
+        // Mesure après affichage (pas hidden)
+        const pw = panel.offsetWidth || 320;
+        const ph = panel.offsetHeight || 200;
+        let top = rect.bottom + offset;
+        let left = preferRight ? rect.right - pw : rect.left;
+        left = Math.min(left, window.innerWidth - pw - margin);
+        left = Math.max(margin, left);
+        if (top + ph > window.innerHeight - margin) {
+            top = Math.max(margin, rect.top - ph - offset);
+        }
+        panel.style.top = `${Math.round(top)}px`;
+        panel.style.left = `${Math.round(left)}px`;
+        panel.style.right = 'auto';
+    }
+
     window.toggleNotificationCenter = function () {
         const panel = document.getElementById('notification-center-panel');
+        const btn = document.getElementById('notification-center-btn');
         if (!panel) return;
         if (!panel.classList.contains('hidden')) {
             panel.classList.add('hidden');
             return;
         }
+        if (typeof closeAccountMenu === 'function') closeAccountMenu();
         const items = buildNotifications();
         const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
         const toneClass = {
@@ -502,6 +523,10 @@
                     <button type="button" onclick="enableWebPushNotifications()" class="text-[10px] font-semibold text-indigo-700 hover:underline" title="Activer les notifications navigateur">
                         Push
                     </button>
+                    <button type="button" onclick="document.getElementById('notification-center-panel')?.classList.add('hidden')"
+                        class="text-gray-400 hover:text-gray-600" aria-label="Fermer">
+                        <i class="fa-solid fa-times" aria-hidden="true"></i>
+                    </button>
                     <span class="text-xs text-gray-500">${items.length}</span>
                 </div>
             </div>
@@ -514,14 +539,15 @@
                 `).join('') : `<p class="px-3 py-6 text-sm text-gray-500 text-center">Rien à signaler</p>`}
             </div>`;
         panel._items = items;
-        panel.querySelectorAll('.notif-item').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const item = panel._items?.[Number(btn.dataset.idx)];
+        panel.querySelectorAll('.notif-item').forEach((el) => {
+            el.addEventListener('click', () => {
+                const item = panel._items?.[Number(el.dataset.idx)];
                 panel.classList.add('hidden');
                 if (typeof item?.action === 'function') item.action();
             });
         });
         panel.classList.remove('hidden');
+        placeFixedPanelNear(btn, panel, { preferRight: true });
         const badge = document.getElementById('notification-badge');
         if (badge) {
             badge.textContent = String(items.length);
@@ -626,6 +652,64 @@
         applyUiDensity(saved === 'compact' ? 'compact' : 'comfortable');
     };
 
+    // ── Header : menu compte + barre d'actions (option 1) ───────────
+    const ACTION_RAIL_ROUTES = new Set([
+        'dashboard', 'transports', 'planning',
+        'inprogress_transports', 'completed_transports', 'closed_transports',
+        'cancelled_transports', 'chartered_transports', 'preinvoicing', 'create_order'
+    ]);
+
+    window.closeAccountMenu = function () {
+        const panel = document.getElementById('account-menu-panel');
+        const btn = document.getElementById('account-menu-btn');
+        panel?.classList.add('hidden');
+        btn?.setAttribute('aria-expanded', 'false');
+    };
+
+    window.toggleAccountMenu = function () {
+        const panel = document.getElementById('account-menu-panel');
+        const btn = document.getElementById('account-menu-btn');
+        if (!panel) return;
+        const open = panel.classList.contains('hidden');
+        document.getElementById('notification-center-panel')?.classList.add('hidden');
+        if (open) {
+            panel.classList.remove('hidden');
+            btn?.setAttribute('aria-expanded', 'true');
+        } else {
+            closeAccountMenu();
+        }
+    };
+
+    window.toggleMobileGlobalSearch = function () {
+        const wrap = document.getElementById('global-search-wrap');
+        const input = document.getElementById('global-search-input');
+        if (!wrap) return;
+        const isDesktop = window.matchMedia('(min-width: 640px)').matches;
+        if (isDesktop) {
+            input?.focus();
+            return;
+        }
+        const open = wrap.classList.contains('mobile-search-open');
+        if (open) {
+            wrap.classList.remove('mobile-search-open');
+            wrap.classList.add('hidden');
+        } else {
+            wrap.classList.remove('hidden');
+            wrap.classList.add('mobile-search-open');
+            setTimeout(() => input?.focus(), 30);
+        }
+    };
+
+    window.updateAppActionRail = function (route) {
+        const rail = document.getElementById('app-action-rail');
+        if (!rail) return;
+        const sub = window.cachedSubscription;
+        const suspended = !!(sub?.accessSuspended || (sub?.needsPayment && !sub?.gracePeriod && !sub?.isDemo && !sub?.isActive));
+        const r = route || window.currentAppRoute || 'dashboard';
+        const show = !suspended && !currentUser?.isPlatformAdmin && ACTION_RAIL_ROUTES.has(r);
+        rail.classList.toggle('hidden', !show);
+    };
+
     // ── Résiliation self-service (demande locale + email intent) ────
     window.requestSubscriptionCancellation = async function () {
         const sub = window.cachedSubscription || {};
@@ -687,6 +771,9 @@
             refreshOrderTemplateSelect();
         }
         void initWebPushIfAvailable();
+        if (typeof updateAppActionRail === 'function') {
+            updateAppActionRail(window.currentAppRoute || 'dashboard');
+        }
     };
 
     document.addEventListener('click', (e) => {
@@ -699,6 +786,12 @@
         const searchInput = document.getElementById('global-search-input');
         if (searchBox && !searchBox.classList.contains('hidden') && !searchBox.contains(e.target) && e.target !== searchInput) {
             searchBox.classList.add('hidden');
+        }
+        const accountPanel = document.getElementById('account-menu-panel');
+        const accountBtn = document.getElementById('account-menu-btn');
+        if (accountPanel && !accountPanel.classList.contains('hidden')
+            && !accountPanel.contains(e.target) && !accountBtn?.contains(e.target)) {
+            closeAccountMenu();
         }
     });
 })();

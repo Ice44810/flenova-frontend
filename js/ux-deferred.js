@@ -508,7 +508,7 @@
             id: 'first_order',
             title: 'Créer votre premier OT',
             steps: [
-                { sel: '[data-tour="first_order_cta"], #dash-quick-actions button, [onclick*="openAddOrderModal"]', text: 'Cliquez sur « Créer OT » pour ouvrir le formulaire d’ordre de transport.' },
+                { sel: '[data-tour="first_order_cta"], #app-action-rail button, [onclick*="openAddOrderModal"]', text: 'Cliquez sur « Créer OT » pour ouvrir le formulaire d’ordre de transport.' },
                 { sel: '[data-tour="order_templates"], #order-template-select, #add-order-modal', text: 'Renseignez client, trajet et dates. Vous pouvez aussi appliquer un modèle récurrent.' },
                 { sel: '[data-tour="order_submit"], #add-order-modal button[type="submit"], #add-order-modal .bg-blue-600', text: 'Enregistrez — l’OT apparaît ensuite dans Transports et Planning.' }
             ]
@@ -659,6 +659,7 @@
             document.getElementById('keyboard-help-modal')?.classList.add('hidden');
             document.getElementById('notification-center-panel')?.classList.add('hidden');
             document.getElementById('global-search-results')?.classList.add('hidden');
+            if (typeof closeAccountMenu === 'function') closeAccountMenu();
         }
     });
 })();
