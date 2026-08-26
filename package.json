@@ -4,9 +4,12 @@
   "description": "Flenova Frontend - TMS Complet",
   "scripts": {
     "build:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --minify",
-    "watch:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --watch"
+    "watch:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --watch",
+    "vendor:maplibre": "node ./scripts/copy-maplibre-vendor.js",
+    "postinstall": "npm run vendor:maplibre"
   },
   "devDependencies": {
+    "maplibre-gl": "4.7.1",
     "tailwindcss": "^3.4.1"
   }
 }

@@ -608,7 +608,7 @@ window.openTransportDetail = async function(orderId) {
 function renderTransportDetailModal(t) {
     const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
     document.getElementById('td-ref').textContent = t.ref || '#' + t.id;
-    document.getElementById('td-status').innerHTML = `<span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(t.status)}">${t.status}</span>`;
+    document.getElementById('td-status').innerHTML = `<span class="px-2 py-1 rounded text-xs font-semibold ${getStatusBadgeClass(t.status)}">${esc(t.status)}</span>`;
     const cycleEl = document.getElementById('td-mvp-cycle');
     if (cycleEl) cycleEl.innerHTML = renderMvpCycleProgress(t);
     document.getElementById('td-client').textContent = t.client_name || '-';

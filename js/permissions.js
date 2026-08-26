@@ -12,7 +12,8 @@ const PERM_ACTIONS = {
     GENERATE_INVOICE: 'generate_invoice',
     MANAGE_USERS: 'manage_users',
     VALIDATE_TRANSPORT: 'validate_transport',
-    RESOLVE: 'resolve'
+    RESOLVE: 'resolve',
+    EXPORT: 'export'
 };
 
 const PERM_MODULES = {
@@ -73,11 +74,11 @@ function can(module, action) {
 /** Fallback si /auth/permissions indisponible */
 function fallbackCan(role, module, action) {
     const matrix = {
-        admin: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], clients: ['view','create','edit','delete'], carriers: ['view','create','edit','delete','assign'], billing: ['view','create','edit','delete','generate_invoice'], settings: ['view','edit'], users: ['manage_users','view','create','edit','delete'], dashboard: ['view'], reports: ['view'] },
-        exploitant: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], clients: ['view','create','edit'], carriers: ['view','create','edit','delete','assign'], billing: ['view','generate_invoice'], dashboard: ['view'], reports: ['view'] },
-        comptabilite: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], billing: ['view','create','edit','generate_invoice','export'], dashboard: ['view'], reports: ['view','export'] },
-        chauffeur: { transports: ['view'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], dashboard: ['view'] },
-        lecture: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], dashboard: ['view'], reports: ['view'] }
+        admin: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document','delete'], comments: ['view','create'], clients: ['view','create','edit','delete'], carriers: ['view','create','edit','delete','assign'], billing: ['view','create','edit','delete','generate_invoice','export'], settings: ['view','edit'], users: ['manage_users','view','create','edit','delete'], dashboard: ['view'], reports: ['view','export'], disputes: ['view','create','edit','resolve'] },
+        exploitant: { transports: ['view','create','edit','delete','assign','validate_transport'], planning: ['view','edit'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], clients: ['view','create','edit'], carriers: ['view','create','edit','delete','assign'], billing: ['view','generate_invoice'], dashboard: ['view'], reports: ['view'], disputes: ['view','create','edit','resolve'] },
+        comptabilite: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], billing: ['view','create','edit','generate_invoice','export'], dashboard: ['view'], reports: ['view','export'], disputes: ['view'] },
+        chauffeur: { transports: ['view'], statuses: ['change_status'], documents: ['view','upload_document'], comments: ['view','create'], dashboard: ['view'], disputes: ['view','create'] },
+        lecture: { transports: ['view'], documents: ['view'], comments: ['view'], clients: ['view'], carriers: ['view'], dashboard: ['view'], reports: ['view'], disputes: ['view'] }
     };
     return (matrix[role]?.[module] || []).includes(action);
 }

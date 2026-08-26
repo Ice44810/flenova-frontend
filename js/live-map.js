@@ -38,12 +38,12 @@
             if (!document.querySelector('link[data-maplibre]')) {
                 const link = document.createElement('link');
                 link.rel = 'stylesheet';
-                link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+                link.href = '/assets/vendor/maplibre-gl/maplibre-gl.css';
                 link.setAttribute('data-maplibre', '1');
                 document.head.appendChild(link);
             }
             const script = document.createElement('script');
-            script.src = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
+            script.src = '/assets/vendor/maplibre-gl/maplibre-gl.js';
             script.onload = () => resolve();
             script.onerror = () => reject(new Error('Impossible de charger MapLibre'));
             document.head.appendChild(script);
