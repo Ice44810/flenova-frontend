@@ -118,7 +118,8 @@ function canAccessRoute(routeName) {
         cmr_preview: ['transports', 'view'],
         quotation: ['reports', 'view'],
         invoice_settings: ['settings', 'view'],
-        create_invoice: ['billing', 'create']
+        create_invoice: ['billing', 'create'],
+        create_order: ['transports', 'create']
     };
     const rule = rules[routeName];
     if (!rule) return false;
