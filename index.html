@@ -1950,27 +1950,57 @@
         </div>
     </div>
 
-    <!-- ÉCRAN ACCÈS SUSPENDU (après grâce) -->
+    <!-- ÉCRAN COMPTE EN PAUSE (après grâce) -->
     <div id="access-suspended-screen" class="hidden fixed inset-0 z-[110] bg-slate-900 text-white flex items-center justify-center p-6">
         <div class="max-w-lg w-full text-center space-y-4">
-            <div class="mx-auto w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
-                <i class="fa-solid fa-lock text-2xl text-red-300"></i>
+            <div class="mx-auto w-16 h-16 rounded-full bg-sky-500/15 flex items-center justify-center">
+                <i class="fa-solid fa-circle-pause text-2xl text-sky-300" aria-hidden="true"></i>
             </div>
-            <h2 class="text-2xl font-bold">Accès suspendu</h2>
+            <h2 id="access-suspended-title" class="text-2xl font-bold">Compte en pause</h2>
             <p id="access-suspended-message" class="text-slate-300 text-sm leading-relaxed">
-                Votre abonnement Flenova n'est plus actif. Régularisez votre paiement pour retrouver Transports, Planning et Facturation.
+                Vos données sont conservées. Pour rouvrir Transports, Planning et Facturation, effectuez un virement sur le RIB Flenova.
             </p>
             <div class="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-                <button type="button" onclick="goToSubscriptionPayment()"
+                <button type="button" id="access-suspended-cta" onclick="goToSubscriptionPayment()"
                     class="px-5 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-400 font-semibold text-sm">
-                    Régulariser maintenant
+                    Mettre à jour mon paiement
                 </button>
+                <a href="mailto:support@flenova.fr?subject=Compte%20en%20pause%20Flenova"
+                    class="px-5 py-2.5 rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-800 text-sm inline-flex items-center justify-center">
+                    Contacter le support
+                </a>
                 <button type="button" onclick="logout()"
-                    class="px-5 py-2.5 rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-800 text-sm">
+                    class="px-5 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 text-sm">
                     Déconnexion
                 </button>
             </div>
-            <p class="text-xs text-slate-500 pt-4">Facture Flenova (abonnement SaaS) — distincte de vos factures clients TMS.</p>
+            <p class="text-xs text-slate-500 pt-4">Abonnement SaaS Flenova — sans lien avec vos factures clients.</p>
+        </div>
+    </div>
+
+    <!-- RIB Flenova (virement abonnement) -->
+    <div id="flenova-rib-modal" class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 fade-in text-left">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900">RIB Flenova</h3>
+                    <p class="text-sm text-gray-500 mt-1">Virement pour l’abonnement SaaS</p>
+                </div>
+                <button type="button" onclick="closeFlenovaRibModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="flenova-rib-body" class="space-y-3 text-sm text-gray-700"></div>
+            <div class="flex flex-col gap-2 mt-5">
+                <a id="flenova-rib-link" href="#" target="_blank" rel="noopener"
+                    class="hidden w-full text-center py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 text-sm">
+                    Ouvrir le RIB / PDF
+                </a>
+                <button type="button" onclick="closeFlenovaRibModal()"
+                    class="w-full py-2 text-sm text-gray-500 hover:text-gray-700">
+                    Fermer
+                </button>
+            </div>
         </div>
     </div>
 

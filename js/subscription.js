@@ -409,7 +409,7 @@ function renderAppPricingPage() {
             ${warnings}
             <p class="text-sm text-gray-500 mt-4">Abonnement <strong>sans engagement de durée</strong> · Facturation mensuelle · Prélèvement SEPA · Résiliation possible à tout moment, sous réserve d’un préavis d’1 mois (effet en fin de période mensuelle).</p>
             <p class="text-sm mt-3"><a href="/index.html#tarifs" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">Consulter les tarifs et comparatif des forfaits →</a></p>
-            ${sub.needsPayment && !sub.isDemo ? `<button type="button" onclick="subscribeToPlan('${sub.targetPlan || sub.plan}')" class="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">${sub.accessSuspended ? 'Régulariser mon paiement' : 'Activer mon abonnement'}</button>` : ''}
+            ${sub.needsPayment && !sub.isDemo ? `<button type="button" onclick="subscribeToPlan('${sub.targetPlan || sub.plan}')" class="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">${sub.accessSuspended ? 'Mettre à jour mon paiement' : 'Activer mon abonnement'}</button>` : ''}
         </div>
         ${(() => {
             const cancelReq = typeof getCancellationRequest === 'function' ? getCancellationRequest() : null;
@@ -584,7 +584,107 @@ window.canAccessPlanRoute = function (routeName) {
 
 window.goToSubscriptionPayment = function () {
     document.getElementById('saas-overdue-modal')?.classList.add('hidden');
-    if (typeof router === 'function') router('pricing');
+    openFlenovaRibModal();
+};
+
+function formatIbanDisplay(iban) {
+    if (!iban) return '';
+    return String(iban).replace(/(.{4})/g, '$1 ').trim();
+}
+
+window.closeFlenovaRibModal = function () {
+    document.getElementById('flenova-rib-modal')?.classList.add('hidden');
+};
+
+window.copyFlenovaRibField = async function (value, label) {
+    try {
+        await navigator.clipboard.writeText(value);
+        showToast(`${label} copié`, 'success');
+    } catch {
+        showToast('Copie impossible — sélectionnez le texte manuellement', 'info');
+    }
+};
+
+async function loadFlenovaRib() {
+    let rib = window.cachedSubscription?.flenovaRib;
+    if (rib) return rib;
+    try {
+        const res = await apiFetch('subscription/status');
+        if (res.ok) {
+            const payload = await res.json();
+            window.cachedSubscription = { ...(window.cachedSubscription || {}), ...(payload.data || {}) };
+            return window.cachedSubscription.flenovaRib || null;
+        }
+    } catch { /* ignore */ }
+    return null;
+}
+
+window.openFlenovaRibModal = async function () {
+    const rib = await loadFlenovaRib();
+
+    // Si un lien PDF/page RIB est configuré → ouverture directe
+    if (rib?.ribUrl) {
+        window.open(rib.ribUrl, '_blank', 'noopener');
+        // Affiche aussi le détail IBAN si dispo
+        if (!rib.iban) return;
+    }
+
+    const modal = document.getElementById('flenova-rib-modal');
+    const body = document.getElementById('flenova-rib-body');
+    const link = document.getElementById('flenova-rib-link');
+    if (!modal || !body) {
+        if (rib?.ribUrl) return;
+        showToast('Coordonnées de paiement indisponibles', 'error');
+        return;
+    }
+
+    if (rib?.ribUrl && link) {
+        link.href = rib.ribUrl;
+        link.classList.remove('hidden');
+        link.textContent = 'Ouvrir le RIB / PDF';
+    } else if (link) {
+        link.classList.add('hidden');
+        link.removeAttribute('href');
+    }
+
+    if (!rib?.configured) {
+        body.innerHTML = `
+            <p class="text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3">
+                Le RIB Flenova n’est pas encore configuré côté plateforme.
+                Contactez <a class="underline font-semibold" href="mailto:support@flenova.fr?subject=RIB%20abonnement">support@flenova.fr</a>
+                pour obtenir les coordonnées de virement.
+            </p>`;
+        modal.classList.remove('hidden');
+        return;
+    }
+
+    const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
+    const row = (label, value, copyLabel) => {
+        if (!value) return '';
+        const safe = esc(value);
+        return `<div class="rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <div class="flex justify-between items-start gap-2">
+                <div class="min-w-0">
+                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-bold">${esc(label)}</p>
+                    <p class="font-mono text-sm text-gray-900 break-all mt-0.5">${safe}</p>
+                </div>
+                <button type="button" class="shrink-0 text-xs text-blue-600 hover:underline"
+                    onclick="copyFlenovaRibField(${JSON.stringify(value)}, ${JSON.stringify(copyLabel || label)})">
+                    Copier
+                </button>
+            </div>
+        </div>`;
+    };
+
+    body.innerHTML = `
+        ${row('Bénéficiaire', rib.beneficiary, 'Bénéficiaire')}
+        ${row('IBAN', formatIbanDisplay(rib.iban), 'IBAN')}
+        ${row('BIC', rib.bic, 'BIC')}
+        ${row('Banque', rib.bankName, 'Banque')}
+        <p class="text-xs text-gray-500 leading-relaxed">${esc(rib.referenceHint || '')}</p>
+        <p class="text-[11px] text-gray-400">Ce RIB concerne uniquement l’abonnement Flenova — pas vos factures clients transport.</p>
+    `;
+    modal.classList.remove('hidden');
 };
 
 function showOverdueBillingModal(alert) {
@@ -657,10 +757,17 @@ window.applyAccessSuspendedScreen = function () {
         screen.classList.add('hidden');
         return false;
     }
+    const alert = sub.billingAlert || {};
+    const titleEl = document.getElementById('access-suspended-title');
     const msg = document.getElementById('access-suspended-message');
-    if (msg && sub.billingAlert?.message) msg.textContent = sub.billingAlert.message;
+    const cta = document.getElementById('access-suspended-cta');
+    if (titleEl) titleEl.textContent = alert.title || 'Compte en pause';
+    if (msg) {
+        msg.textContent = alert.message
+            || 'Vos données sont conservées. Pour rouvrir Transports, Planning et Facturation, effectuez un virement sur le RIB Flenova.';
+    }
+    if (cta) cta.textContent = alert.cta || 'Mettre à jour mon paiement';
     screen.classList.remove('hidden');
-    // Masquer le contenu métier
     document.getElementById('onboarding-checklist-mount')?.classList.add('hidden');
     return true;
 };

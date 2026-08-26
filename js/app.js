@@ -6280,7 +6280,7 @@ async function router(route) {
     if (typeof canAccessPlanRoute === 'function' && !canAccessPlanRoute(route)) {
         const sub = window.cachedSubscription;
         if (sub?.accessSuspended || (sub?.needsPayment && !sub?.gracePeriod && !sub?.isActive)) {
-            showToast('Accès suspendu — régularisez votre facture Flenova', 'error');
+            showToast('Compte en pause — mettez à jour votre paiement Flenova', 'error');
             if (typeof applyAccessSuspendedScreen === 'function') applyAccessSuspendedScreen();
             route = 'pricing';
         } else {
