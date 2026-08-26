@@ -412,7 +412,7 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'Comment fonctionne l\'essai gratuit ?',
-        a: 'Contactez-nous via le formulaire : nous activons une période d\'essai Premium (30 jours) avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait et activez le prélèvement SEPA mensuel via GoCardless. <strong>Sans engagement de durée</strong> : résiliation possible à tout moment, effective en fin de mois en cours.'
+        a: 'Contactez-nous via le formulaire : nous activons une période d\'essai Premium (30 jours) avec toutes les fonctionnalités débloquées. Ensuite, choisissez votre forfait et activez le prélèvement SEPA mensuel. <strong>Sans engagement de durée</strong> : résiliation possible à tout moment, sous réserve d\'un <strong>préavis d\'1 mois</strong> (effet en fin de période mensuelle).'
     },
     {
         q: 'Y a-t-il un engagement de durée ?',
@@ -440,7 +440,7 @@ const PUBLIC_FAQ_ITEMS = [
     },
     {
         q: 'Quelle différence entre Indépendant, PME et Premium ?',
-        a: 'Indépendant (129 €) couvre l\'exploitation transport et l\'affrètement (20 confirmations/mois). PME (269 €) ajoute sous-traitants complets, marges, palettes et RSE pour 5 PC et 25 mobiles. Premium (449 €) inclut multi-agences, admin et confirmations illimitées. Suppléments : +29 €/PC, +19 €/mobile, +1,50 €/confirmation affrètement au-delà du quota.'
+        a: 'Indépendant (129 €) : exploitation, carnet sous-traitants, affrètement (20 confirmations/mois) et litiges. PME (269 €) : 5 PC, 25 mobiles, 50 affrètements/mois, marges, palettes et RSE. Premium (449 €) : multi-agences, admin et confirmations illimitées. Suppléments : +29 €/PC, +19 €/mobile, +1,50 €/confirmation au-delà du quota.'
     }
 ];
 

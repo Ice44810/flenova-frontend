@@ -126,7 +126,7 @@ function getTermsHtml() {
         <h2 class="text-lg font-bold text-gray-800 mt-6">2. Création de compte et essai</h2>
         <ul class="list-disc pl-5 space-y-1">
             <li>L'inscription crée un espace entreprise isolé (multi-tenant).</li>
-            <li>L'essai Premium est activé sur demande via le <a href="#" onclick="publicRouterContactTrial(); return false;" class="text-blue-600 hover:underline">formulaire contact</a> ; à l'issue de l'essai, le forfait choisi s'applique selon les <a href="#" onclick="openLegalPage('cgv'); return false;" class="text-blue-600 hover:underline">CGV</a>. L'abonnement payant est <strong>sans engagement de durée</strong> (résiliation mensuelle possible).</li>
+            <li>L'essai Premium est activé sur demande via le <a href="#" onclick="publicRouterContactTrial(); return false;" class="text-blue-600 hover:underline">formulaire contact</a> ; à l'issue de l'essai, le forfait choisi s'applique selon les <a href="#" onclick="openLegalPage('cgv'); return false;" class="text-blue-600 hover:underline">CGV</a>. L'abonnement payant est <strong>sans engagement de durée</strong> ; la résiliation est possible à tout moment sous réserve d'un <strong>préavis d'un (1) mois</strong> (voir CGV).</li>
             <li>L'utilisateur garantit l'exactitude des informations fournies et les met à jour sans délai.</li>
         </ul>
 
@@ -155,7 +155,7 @@ function getTermsHtml() {
         <p>Flenova peut faire évoluer le service (corrections, améliorations, nouvelles fonctionnalités) sans modifier substantiellement les engagements essentiels. Le support est accessible via l'espace Contact & Aide et ${legalEsc(L.email)}.</p>
 
         <h2 class="text-lg font-bold text-gray-800 mt-6">7. Suspension et résiliation</h2>
-        <p>Flenova peut suspendre l'accès en cas de violation des CGU/CGV, de risque de sécurité ou d'impayé persistant. Le Client peut résilier selon les CGV. La suppression du compte utilisateur est possible depuis « Mes données personnelles ».</p>
+        <p>Flenova peut suspendre l'accès en cas de violation des CGU/CGV, de risque de sécurité ou d'impayé persistant. Le Client peut résilier à tout moment selon les CGV, sous réserve d'un <strong>préavis obligatoire d'un (1) mois</strong> ; la résiliation prend effet en fin de période mensuelle à l'issue de ce préavis. La suppression du compte utilisateur est possible depuis « Mes données personnelles ».</p>
 
         <h2 class="text-lg font-bold text-gray-800 mt-6">8. Droit applicable</h2>
         <p>Les CGU sont soumises au <strong>droit français</strong>. Compétence exclusive des tribunaux du ressort du siège social de Flenova, sauf dispositions impératives contraires.</p>
@@ -168,7 +168,7 @@ function getCgvHtml() {
         <p>Les présentes Conditions Générales de Vente (« <strong>CGV</strong> ») s'appliquent à toute souscription au service SaaS <strong>Flenova</strong> par un client professionnel. Elles complètent les <a href="#" onclick="openLegalPage('terms'); return false;" class="text-blue-600 hover:underline">CGU</a>.</p>
 
         <h2 class="text-lg font-bold text-gray-800 mt-6">1. Offres et tarifs</h2>
-        <p>Les forfaits (Indépendant, PME, Premium) et suppléments (utilisateurs PC, chauffeurs mobile, confirmations affrètement hors quota) sont décrits sur la page Tarifs du site public Flenova. Les prix sont indiqués <strong>hors taxes (HT)</strong> en euros, <strong>sans engagement de durée</strong> (abonnement mensuel résiliable). Flenova se réserve le droit de modifier ses tarifs pour les périodes futures ; le Client en est informé avant renouvellement.</p>
+        <p>Les forfaits (Indépendant, PME, Premium) et suppléments (utilisateurs PC, chauffeurs mobile, confirmations affrètement hors quota) sont décrits sur la page Tarifs du site public Flenova. Les prix sont indiqués <strong>hors taxes (HT)</strong> en euros, <strong>sans engagement de durée</strong> (abonnement mensuel résiliable sous réserve du préavis prévu à l'article 4). Flenova se réserve le droit de modifier ses tarifs pour les périodes futures ; le Client en est informé avant renouvellement.</p>
 
         <h2 class="text-lg font-bold text-gray-800 mt-6">2. Commande et essai gratuit</h2>
         <ul class="list-disc pl-5 space-y-1">
@@ -184,9 +184,9 @@ function getCgvHtml() {
             <li>Tout impayé peut entraîner la suspension de l'accès après mise en demeure restée sans effet sous 8 jours.</li>
         </ul>
 
-        <h2 class="text-lg font-bold text-gray-800 mt-6">4. Durée et résiliation — sans engagement</h2>
+        <h2 class="text-lg font-bold text-gray-800 mt-6">4. Durée et résiliation — sans engagement · préavis d'un mois</h2>
         <p>L'abonnement est conclu <strong>sans engagement de durée</strong> : facturation mensuelle et reconduction tacite mois par mois, <strong>sans durée minimale</strong> contractuelle.</p>
-        <p>Le Client peut résilier depuis son espace (Mon abonnement), par email à ${legalEsc(L.email)} ou en révoquant son mandat SEPA, sous réserve d'un <strong>préavis d'un (1) mois</strong> adressé à Flenova avant la date souhaitée de fin de contrat. La résiliation prend effet à l'issue de ce délai de préavis.</p>
+        <p>Le Client peut résilier à tout moment depuis son espace (Mon abonnement), par email à ${legalEsc(L.email)} ou en révoquant son mandat SEPA, sous réserve d'un <strong>préavis obligatoire d'un (1) mois</strong> adressé à Flenova. La résiliation prend effet <strong>en fin de période mensuelle</strong> à l'issue de ce préavis (le service et la facturation restent dus pendant toute la durée du préavis).</p>
         <p><strong>Tout mois entamé est dû</strong> : le Client reste redevable du montant de l'abonnement (et suppléments le cas échéant) pour le mois civil en cours au moment de la notification de résiliation, ainsi que pour la période couverte par le préavis d'un mois. Aucun remboursement au prorata n'est accordé pour une période déjà facturée ou entamée, sauf disposition légale impérative ou accord écrit de Flenova.</p>
 
         <h2 class="text-lg font-bold text-gray-800 mt-6">5. Engagements de service</h2>
