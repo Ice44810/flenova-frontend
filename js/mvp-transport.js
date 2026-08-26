@@ -367,7 +367,7 @@ function renderTransportList() {
                             </td>
                             ${inTrash ? `<td class="px-4 py-3 text-xs text-gray-500">${deletedLabel}</td>` : `<td class="px-4 py-3">${renderTransportBillingSelect(o)}</td>`}
                         </tr>`;
-    }).join('') : `<tr><td colspan="${inTrash ? 11 : 11}" class="px-4 py-10 text-center text-gray-400 italic">${inTrash ? 'Aucun transport dans la corbeille' : 'Aucun transport'}</td></tr>`}
+    }).join('') : `<tr><td colspan="${inTrash ? 11 : 11}" class="px-4 py-10 text-center text-gray-600 italic">${inTrash ? 'Aucun transport dans la corbeille' : 'Aucun transport'}</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -521,7 +521,7 @@ function renderPreInvoicing() {
                         <td class="px-4 py-3">
                             ${canFinance ? `<button type="button" onclick="createInvoiceDraftFromTransport(${o.id})" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"><i class="fa-solid fa-file-invoice mr-1"></i>Préfacture</button>` : '-'}
                         </td>
-                    </tr>`).join('') : `<tr><td colspan="${colSpan}" class="px-4 py-10 text-center text-gray-400 italic">${allCandidates.length ? 'Aucun transport pour ces filtres' : 'Aucun transport à préfacturer'}</td></tr>`}
+                    </tr>`).join('') : `<tr><td colspan="${colSpan}" class="px-4 py-10 text-center text-gray-600 italic">${allCandidates.length ? 'Aucun transport pour ces filtres' : 'Aucun transport à préfacturer'}</td></tr>`}
             </tbody>
         </table>
         </div>
@@ -660,7 +660,7 @@ function renderTransportDetailModal(t) {
             <span class="font-mono text-gray-400">${esc(formatDisplayDate(h.changed_at) || '—')}</span>
             <span class="font-semibold ${getStatusBadgeClass(h.status)} px-1 rounded">${esc(h.status)}</span>
             <span class="text-gray-600">${esc(h.changed_by_name || 'Système')}${h.comment ? ' — ' + esc(h.comment) : ''}</span>
-        </div>`).join('') || '<p class="text-gray-400 italic text-xs">Aucun historique</p>';
+        </div>`).join('') || '<p class="text-gray-600 italic text-xs">Aucun historique</p>';
 
     const docsEl = document.getElementById('td-documents');
     docsEl.innerHTML = (t.documents || []).map(d => {
@@ -671,7 +671,7 @@ function renderTransportDetailModal(t) {
         <a href="${esc(fileUrl)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-blue-600 hover:underline text-xs mb-1">
             <i class="fa-solid fa-file-pdf"></i> ${esc(d.file_name)} (${esc(d.doc_type)})
         </a>`;
-    }).join('') || '<p class="text-gray-400 italic text-xs">Aucun document</p>';
+    }).join('') || '<p class="text-gray-600 italic text-xs">Aucun document</p>';
 
     const commentsEl = document.getElementById('td-comments');
     commentsEl.innerHTML = (t.comments || []).map(c => `
@@ -679,7 +679,7 @@ function renderTransportDetailModal(t) {
             <span class="font-bold text-gray-700">${esc(c.user_name || 'Utilisateur')}</span>
             <span class="text-gray-400 ml-2">${esc(formatDisplayDate(c.created_at) || '—')}</span>
             <p class="mt-1 text-gray-600">${esc(c.content)}</p>
-        </div>`).join('') || '<p class="text-gray-400 italic text-xs">Aucun commentaire</p>';
+        </div>`).join('') || '<p class="text-gray-600 italic text-xs">Aucun commentaire</p>';
 
     const actionsEl = document.getElementById('td-actions');
     let actionsHtml = '';
@@ -1373,7 +1373,7 @@ window.renderOrdersCompleted = function() {
                                 : ''}
                         </td>
                     </tr>`;
-    }).join('') : '<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport réalisé</td></tr>'}
+    }).join('') : '<tr><td colspan="7" class="px-4 py-10 text-center text-gray-600 italic">Aucun transport réalisé</td></tr>'}
             </tbody>
         </table>
     </div>`;
@@ -1468,7 +1468,7 @@ function renderOrdersCharteredTable(orders) {
                         <td class="px-4 py-3">
                             <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs">Détail</button>
                         </td>
-                    </tr>`).join('') : '<tr><td colspan="6" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport affrété</td></tr>'}
+                    </tr>`).join('') : '<tr><td colspan="6" class="px-4 py-10 text-center text-gray-600 italic">Aucun transport affrété</td></tr>'}
             </tbody>
         </table>
     </div>`;
@@ -1495,7 +1495,7 @@ function renderOrdersTable(orders, title, showActions) {
                             <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs">Détail</button>
                             ${showActions && canChangeTransportStatus() ? `<button onclick="changeTransportStatus(${o.id}, 'Livré', { fromList: true, reopenDetail: false })" class="text-green-600 hover:underline text-xs ml-2">Marquer livré</button>` : ''}
                         </td>
-                    </tr>`).join('') : '<tr><td colspan="5" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport</td></tr>'}
+                    </tr>`).join('') : '<tr><td colspan="5" class="px-4 py-10 text-center text-gray-600 italic">Aucun transport</td></tr>'}
             </tbody>
         </table>
     </div>`;
