@@ -255,3 +255,26 @@ body.nav-open .app-nav-toggle .fa-xmark {
         font-size: 16px;
     }
 }
+
+/* Densité UI */
+body.ui-density-compact #app-content {
+    padding: 0.75rem 1rem;
+}
+body.ui-density-compact #app-content .p-6 {
+    padding: 1rem;
+}
+body.ui-density-compact #app-sidebar .nav-item {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+body.ui-density-comfortable #app-content {
+    padding: 1.5rem;
+}
+
+/* Planning DnD + tours guidés */
+.planning-drop-active{outline:2px solid #2563eb;outline-offset:-2px;background-color:#eff6ff!important}
+.planning-drop-zone{transition:background-color .15s,outline .15s}
+.guided-tour-overlay{position:fixed;inset:0;z-index:10000;pointer-events:auto}
+.guided-tour-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.55)}
+.guided-tour-spotlight{position:fixed;border:2px solid #6366f1;border-radius:10px;box-shadow:0 0 0 9999px rgba(15,23,42,.45);pointer-events:none;z-index:10001}
+.guided-tour-card{position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);width:min(420px,calc(100vw - 2rem));background:#fff;border-radius:12px;padding:1rem 1.1rem;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:10002}

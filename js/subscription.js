@@ -411,6 +411,17 @@ function renderAppPricingPage() {
             <p class="text-sm mt-3"><a href="/index.html#tarifs" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">Consulter les tarifs et comparatif des forfaits →</a></p>
             ${sub.needsPayment && !sub.isDemo ? `<button type="button" onclick="subscribeToPlan('${sub.targetPlan || sub.plan}')" class="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">Activer mon abonnement</button>` : ''}
         </div>
+        ${(() => {
+            const cancelReq = typeof getCancellationRequest === 'function' ? getCancellationRequest() : null;
+            const isAdmin = (typeof getCurrentUser === 'function' ? getCurrentUser()?.role : null) === 'admin';
+            if (sub.isDemo) return '';
+            return `<div class="mt-6 max-w-xl mx-auto text-left bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-1">Résiliation</h3>
+                <p class="text-sm text-gray-500 mb-3">Sans engagement de durée · préavis obligatoire d'1 mois · effet en fin de période mensuelle · tout mois entamé est dû (CGV).</p>
+                ${cancelReq ? `<p class="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3 mb-3">Demande enregistrée le ${new Date(cancelReq.requestedAt).toLocaleDateString('fr-FR')} — effet estimé <strong>${cancelReq.effectDate}</strong>. Un e-mail de confirmation a été préparé vers support@flenova.fr.</p>` : ''}
+                ${isAdmin ? `<button type="button" onclick="requestSubscriptionCancellation()" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-50">Demander la résiliation (préavis 1 mois)</button>` : `<p class="text-xs text-gray-500">Contactez l'administrateur de votre entreprise pour résilier.</p>`}
+            </div>`;
+        })()}
         ${renderAddonsPanel(sub)}
         ${renderBillingSummary(sub)}
         ${planId && planId !== 'premium'

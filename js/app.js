@@ -1236,6 +1236,9 @@ function initMobileNav() {
         if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
         if (typeof initSidebarGroups === 'function') initSidebarGroups();
         if (typeof initMobileNav === 'function') initMobileNav();
+        if (typeof initUxImprovements === 'function') initUxImprovements();
+        const onboardingMount = document.getElementById('onboarding-checklist-mount');
+        if (onboardingMount) onboardingMount.classList.remove('hidden');
         if (typeof applyDemoBanner === 'function') applyDemoBanner();
 
         const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
@@ -1651,6 +1654,9 @@ window.switchDashboardTab = function (tab) {
 
 // --- PLANNING STATE ---
 window.planningDate = new Date();
+window.planningViewMode = (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 1023px)').matches)
+    ? 'day'
+    : 'board';
 window.changePlanningWeek = function (offset) {
     const d = new Date(window.planningDate);
     d.setDate(d.getDate() + (offset * 7));
@@ -1704,6 +1710,14 @@ async function fetchAllData() {
             (typeof canManageUsers === 'function' && canManageUsers()) ? fetchJson('agencies') : Promise.resolve([])
         ]);
         db = { orders, clients, missions, drivers, vehicles, users, sales_invoices: sales, purchase_invoices: purchase, subcontractors, agencies: agencies || [] };
+        if (typeof refreshNotificationBadge === 'function') refreshNotificationBadge();
+        if (typeof renderOnboardingChecklist === 'function') {
+            /* checklist auto-refresh via initUxImprovements patterns */
+            const mount = document.getElementById('onboarding-checklist-mount');
+            if (mount && !mount.classList.contains('hidden') && typeof initUxImprovements === 'function') {
+                initUxImprovements();
+            }
+        }
         return true;
     } catch (error) {
         showToast("Erreur de connexion au serveur", "error");
@@ -2549,6 +2563,17 @@ function renderDashboard(stats = {}) {
         <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
             <div>
                 <p class="dash-v2-subtitle">Vue d'ensemble de votre activité</p>
+                <div class="flex flex-wrap gap-2 mt-3" id="dash-quick-actions">
+                    <button type="button" onclick="openAddOrderModal()" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i> Créer OT
+                    </button>
+                    <button type="button" onclick="router('chartered_transports')" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 text-sm font-semibold hover:bg-indigo-100">
+                        <i class="fa-solid fa-handshake" aria-hidden="true"></i> Affréter
+                    </button>
+                    <button type="button" onclick="router('preinvoicing')" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100">
+                        <i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Préfacturer
+                    </button>
+                </div>
             </div>
             <div class="dash-v2-period" role="status"><i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i> Période ${periodLabel}</div>
         </div>
@@ -2670,6 +2695,7 @@ function createInvoiceFromMission(missionId) {
 function renderPlanning() {
     const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
     const now = new Date();
+    const viewMode = window.planningViewMode === 'day' ? 'day' : 'board';
 
     // Calcul de la plage de la semaine affichée (Lundi à Dimanche)
     const current = new Date(window.planningDate);
@@ -2707,23 +2733,112 @@ function renderPlanning() {
     };
     const weekNum = getISOWeek(monday);
 
+    const todayName = days[now.getDay() === 0 ? 6 : now.getDay() - 1];
+    const focusDay = window.planningFocusDay || todayName;
+    const dayList = weekMissions.filter((m) => m.day === focusDay);
+
+    // Vue jour / chauffeur (tablette & mobile)
+    if (viewMode === 'day') {
+        const byDriver = new Map();
+        dayList.forEach((m) => {
+            const isSub = isOrderSubcontracted(m);
+            const key = isSub
+                ? `ST:${m.subcontractor_name || m.subcontractor_id || 'Sous-traitant'}`
+                : `CH:${m.driver_name || (db.drivers.find((d) => d.id === m.driver_id) || {}).name || 'Non affecté'}`;
+            if (!byDriver.has(key)) byDriver.set(key, []);
+            byDriver.get(key).push(m);
+        });
+        const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
+        return `<div class="h-full flex flex-col fade-in">
+            <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="changePlanningWeek(-1)" class="p-2 bg-white rounded shadow hover:text-blue-600"><i class="fa-solid fa-chevron-left"></i></button>
+                    <span class="font-bold text-gray-700 text-lg">Semaine ${weekNum}</span>
+                    <button onclick="changePlanningWeek(1)" class="p-2 bg-white rounded shadow hover:text-blue-600"><i class="fa-solid fa-chevron-right"></i></button>
+                    <select onchange="window.planningFocusDay=this.value; router('planning')" class="border rounded-lg px-2 py-1.5 text-sm">
+                        ${days.map((d) => `<option value="${d}" ${d === focusDay ? 'selected' : ''}>${d}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <div class="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+                        <button type="button" onclick="window.planningViewMode='board'; router('planning')" class="px-3 py-1.5 text-xs font-bold rounded-md text-gray-600 hover:bg-gray-100">Semaine</button>
+                        <button type="button" onclick="window.planningViewMode='day'; router('planning')" class="px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 text-white">Jour / chauffeur</button>
+                    </div>
+                    <button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Commande</button>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mb-2"><i class="fa-solid fa-hand-pointer mr-1"></i>Glissez un OT vers un autre chauffeur (souris ou tactile).</p>
+            <div class="flex-1 overflow-y-auto space-y-4">
+                ${(() => {
+                    const renderCard = (m) => `
+                        <li class="p-3 flex flex-wrap gap-2 items-start justify-between hover:bg-gray-50 ${canEditPlanningOrder(m) ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${getStatusColor(m.status)} touch-manipulation"
+                            data-planning-order-id="${m.id}"
+                            ${canEditPlanningOrder(m) ? 'data-planning-draggable="1"' : ''}
+                            onclick="if(this.dataset.wasDragged!=='1')openTransportDetail(${m.id})">
+                            <div class="min-w-0">
+                                <p class="font-bold text-sm text-gray-800">#${esc(m.ref || m.id)} · ${esc(m.status)}</p>
+                                <p class="text-xs text-gray-500 truncate">${esc(m.origin)} → ${esc(m.dest)}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">${esc(m.client_name || '')} · ${Number(m.price || 0).toLocaleString('fr-FR')} €</p>
+                            </div>
+                            <div class="flex gap-2 shrink-0" onclick="event.stopPropagation()">
+                                ${canShowDispatchButton(m) ? `<button type="button" onclick="openDispatchModal(${m.id})" class="text-xs px-2 py-1 rounded border border-purple-200 text-purple-700">Affréter</button>` : ''}
+                                ${canEditPlanningOrder(m) ? `<button type="button" onclick="openEditOrderModal(${m.id})" class="text-xs px-2 py-1 rounded border border-blue-200 text-blue-700">Modifier</button>` : ''}
+                            </div>
+                        </li>`;
+                    const entries = [...byDriver.entries()];
+                    const hasUnassignedBucket = entries.some(([g]) => g === 'CH:Non affecté');
+                    if (!hasUnassignedBucket) {
+                        entries.push(['CH:Non affecté', []]);
+                    }
+                    if (!entries.length) {
+                        return `<p class="text-center text-gray-400 py-16">Aucun transport le ${esc(focusDay)}</p>`;
+                    }
+                    return entries.map(([group, items]) => {
+                        const isSub = group.startsWith('ST:');
+                        const driverName = group.replace(/^(ST|CH):/, '');
+                        const dropDriver = isSub
+                            ? ''
+                            : (items.find((m) => m.driver_id)?.driver_id
+                                ? String(items.find((m) => m.driver_id).driver_id)
+                                : 'none');
+                        const dropAttr = isSub ? '' : `data-drop-driver="${dropDriver}"`;
+                        return `
+                        <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden planning-drop-zone ${dropDriver === 'none' ? 'border-dashed border-amber-300' : ''}" ${dropAttr}>
+                            <header class="px-4 py-2.5 ${dropDriver === 'none' ? 'bg-amber-50 text-amber-800' : 'bg-slate-50 text-slate-700'} border-b font-semibold text-sm">${esc(driverName)}${dropDriver === 'none' ? ' — déposer ici' : ''}</header>
+                            <ul class="divide-y min-h-[3rem]">
+                                ${items.length ? items.map(renderCard).join('') : '<li class="p-3 text-xs text-gray-400">Aucun OT</li>'}
+                            </ul>
+                        </section>`;
+                    }).join('');
+                })()}
+            </div>
+        </div>`;
+    }
+
     return `<div class="h-full flex flex-col fade-in">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div class="flex items-center gap-4">
                 <button onclick="changePlanningWeek(-1)" class="p-2 bg-white rounded shadow hover:text-blue-600"><i class="fa-solid fa-chevron-left"></i></button>
                 <span class="font-bold text-gray-700 self-center text-lg">Semaine ${weekNum} - ${monday.getFullYear()}</span>
                 <button onclick="changePlanningWeek(1)" class="p-2 bg-white rounded shadow hover:text-blue-600"><i class="fa-solid fa-chevron-right"></i></button>
             </div>
-            <button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Commande</button>
+            <div class="flex flex-wrap gap-2">
+                <div class="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+                    <button type="button" onclick="window.planningViewMode='board'; router('planning')" class="px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 text-white">Semaine</button>
+                    <button type="button" onclick="window.planningViewMode='day'; router('planning')" class="px-3 py-1.5 text-xs font-bold rounded-md text-gray-600 hover:bg-gray-100">Jour / chauffeur</button>
+                </div>
+                <button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Commande</button>
+            </div>
         </div>
-        <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
-            <div class="min-w-[1200px] flex h-full">
+        <p class="text-xs text-gray-500 mb-2"><i class="fa-solid fa-hand-pointer mr-1"></i>Glissez un OT vers un autre jour pour changer la date de chargement.</p>
+        <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200 -webkit-overflow-scrolling-touch">
+            <div class="min-w-[1200px] flex h-full md:min-w-[1200px]" style="min-width: min(1200px, 100%);">
                 ${days.map(day => {
         const dayMissions = weekMissions.filter(m => m.day === day);
         const isToday = day === days[now.getDay() === 0 ? 6 : now.getDay() - 1];
-        return `<div class="flex-1 flex flex-col h-full min-w-[150px] ${isToday ? 'bg-blue-50' : ''}">
+        return `<div class="flex-1 flex flex-col h-full min-w-[150px] planning-drop-zone ${isToday ? 'bg-blue-50' : ''}" data-drop-day="${day}">
                         <div class="p-3 text-center border-b font-semibold text-sm text-gray-600 ${isToday ? 'bg-blue-100 text-blue-700' : ''}">${day}</div>
-                        <div class="p-2 space-y-2 flex-1 overflow-y-auto">
+                        <div class="p-2 space-y-2 flex-1 overflow-y-auto min-h-[120px]">
                             ${dayMissions.length > 0 ? dayMissions.map(m => {
             const isSub = isOrderSubcontracted(m);
             const subName = m.subcontractor_name || (db.subcontractors.find(s => s.id === m.subcontractor_id) || {}).name;
@@ -2732,7 +2847,10 @@ function renderPlanning() {
             const editBtn = canEditPlanningOrder(m)
                 ? `<button onclick="event.stopPropagation(); openEditOrderModal(${m.id})" class="text-[10px] text-blue-600 hover:underline ml-1" title="Modifier l'affectation"><i class="fa-solid fa-pencil"></i> Modifier</button>`
                 : '';
-            return `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition cursor-pointer relative group" onclick="openTransportDetail(${m.id})">
+            return `<div class="bg-white p-3 rounded shadow-sm border border-gray-100 text-xs ${getStatusColor(m.status)} hover:shadow-md transition ${canEditPlanningOrder(m) ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} relative group touch-manipulation"
+                                data-planning-order-id="${m.id}"
+                                ${canEditPlanningOrder(m) ? 'data-planning-draggable="1"' : ''}
+                                onclick="if(this.dataset.wasDragged!=='1')openTransportDetail(${m.id})">
                                 <div class="font-bold text-gray-800 mb-1">#${m.ref || m.id}${isSub ? ' <span class="text-purple-600 text-[10px]"><i class="fa-solid fa-handshake"></i></span>' : ''}</div>
                                 <div class="text-gray-500 truncate text-[10px]">${m.origin} <i class="fa-solid fa-arrow-right mx-1"></i> ${m.dest}</div>
                                 ${isSub && subName ? `<div class="text-[10px] text-purple-600 truncate"><i class="fa-solid fa-handshake mr-1"></i>${subName}</div>` : ''}
@@ -2743,7 +2861,7 @@ function renderPlanning() {
                                     <span class="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition flex items-center gap-1">${dispatchBtn}${editBtn}</span>
                                 </div>
                             </div>`;
-        }).join('') : '<div class="h-full min-h-[100px] border-2 border-dashed border-gray-200 rounded flex items-center justify-center text-gray-300 text-xs">Disponible</div>'}
+        }).join('') : '<div class="h-full min-h-[100px] border-2 border-dashed border-gray-200 rounded flex items-center justify-center text-gray-300 text-xs pointer-events-none">Déposer ici</div>'}
                         </div>
                     </div>`;
     }).join('')}
@@ -3104,16 +3222,28 @@ async function loadAffretementConfirmationPage() {
 
         const quotaEl = document.getElementById('affretement-quota-banner');
         const quota = data.affretementQuota;
+        window._lastAffretementQuota = quota || null;
         if (quotaEl && quota) {
             if (quota.limit == null) {
                 quotaEl.classList.add('hidden');
             } else {
-                const atLimit = quota.remaining === 0;
-                quotaEl.className = `mb-4 p-3 rounded-lg text-sm border ${atLimit ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-blue-50 border-blue-100 text-blue-900'}`;
-                const overageNote = atLimit
-                    ? `Quota mensuel atteint — prochains envois facturés <strong>${String(quota.unitPrice).replace('.', ',')} € HT</strong> chacun.`
-                    : `<strong>${quota.remaining}</strong> confirmation(s) incluse(s) restante(s) sur ${quota.limit} ce mois (${quota.sendsThisMonth} utilisée(s)).`;
-                quotaEl.innerHTML = `<i class="fa-solid fa-envelope-circle-check mr-1"></i> ${esc(overageNote)}`;
+                const used = quota.sendsThisMonth ?? quota.used ?? 0;
+                const remaining = quota.remaining;
+                const atLimit = remaining === 0;
+                const nearLimit = !atLimit && used >= Math.ceil(quota.limit * 0.8);
+                const unit = String(quota.unitPrice ?? 1.5).replace('.', ',');
+                let tone = 'bg-blue-50 border-blue-100 text-blue-900';
+                let note = `<strong>${remaining}</strong> confirmation(s) incluse(s) restante(s) sur ${quota.limit} ce mois (${used} utilisée(s)).`;
+                if (nearLimit) {
+                    tone = 'bg-amber-50 border-amber-200 text-amber-900';
+                    note = `Attention : <strong>${used}/${quota.limit}</strong> confirmations utilisées (≥ 80 %). Au-delà du quota : <strong>${unit} € HT</strong> / envoi.`;
+                }
+                if (atLimit) {
+                    tone = 'bg-amber-50 border-amber-200 text-amber-900';
+                    note = `Quota mensuel atteint — le prochain envoi sera facturé <strong>${unit} € HT</strong>.`;
+                }
+                quotaEl.className = `mb-4 p-3 rounded-lg text-sm border ${tone}`;
+                quotaEl.innerHTML = `<i class="fa-solid fa-envelope-circle-check mr-1"></i> ${note}`;
                 quotaEl.classList.remove('hidden');
             }
         }
@@ -3157,6 +3287,27 @@ async function sendAffretementConfirmation() {
     const email = document.getElementById('affretement-send-email')?.value?.trim();
     if (!orderId) return;
 
+    const quota = window._lastAffretementQuota || window.cachedSubscription?.affretementUsage || null;
+    if (quota && quota.limit != null) {
+        const used = quota.sendsThisMonth ?? quota.used ?? 0;
+        const remaining = quota.remaining;
+        const unit = Number(quota.unitPrice ?? 1.5);
+        const unitLabel = String(unit).replace('.', ',');
+        const atLimit = remaining === 0;
+        const nearLimit = !atLimit && used >= Math.ceil(quota.limit * 0.8);
+        if (atLimit) {
+            if (!confirm(
+                `Quota mensuel atteint (${quota.limit}/mois).\n` +
+                `Cet envoi sera facturé ${unitLabel} € HT en supplément.\n\nConfirmer l'envoi ?`
+            )) return;
+        } else if (nearLimit) {
+            if (!confirm(
+                `Vous avez utilisé ${used}/${quota.limit} confirmations (≥ 80 % du quota).\n` +
+                `Il reste ${remaining} envoi(s) inclus ; au-delà : ${unitLabel} € HT / envoi.\n\nContinuer ?`
+            )) return;
+        }
+    }
+
     const sendBtn = document.getElementById('affretement-send-btn');
     if (sendBtn) sendBtn.disabled = true;
 
@@ -3169,8 +3320,16 @@ async function sendAffretementConfirmation() {
         if (!res.ok) {
             throw new Error(payload.error || 'Envoi impossible');
         }
-        showToast(payload.data?.message || 'Confirmation envoyée', payload.data?.usage?.billable ? 'info' : (payload.data?.simulated ? 'info' : 'success'));
+        const usage = payload.data?.usage;
+        if (usage?.billable) {
+            showToast(`Confirmation envoyée — ${String(usage.unitPrice ?? 1.5).replace('.', ',')} € HT facturés (hors quota)`, 'info');
+        } else {
+            showToast(payload.data?.message || 'Confirmation envoyée', payload.data?.simulated ? 'info' : 'success');
+        }
         await loadAffretementConfirmationPage();
+        if (typeof hydrateSubscription === 'function' && window.cachedSubscription) {
+            /* quota rafraîchi via reload page */
+        }
     } catch (e) {
         showToast(e.message, 'error');
     } finally {
@@ -6348,6 +6507,21 @@ async function router(route) {
         await hydratePlatformCrmPage();
     }
 
+    if (route === 'planning' && typeof initPlanningDnD === 'function') {
+        setTimeout(() => initPlanningDnD(), 0);
+    }
+
+    if (route === 'dashboard' && typeof renderWeeklyReportPanel === 'function') {
+        const mount = document.getElementById('dash-tabpanel') || appContent;
+        if (mount && !document.getElementById('weekly-report-panel')) {
+            mount.insertAdjacentHTML('afterbegin', renderWeeklyReportPanel());
+        }
+    }
+
+    if (typeof enhanceOnboardingWithTours === 'function') {
+        setTimeout(() => enhanceOnboardingWithTours(), 80);
+    }
+
     pageTitle.textContent = title;
     if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
     if (typeof initSidebarGroups === 'function') initSidebarGroups();
@@ -8612,12 +8786,29 @@ function renderAccountingExport() {
                         </div>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 mb-2">Format</p>
+                        <p class="text-xs text-gray-500 mb-2">Format / connecteur</p>
                         <select id="acc-export-format" class="w-full border rounded-lg px-3 py-2 text-sm">
                             <option value="standard">CSV comptable standard (TVA détaillée)</option>
-                            <option value="sage">Format Sage (écritures comptables)</option>
+                            <option value="pennylane">Pennylane (import écritures)</option>
+                            <option value="quadra">Quadra / Cegid (écritures)</option>
+                            <option value="sage">Sage (écritures comptables)</option>
                         </select>
                     </div>
+                </div>
+            </div>
+
+            <div class="grid sm:grid-cols-3 gap-3 mt-6">
+                <div class="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-emerald-900">
+                    <p class="font-bold mb-1"><i class="fa-solid fa-plug mr-1"></i>Pennylane</p>
+                    Export → Imports → Écritures. Colonnes Date, Libellé, Débit/Crédit, Compte.
+                </div>
+                <div class="rounded-lg border border-sky-100 bg-sky-50/50 p-3 text-xs text-sky-900">
+                    <p class="font-bold mb-1"><i class="fa-solid fa-plug mr-1"></i>Quadra</p>
+                    Import ASCII/CSV séparateur « ; » — Journal, Date, Compte, Libellé, Débit, Crédit.
+                </div>
+                <div class="rounded-lg border border-violet-100 bg-violet-50/50 p-3 text-xs text-violet-900">
+                    <p class="font-bold mb-1"><i class="fa-solid fa-plug mr-1"></i>Sage</p>
+                    Format FEC-like (écritures) déjà supporté — prêt pour Sage 50 / 100.
                 </div>
             </div>
 

@@ -376,33 +376,91 @@ function renderTransportList() {
 
 function renderPreInvoicing() {
     const candidates = (db.orders || []).filter(o => o.status === 'Validé' && !o.invoice_draft_id);
+    const canFinance = typeof canManageFinance === 'function' && canManageFinance();
+    const total = candidates.reduce((sum, o) => sum + Number(o.price || 0), 0);
+    const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
+
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
             <div>
-                <h3 class="font-bold text-lg text-gray-800">Préfacturation</h3>
-                <p class="text-xs text-gray-500">Transports validés, prêts à être transformés en brouillon de facture</p>
+                <h3 class="font-bold text-lg text-gray-800">À préfacturer</h3>
+                <p class="text-xs text-gray-500">Transports validés non encore facturés — clôturez le mois plus vite</p>
             </div>
-            <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">${candidates.length} en attente</span>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">${candidates.length} en attente · ${total.toLocaleString('fr-FR')} €</span>
+                ${canFinance && candidates.length ? `
+                <button type="button" onclick="selectAllPrefactureCandidates(true)" class="text-xs px-3 py-1.5 border rounded-lg hover:bg-gray-50">Tout sélectionner</button>
+                <button type="button" onclick="bulkCreateInvoiceDrafts()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700">
+                    <i class="fa-solid fa-file-invoice mr-1"></i>Générer les préfactures sélectionnées
+                </button>` : ''}
+            </div>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm text-left text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                <tr><th class="px-4 py-3">Réf.</th><th class="px-4 py-3">Client</th><th class="px-4 py-3">Trajet</th><th class="px-4 py-3">Montant</th><th class="px-4 py-3">Action</th></tr>
+                <tr>
+                    ${canFinance ? `<th class="px-4 py-3 w-10"><input type="checkbox" id="prefacture-select-all" onchange="selectAllPrefactureCandidates(this.checked)" aria-label="Sélectionner tout"></th>` : ''}
+                    <th class="px-4 py-3">Réf.</th>
+                    <th class="px-4 py-3">Client</th>
+                    <th class="px-4 py-3">Trajet</th>
+                    <th class="px-4 py-3">Montant</th>
+                    <th class="px-4 py-3">Action</th>
+                </tr>
             </thead>
             <tbody>
                 ${candidates.length ? candidates.map(o => `
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="px-4 py-3 font-medium">${o.ref || o.id}</td>
-                        <td class="px-4 py-3">${o.client_name || '-'}</td>
-                        <td class="px-4 py-3 text-xs">${o.origin} → ${o.dest}</td>
-                        <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString()} €</td>
+                        ${canFinance ? `<td class="px-4 py-3"><input type="checkbox" class="prefacture-row-cb" value="${o.id}" aria-label="Sélectionner ${esc(o.ref || o.id)}"></td>` : ''}
+                        <td class="px-4 py-3 font-medium">${esc(o.ref || o.id)}</td>
+                        <td class="px-4 py-3">${esc(o.client_name || '-')}</td>
+                        <td class="px-4 py-3 text-xs">${esc(o.origin)} → ${esc(o.dest)}</td>
+                        <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString('fr-FR')} €</td>
                         <td class="px-4 py-3">
-                            ${canManageFinance() ? `<button onclick="createInvoiceDraftFromTransport(${o.id})" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"><i class="fa-solid fa-file-invoice mr-1"></i>Générer préfacture</button>` : '-'}
+                            ${canFinance ? `<button type="button" onclick="createInvoiceDraftFromTransport(${o.id})" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"><i class="fa-solid fa-file-invoice mr-1"></i>Préfacture</button>` : '-'}
                         </td>
-                    </tr>`).join('') : '<tr><td colspan="5" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport à préfacturer</td></tr>'}
+                    </tr>`).join('') : `<tr><td colspan="${canFinance ? 6 : 5}" class="px-4 py-10 text-center text-gray-400 italic">Aucun transport à préfacturer</td></tr>`}
             </tbody>
         </table>
+        </div>
     </div>`;
 }
+
+window.selectAllPrefactureCandidates = function (checked) {
+    document.querySelectorAll('.prefacture-row-cb').forEach((cb) => {
+        cb.checked = !!checked;
+    });
+    const master = document.getElementById('prefacture-select-all');
+    if (master) master.checked = !!checked;
+};
+
+window.bulkCreateInvoiceDrafts = async function () {
+    if (typeof canManageFinance === 'function' && !canManageFinance()) {
+        showToast('Action non autorisée', 'error');
+        return;
+    }
+    const ids = [...document.querySelectorAll('.prefacture-row-cb:checked')].map((cb) => parseInt(cb.value, 10)).filter(Boolean);
+    if (!ids.length) {
+        showToast('Sélectionnez au moins un transport', 'info');
+        return;
+    }
+    if (!confirm(`Générer ${ids.length} préfacture(s) brouillon ?`)) return;
+
+    let ok = 0;
+    let fail = 0;
+    for (const id of ids) {
+        try {
+            const res = await apiFetch(`transport-orders/${id}/invoice-draft`, { method: 'POST' });
+            if (res.ok) ok += 1;
+            else fail += 1;
+        } catch (_) {
+            fail += 1;
+        }
+    }
+    if (ok) showToast(`${ok} préfacture(s) créée(s)${fail ? ` · ${fail} échec(s)` : ''}`, fail ? 'info' : 'success');
+    else showToast('Aucune préfacture créée', 'error');
+    if (typeof loadData === 'function') await loadData();
+    else if (typeof router === 'function') router('preinvoicing');
+};
 
 window.openTransportDetail = async function(orderId) {
     try {
