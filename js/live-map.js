@@ -1,5 +1,6 @@
 /**
- * Carte opérationnelle TomTom (MapLibre) — suivi GPS temps réel chauffeurs.
+ * Carte opérationnelle MapLibre — suivi GPS temps réel chauffeurs.
+ * Fond : OpenFreeMap / Carto / TomTom selon GET /api/maps/config.
  */
 (function (global) {
     const FRANCE_CENTER = [2.3522, 48.8566];
@@ -53,36 +54,26 @@
     function buildStyle(config) {
         if (config.styleUrl) return config.styleUrl;
         if (config.rasterTileUrl) {
-            // Les tuiles passent par le proxy backend (la clé TomTom reste
-            // côté serveur), d'où une URL relative que MapLibre veut absolue.
+            // Proxy relatif (/api/maps/tiles) → URL absolue pour MapLibre.
             const tileUrl = config.rasterTileUrl.startsWith('/')
                 ? `${global.location.origin}${config.rasterTileUrl}`
                 : config.rasterTileUrl;
+            const sourceId = config.provider === 'tomtom' ? 'tomtom' : 'basemap';
             return {
                 version: 8,
                 sources: {
-                    tomtom: {
+                    [sourceId]: {
                         type: 'raster',
                         tiles: [tileUrl],
                         tileSize: 256,
-                        attribution: '© TomTom'
+                        attribution: config.attribution || '© OpenStreetMap'
                     }
                 },
-                layers: [{ id: 'tomtom-raster', type: 'raster', source: 'tomtom' }]
+                layers: [{ id: `${sourceId}-raster`, type: 'raster', source: sourceId }]
             };
         }
-        return {
-            version: 8,
-            sources: {
-                osm: {
-                    type: 'raster',
-                    tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                    tileSize: 256,
-                    attribution: '© OpenStreetMap'
-                }
-            },
-            layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
-        };
+        // Dernier recours : OpenFreeMap (évite tile.openstreetmap.org en prod).
+        return 'https://tiles.openfreemap.org/styles/liberty';
     }
 
     function createTruckEl(color, label) {
@@ -280,8 +271,8 @@
 
         try {
             const config = await loadMapsConfig();
-            if (!config.configured) {
-                container.innerHTML = '<p class="dash-live-map-error">Clé TomTom manquante (TOMTOM_MAPS_API_KEY)</p>';
+            if (!config.configured && !config.styleUrl && !config.rasterTileUrl) {
+                container.innerHTML = '<p class="dash-live-map-error">Fournisseur de cartes non configuré (MAPS_PROVIDER)</p>';
                 return;
             }
             await loadMapLibre();
