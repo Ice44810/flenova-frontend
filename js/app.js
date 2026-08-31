@@ -1020,10 +1020,7 @@ function initPublicSite() {
 
 // --- BOOTSTRAP ---
 function updateAppCompanyHeader(user) {
-    if (user?.isPlatformAdmin) {
-        if (typeof applyPlatformOperatorShell === 'function') applyPlatformOperatorShell(user);
-        return;
-    }
+    if (typeof applyPlatformOperatorShell === 'function') applyPlatformOperatorShell(user);
     const el = document.getElementById('header-company-name');
     if (!el) return;
     const name = user?.company_name || currentUser?.company_name;
@@ -1226,45 +1223,37 @@ function initMobileNav() {
 
     hideAllModals();
 
-    const isOperator = !!currentUser?.isPlatformAdmin;
     if (typeof applyPlatformOperatorShell === 'function') applyPlatformOperatorShell(currentUser);
+    if (typeof loadPermissions === 'function' && !cachedPermissions) await loadPermissions();
 
-    if (!isOperator) {
-        if (typeof loadPermissions === 'function' && !cachedPermissions) await loadPermissions();
+    await fetchAllData();
+    if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
+    if (typeof initSidebarGroups === 'function') initSidebarGroups();
+    if (typeof initMobileNav === 'function') initMobileNav();
+    if (typeof initUxImprovements === 'function') initUxImprovements();
+    const onboardingMount = document.getElementById('onboarding-checklist-mount');
+    if (onboardingMount) onboardingMount.classList.remove('hidden');
+    const suspended = typeof applySubscriptionAccessGate === 'function' && applySubscriptionAccessGate();
+    if (typeof applyDemoBanner === 'function') applyDemoBanner();
 
-        const ok = await fetchAllData();
-        if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
-        if (typeof initSidebarGroups === 'function') initSidebarGroups();
-        if (typeof initMobileNav === 'function') initMobileNav();
-        if (typeof initUxImprovements === 'function') initUxImprovements();
-        const onboardingMount = document.getElementById('onboarding-checklist-mount');
-        if (onboardingMount) onboardingMount.classList.remove('hidden');
-        const suspended = typeof applySubscriptionAccessGate === 'function' && applySubscriptionAccessGate();
-        if (typeof applyDemoBanner === 'function') applyDemoBanner();
-
-        const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
-        const initialRoute = hashRoute || 'dashboard';
-        if (suspended) {
-            if (window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
-                /* écran plein prioritaire — pas de modal */
-            }
-            router('pricing');
-        } else if (ok) {
-            router(initialRoute);
-        }
+    const hashRoute = (window.location.hash || '').replace('#', '').split('&')[0].trim();
+    const initialRoute = (typeof resolveTenantAppRoute === 'function')
+        ? resolveTenantAppRoute(hashRoute || 'dashboard')
+        : (hashRoute || 'dashboard');
+    if (suspended) {
+        router('pricing');
     } else {
-        if (typeof applyRoleBasedNav === 'function') applyRoleBasedNav();
-        router('platform_ops');
+        router(initialRoute);
     }
 
     window.addEventListener('hashchange', () => {
         if (!isAuthenticated) return;
         const next = (window.location.hash || '').replace('#', '').split('&')[0].trim();
         if (next && next !== window.currentAppRoute) {
-            router(next || (currentUser?.isPlatformAdmin ? 'platform_ops' : 'dashboard'));
+            router(next || 'dashboard');
         }
     });
-    if (!isOperator && window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
+    if (window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
         const alert = window.cachedSubscription.billingAlert;
         if (alert.type === 'grace_period' || window.cachedSubscription.gracePeriod) {
             showOverdueBillingModal(alert);
@@ -1273,7 +1262,6 @@ function initMobileNav() {
         }
     }
 
-    // Rendre les modaux déplaçables après le premier rendu
     const modalsToMakeDraggable = ['edit-mission-modal', 'add-order-modal', 'add-client-modal', 'driver-modal', 'add-vehicle-modal', 'add-purchase-invoice-modal', 'add-user-modal', 'dispatch-modal', 'add-subcontractor-modal', 'edit-order-modal'];
     modalsToMakeDraggable.forEach(id => {
         const el = document.getElementById(id);
@@ -1763,6 +1751,58 @@ function toggleSelectAllInvoices(masterCheckbox) {
     const checkboxes = document.querySelectorAll('.invoice-checkbox');
     checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
 }
+window.toggleSelectAllInvoices = toggleSelectAllInvoices;
+
+function getSelectedInvoiceIds() {
+    return Array.from(document.querySelectorAll('.invoice-checkbox:checked'))
+        .map((cb) => cb.value)
+        .filter(Boolean);
+}
+
+window.validateSelectedDrafts = async function () {
+    if (typeof canValidateInvoices === 'function' && !canValidateInvoices()) {
+        showToast("Vous n'avez pas l'autorisation de valider des factures.", 'error');
+        return;
+    }
+    const selectedIds = getSelectedInvoiceIds();
+    if (selectedIds.length === 0) {
+        showToast('Cochez au moins un numéro de facture à valider.', 'info');
+        return;
+    }
+    if (!confirm(`Valider ${selectedIds.length} brouillon(s) en facture définitive ?\nUn numéro FAC sera attribué à chacune.`)) {
+        return;
+    }
+    try {
+        const res = await apiFetch('sales-invoices/bulk-validate', {
+            method: 'POST',
+            body: { ids: selectedIds }
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || payload.message || 'Validation impossible.', 'error');
+            return;
+        }
+        const okCount = Array.isArray(payload.validated) ? payload.validated.length : 0;
+        const skipCount = Array.isArray(payload.skipped) ? payload.skipped.length : 0;
+        await fetchAllData();
+        const paErrors = (payload.einvoices || []).filter((row) => row?.einvoice?.error);
+        if (paErrors.length) {
+            showToast(`${okCount} facture(s) validée(s) — ${paErrors.length} transmission(s) PA en échec.`, 'error');
+        } else if (okCount && !skipCount) {
+            showToast(`${okCount} facture(s) validée(s).`, 'success');
+            router('sales_invoices_validated');
+            return;
+        } else {
+            showToast(
+                `${okCount} validée(s)${skipCount ? ` — ${skipCount} ignorée(s)` : ''}.`,
+                skipCount ? 'info' : 'success'
+            );
+        }
+        router(okCount && !skipCount ? 'sales_invoices_validated' : 'sales_invoices_draft');
+    } catch (e) {
+        showToast('Erreur réseau — factures non validées.', 'error');
+    }
+};
 
 // Function to delete selected sales invoices
 async function deleteSelectedInvoices() {
@@ -1770,17 +1810,25 @@ async function deleteSelectedInvoices() {
         showToast("Vous n'avez pas l'autorisation de supprimer des factures.", "error");
         return;
     }
-    const selectedIds = Array.from(document.querySelectorAll('.invoice-checkbox:checked'))
-        .map(cb => cb.value);
+    const selectedIds = getSelectedInvoiceIds();
     if (selectedIds.length === 0) {
         showToast("Veuillez sélectionner au moins une facture à supprimer.", "info");
         return;
     }
     if (confirm(`Êtes-vous sûr de vouloir supprimer ${selectedIds.length} facture(s) ?`)) {
-        await apiFetch('sales-invoices/bulk-delete', { method: 'POST', body: { ids: selectedIds } });
-        await fetchAllData();
-        showToast(`${selectedIds.length} facture(s) supprimée(s).`, "success");
-        router(window.currentAppRoute === 'sales_invoices_draft' ? 'sales_invoices_draft' : 'sales_invoices_validated');
+        try {
+            const res = await apiFetch('sales-invoices/bulk-delete', { method: 'POST', body: { ids: selectedIds } });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Suppression impossible.', 'error');
+                return;
+            }
+            await fetchAllData();
+            showToast(`${selectedIds.length} facture(s) supprimée(s).`, "success");
+            router(window.currentAppRoute === 'sales_invoices_draft' ? 'sales_invoices_draft' : 'sales_invoices_validated');
+        } catch (e) {
+            showToast('Erreur réseau — factures non supprimées.', 'error');
+        }
     }
 }
 
@@ -2687,10 +2735,19 @@ async function finishMission(missionId) {
     const mission = db.missions.find(m => m.id === missionId);
     if (mission) {
         const updatedMission = { ...mission, status: 'Terminé' };
-        await apiFetch(`missions/${missionId}`, { method: 'PUT', body: updatedMission });
-        await fetchAllData();
-        showToast("Mission terminée avec succès", "success");
-        router('inprogress_transports');
+        try {
+            const res = await apiFetch(`missions/${missionId}`, { method: 'PUT', body: updatedMission });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Impossible de terminer la mission', 'error');
+                return;
+            }
+            await fetchAllData();
+            showToast("Mission terminée avec succès", "success");
+            router('inprogress_transports');
+        } catch (err) {
+            showToast(err.message || 'Erreur réseau', 'error');
+        }
     }
 }
 window.finishMission = finishMission;
@@ -2784,7 +2841,7 @@ function renderPlanning() {
                         <button type="button" onclick="window.planningViewMode='board'; router('planning')" class="px-3 py-1.5 text-xs font-bold rounded-md text-gray-600 hover:bg-gray-100">Semaine</button>
                         <button type="button" onclick="window.planningViewMode='day'; router('planning')" class="px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 text-white">Jour / chauffeur</button>
                     </div>
-                    <button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Commande</button>
+                    ${typeof canWriteTransport === 'function' && canWriteTransport() ? `<button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Commande</button>` : ''}
                 </div>
             </div>
             <p class="text-xs text-gray-500 mb-2"><i class="fa-solid fa-hand-pointer mr-1"></i>Glissez un OT vers un autre chauffeur (souris ou tactile).</p>
@@ -2847,7 +2904,7 @@ function renderPlanning() {
                     <button type="button" onclick="window.planningViewMode='board'; router('planning')" class="px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 text-white">Semaine</button>
                     <button type="button" onclick="window.planningViewMode='day'; router('planning')" class="px-3 py-1.5 text-xs font-bold rounded-md text-gray-600 hover:bg-gray-100">Jour / chauffeur</button>
                 </div>
-                <button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Commande</button>
+                ${typeof canWriteTransport === 'function' && canWriteTransport() ? `<button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Commande</button>` : ''}
             </div>
         </div>
         <p class="text-xs text-gray-500 mb-2"><i class="fa-solid fa-hand-pointer mr-1"></i>Glissez un OT vers un autre jour pour changer la date de chargement.</p>
@@ -2894,6 +2951,7 @@ function renderPlanning() {
 function renderClients() {
     const clients = Array.isArray(db.clients) ? db.clients : [];
     const canDelete = typeof canDeleteClients === 'function' && canDeleteClients();
+    const canManage = typeof canManageClients === 'function' && canManageClients();
     const selectedCount = clientSelectedIds.size;
     const allSelected = clients.length > 0 && clients.every((c) => clientSelectedIds.has(c.id));
 
@@ -2905,7 +2963,7 @@ function renderClients() {
                     class="px-3 py-1.5 rounded text-sm border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed">
                     <i class="fa-solid fa-trash mr-1"></i>Supprimer la sélection${selectedCount ? ` (${selectedCount})` : ''}
                 </button>` : ''}
-                <button onclick="openAddClientModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouveau Client</button>
+                ${canManage ? `<button onclick="openAddClientModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouveau Client</button>` : ''}
             </div>
         </div>
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
@@ -2917,10 +2975,11 @@ function renderClients() {
                                 <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleAllClientsSelection(this.checked)" title="Tout sélectionner">
                             </th>` : ''}
                             <th class="px-4 py-3">Client</th>
+                            <th class="px-4 py-3">Contact</th>
                             <th class="px-4 py-3">Email</th>
                             <th class="px-4 py-3">Téléphone</th>
                             <th class="px-4 py-3">Adresse</th>
-                            <th class="px-4 py-3">Actions</th>
+                            ${canManage ? '<th class="px-4 py-3">Actions</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
@@ -2931,14 +2990,18 @@ function renderClients() {
                                 <input type="checkbox" ${checked} onchange="toggleClientSelection(${c.id}, this.checked)">
                             </td>` : ''}
                             <td class="px-4 py-3 font-medium text-gray-900">${renderNameBadge(c.name, 'blue')}</td>
+                            <td class="px-4 py-3">
+                                <div>${c.contact_name || '—'}</div>
+                                <div class="text-xs text-gray-500">${normalizeClientContactType(c.contact_type)}</div>
+                            </td>
                             <td class="px-4 py-3">${c.email || ''}</td>
                             <td class="px-4 py-3">${c.phone || ''}</td>
                             <td class="px-4 py-3">${c.address || ''}</td>
-                            <td class="px-4 py-3 whitespace-nowrap">
+                            ${canManage ? `<td class="px-4 py-3 whitespace-nowrap">
                                 <button onclick="openEditClientModal(${c.id})" class="text-blue-600 hover:underline"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
-                            </td>
+                            </td>` : ''}
                         </tr>`;
-    }).join('') : `<tr><td colspan="${canDelete ? 6 : 5}" class="px-4 py-8 text-center text-gray-400">Aucun client</td></tr>`}
+    }).join('') : `<tr><td colspan="${(canDelete ? 6 : 5) + (canManage ? 1 : 0)}" class="px-4 py-8 text-center text-gray-400">Aucun client</td></tr>`}
                     </tbody>
                 </table>
             </div>
@@ -3507,6 +3570,7 @@ window.generateTransportCmr = generateTransportCmr;
 function renderDrivers() {
     const drivers = Array.isArray(db.drivers) ? db.drivers : [];
     const canDelete = typeof canDeleteCarriers === 'function' && canDeleteCarriers();
+    const canManage = typeof canManageCarriers === 'function' && canManageCarriers();
     const selectedCount = driverSelectedIds.size;
     const allSelected = drivers.length > 0 && drivers.every((d) => driverSelectedIds.has(d.id));
 
@@ -3518,7 +3582,7 @@ function renderDrivers() {
                     class="px-3 py-1.5 rounded text-sm border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed">
                     <i class="fa-solid fa-trash mr-1"></i>Supprimer la sélection${selectedCount ? ` (${selectedCount})` : ''}
                 </button>` : ''}
-                <button onclick="openAddDriverModal()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"><i class="fa-solid fa-plus"></i> Nouveau</button>
+                ${canManage ? `<button type="button" onclick="openAddDriverModal()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"><i class="fa-solid fa-plus"></i> Nouveau</button>` : ''}
             </div>
         </div>
         <div class="overflow-x-auto">
@@ -3558,7 +3622,7 @@ function renderDrivers() {
                             <td class="px-4 py-3">${mobileBadge}</td>
                             <td class="px-4 py-3"><span class="${statusBg} ${statusColor} px-2 py-1 rounded-full text-xs font-semibold">${d.status}</span></td>
                             <td class="px-4 py-3 whitespace-nowrap">
-                                <button onclick="openEditDriverModal(${d.id})" class="text-blue-600 hover:underline"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>
+                                ${canManage ? `<button type="button" onclick="openEditDriverModal(${d.id})" class="text-blue-600 hover:underline"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>` : ''}
                             </td>
                         </tr>`;
     }).join('') : `<tr><td colspan="${canDelete ? 8 : 7}" class="px-4 py-8 text-center text-gray-400">Aucun chauffeur</td></tr>`}
@@ -3655,11 +3719,9 @@ function renderPurchaseInvoiceTableRow(inv, { indent = false, canManage = false 
         : (inv.agency_name || '—');
     const indentClass = indent ? ' purchase-inv-row--detail' : '';
     const invIdEsc = String(inv.id).replace(/'/g, "\\'");
-    const payCell = inv.status === 'Payée'
+    const payCell = !canManage ? '' : `<td class="px-4 py-3">${inv.status === 'Payée'
         ? '<span class="text-xs text-gray-400">—</span>'
-        : (canManage
-            ? `<button type="button" onclick="payPurchaseInvoice('${invIdEsc}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded shadow-sm">Payer</button>`
-            : '<span class="text-xs text-gray-400">—</span>');
+        : `<button type="button" onclick="payPurchaseInvoice('${invIdEsc}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded shadow-sm">Payer</button>`}</td>`;
     return `<tr class="bg-white border-b hover:bg-gray-50${indentClass}">
         <td class="px-4 py-3 font-medium text-gray-900">${indent ? '<span class="text-gray-400 mr-2">↳</span>' : ''}${inv.id}${isAutoAff ? '<br><span class="text-[10px] text-indigo-600 font-semibold">Auto affrètement</span>' : ''}</td>
         <td class="px-4 py-3">${inv.supplier}</td>
@@ -3668,16 +3730,17 @@ function renderPurchaseInvoiceTableRow(inv, { indent = false, canManage = false 
         <td class="px-4 py-3">${inv.type}</td>
         <td class="px-4 py-3 font-bold text-gray-700">-${Number(inv.amount || 0).toLocaleString('fr-FR')} €</td>
         <td class="px-4 py-3"><span class="${inv.status === 'Payée' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'} px-2 py-1 rounded text-xs font-semibold">${inv.status}</span></td>
-        <td class="px-4 py-3">${payCell}</td>
+        ${payCell}
     </tr>`;
 }
 
 function renderPurchaseInvoicesGroupedBody(autoGroups, otherInvoices, canManage = false) {
     const parts = [];
+    const colSpan = canManage ? 8 : 7;
 
     for (const group of autoGroups) {
         parts.push(`<tr class="purchase-inv-group-header bg-indigo-50 border-y border-indigo-100">
-            <td colspan="8" class="px-4 py-3">
+            <td colspan="${colSpan}" class="px-4 py-3">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <span class="font-bold text-indigo-900">${group.subcontractor_name}</span>
@@ -3697,14 +3760,14 @@ function renderPurchaseInvoicesGroupedBody(autoGroups, otherInvoices, canManage 
     if (otherInvoices.length) {
         if (autoGroups.length) {
             parts.push(`<tr class="purchase-inv-group-header bg-gray-50 border-y border-gray-200">
-                <td colspan="8" class="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-500">Autres factures d'achat</td>
+                <td colspan="${colSpan}" class="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-500">Autres factures d'achat</td>
             </tr>`);
         }
         parts.push(otherInvoices.map((inv) => renderPurchaseInvoiceTableRow(inv, { canManage })).join(''));
     }
 
     if (!parts.length) {
-        return '<tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 italic">Aucune facture d\'achat</td></tr>';
+        return `<tr><td colspan="${colSpan}" class="px-4 py-10 text-center text-gray-400 italic">Aucune facture d'achat</td></tr>`;
     }
     return parts.join('');
 }
@@ -3732,7 +3795,7 @@ function renderPurchaseInvoices() {
             <div class="flex items-center gap-4">
                <h3 class="font-bold text-lg mb-4 text-gray-800">Gestion des Factures d'Achats</h3>
             </div>
-            ${canManage ? `<button onclick="openAddPurchaseInvoiceModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Ajouter une facture</button>` : `<span class="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded"><i class="fa-solid fa-lock mr-2"></i>Lecture seule</span>`}
+            ${canManage ? `<button onclick="openAddPurchaseInvoiceModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Ajouter une facture</button>` : ''}
         </div>
         <div class="flex flex-wrap gap-3 mb-4">
             <select onchange="purchaseInvoiceFilter.subcontractor_id=this.value; router('purchase_invoices')" class="border rounded px-3 py-2 text-sm">
@@ -3751,7 +3814,7 @@ function renderPurchaseInvoices() {
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                    <tr><th class="px-4 py-3">N° Pièce</th><th class="px-4 py-3">Fournisseur</th><th class="px-4 py-3">Sous-traitant / Commande</th><th class="px-4 py-3">Agence</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Montant TTC</th><th class="px-4 py-3">Statut</th><th class="px-4 py-3">Payer</th></tr>
+                    <tr><th class="px-4 py-3">N° Pièce</th><th class="px-4 py-3">Fournisseur</th><th class="px-4 py-3">Sous-traitant / Commande</th><th class="px-4 py-3">Agence</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Montant TTC</th><th class="px-4 py-3">Statut</th>${canManage ? '<th class="px-4 py-3">Payer</th>' : ''}</tr>
                 </thead>
                 <tbody>
                     ${renderPurchaseInvoicesGroupedBody(autoAffGroups, otherInvoices, canManage)}
@@ -3797,7 +3860,7 @@ window.payPurchaseInvoice = async function (invoiceId) {
     if (!confirm(`Solder la facture ${invoiceId} (${amountLabel}) ?`)) return;
 
     try {
-        await apiFetch(`purchase-invoices/${encodeURIComponent(invoiceId)}`, {
+        const res = await apiFetch(`purchase-invoices/${encodeURIComponent(invoiceId)}`, {
             method: 'PUT',
             body: {
                 supplier: inv.supplier,
@@ -3810,6 +3873,11 @@ window.payPurchaseInvoice = async function (invoiceId) {
                 order_id: inv.order_id || null
             }
         });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Impossible de solder la facture.', 'error');
+            return;
+        }
         await fetchAllData();
         showToast('Facture soldée.', 'success');
         router('purchase_invoices');
@@ -3969,22 +4037,33 @@ function updateInvoiceModalCreditNoteUi(inv) {
 
 function renderSalesInvoices(view = 'validated') {
     const canManage = canManageInvoices();
+    const canValidate = typeof canValidateInvoices === 'function' ? canValidateInvoices() : canManage;
     const allInvoices = Array.isArray(db.sales_invoices) ? db.sales_invoices : [];
     const invoices = view === 'draft'
         ? allInvoices.filter(isSalesInvoiceDraft)
         : allInvoices.filter(isSalesInvoiceValidated);
-    const title = view === 'draft' ? 'Factures — Brouillon' : 'Factures validées';
-    const subtitle = view === 'draft'
-        ? 'Factures en cours de rédaction, non encore validées — cliquez sur une ligne pour ouvrir le détail'
+    const isDraftView = view === 'draft';
+    const showDraftSelect = isDraftView && (canValidate || canManage);
+    const showValidatedSelect = !isDraftView && canManage;
+    const title = isDraftView ? 'Factures — Brouillon' : 'Factures validées';
+    const subtitle = isDraftView
+        ? 'Cochez les numéros de facture puis validez-les en facture définitive'
         : 'Factures validées, payées ou avoirs émis — cliquez sur une ligne pour voir le détail et émettre un avoir';
+    const emptyColSpan = isDraftView
+        ? 5
+        : (5 + 1 + (canManage ? 2 : 0));
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex justify-between items-center mb-6 gap-4 flex-wrap">
             <div>
                 <h3 class="font-bold text-lg text-gray-800">${title}</h3>
                 <p class="text-xs text-gray-500">${subtitle}</p>
             </div>
-            <div class="flex gap-2 items-center">
+            <div class="flex gap-2 items-center flex-wrap">
                 <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">${invoices.length}</span>
+                ${isDraftView && canValidate ? `
+                <button type="button" onclick="validateSelectedDrafts()" class="bg-emerald-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-emerald-700">
+                    <i class="fa-solid fa-check mr-1"></i> Valider en facture
+                </button>` : ''}
                 ${canManage ? `
                 <button onclick="deleteSelectedInvoices()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
                     <i class="fa-solid fa-trash mr-1"></i> Supprimer sélection
@@ -3997,19 +4076,24 @@ function renderSalesInvoices(view = 'validated') {
                 </button>` : ''}
             </div>
         </div>
-        ${canExportAccounting() && view !== 'draft' ? `<div class="mb-4"><a href="#" onclick="router('accounting_export')" class="text-sm text-emerald-700 hover:underline"><i class="fa-solid fa-file-csv mr-1"></i>Export comptable CSV</a></div>` : ''}
+        ${canExportAccounting() && !isDraftView ? `<div class="mb-4"><a href="#" onclick="router('accounting_export')" class="text-sm text-emerald-700 hover:underline"><i class="fa-solid fa-file-csv mr-1"></i>Export comptable CSV</a></div>` : ''}
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
                     <tr>
-                        <th class="px-4 py-3"><input type="checkbox" onchange="toggleSelectAllInvoices(this)"></th>
-                        <th class="px-4 py-3">N° Facture</th>
+                        ${showValidatedSelect ? '<th class="px-4 py-3"><input type="checkbox" onchange="toggleSelectAllInvoices(this)" aria-label="Tout sélectionner"></th>' : ''}
+                        <th class="px-4 py-3">
+                            ${showDraftSelect ? `<label class="inline-flex items-center gap-2 cursor-pointer font-semibold text-gray-700">
+                                <input type="checkbox" onchange="toggleSelectAllInvoices(this)" aria-label="Sélectionner tous les numéros de facture">
+                                <span>Numéro de facture</span>
+                            </label>` : 'N° Facture'}
+                        </th>
                         <th class="px-4 py-3">Client</th>
                         <th class="px-4 py-3">Date</th>
                         <th class="px-4 py-3">Montant TTC</th>
                         <th class="px-4 py-3">Statut</th>
-                        ${view === 'draft' ? '' : '<th class="px-4 py-3">PA</th>'}
-                        ${view === 'draft' ? '' : '<th class="px-4 py-3">Relances</th>'}
+                        ${isDraftView ? '' : '<th class="px-4 py-3">PA</th>'}
+                        ${isDraftView || !canManage ? '' : '<th class="px-4 py-3">Relances</th>'}
                     </tr>
                 </thead>
                 <tbody>
@@ -4025,29 +4109,37 @@ function renderSalesInvoices(view = 'validated') {
             : `${Number(inv.amount).toLocaleString('fr-FR')} €`;
         const amountClass = isCreditNote ? 'text-red-600' : 'text-gray-700';
         const invIdEsc = String(inv.id).replace(/'/g, "\\'");
-        const showRelance = view !== 'draft' && !isCreditNote && inv.status !== 'Payée' && canManage;
-        const relanceCell = view === 'draft' ? '' : `<td class="px-4 py-3 text-sm text-gray-600" onclick="event.stopPropagation()">
+        const showRelance = !isDraftView && !isCreditNote && inv.status !== 'Payée' && canManage;
+        const relanceCell = isDraftView || !canManage ? '' : `<td class="px-4 py-3 text-sm text-gray-600" onclick="event.stopPropagation()">
                                 ${showRelance ? `<button onclick="relanceFacture('${invIdEsc}')" class="text-orange-600 hover:underline text-xs mr-2">Relancer</button>` : ''}
                                 ${reminderLabel}
                             </td>`;
-        return `<tr class="bg-white border-b hover:bg-blue-50/40 cursor-pointer sales-inv-row transition-colors" onclick="openInvoiceModal('${invIdEsc}')">
-                            <td class="px-4 py-3" onclick="event.stopPropagation()"><input type="checkbox" class="invoice-checkbox" value="${inv.id}"></td>
-                            <td class="px-4 py-3 font-medium text-gray-900">
-                                ${invoiceNumber}
+        const numberCell = showDraftSelect
+            ? `<td class="px-4 py-3 font-medium text-gray-900" onclick="event.stopPropagation()">
+                                <label class="inline-flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" class="invoice-checkbox" value="${inv.id}" aria-label="Sélectionner ${esc(String(invoiceNumber))}">
+                                    <span>${esc(String(invoiceNumber))}</span>
+                                </label>
+                            </td>`
+            : `<td class="px-4 py-3 font-medium text-gray-900">
+                                ${esc(String(invoiceNumber))}
                                 ${isCreditNote ? '<span class="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">Avoir</span>' : ''}
-                            </td>
-                            <td class="px-4 py-3">${client ? client.name : '-'}</td>
+                            </td>`;
+        return `<tr class="bg-white border-b hover:bg-blue-50/40 cursor-pointer sales-inv-row transition-colors" onclick="openInvoiceModal('${invIdEsc}')">
+                            ${showValidatedSelect ? `<td class="px-4 py-3" onclick="event.stopPropagation()"><input type="checkbox" class="invoice-checkbox" value="${inv.id}"></td>` : ''}
+                            ${numberCell}
+                            <td class="px-4 py-3">${client ? esc(client.name) : '-'}</td>
                             <td class="px-4 py-3">${formatDisplayDate(inv.date)}</td>
                             <td class="px-4 py-3 font-bold ${amountClass}">${amountLabel}</td>
                             <td class="px-4 py-3">
                                 <span class="px-2 py-1 rounded text-xs font-semibold ${inv.status === 'Payée' ? 'bg-green-100 text-green-800' :
                 inv.status === 'Brouillon' ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800'
-            }">${inv.status}</span>
+            }">${esc(String(inv.status || ''))}</span>
                             </td>
-                            ${view === 'draft' ? '' : `<td class="px-4 py-3">${renderPaStatusBadge(inv)}</td>`}
+                            ${isDraftView ? '' : `<td class="px-4 py-3">${renderPaStatusBadge(inv)}</td>`}
                             ${relanceCell}
                         </tr>`;
-    }).join('') : `<tr><td colspan="${view === 'draft' ? 6 : 8}" class="px-4 py-10 text-center text-gray-400 italic">${view === 'draft' ? 'Aucun brouillon' : 'Aucune facture validée'}</td></tr>`}
+    }).join('') : `<tr><td colspan="${emptyColSpan}" class="px-4 py-10 text-center text-gray-400 italic">${isDraftView ? 'Aucun brouillon' : 'Aucune facture validée'}</td></tr>`}
                 </tbody>
             </table>
         </div>
@@ -4230,12 +4322,16 @@ window.openInvoiceModal = async function (invoiceId) {
     // 7. Actions
     const editBtn = document.getElementById('edit-draft-btn');
     if (editBtn) {
-        if (isDraft) {
-            editBtn.classList.remove('hidden');
-            editBtn.onclick = () => { closeInvoiceModal(); editDraft(inv.id); };
-        } else {
-            editBtn.classList.add('hidden');
-        }
+        const canEditDraft = isDraft && canManageInvoices();
+        editBtn.classList.toggle('hidden', !canEditDraft);
+        editBtn.onclick = canEditDraft ? () => { closeInvoiceModal(); editDraft(inv.id); } : null;
+    }
+
+    const validateBtn = document.getElementById('validate-draft-btn');
+    if (validateBtn) {
+        const canValidateDraft = isDraft && (typeof canValidateInvoices === 'function' ? canValidateInvoices() : canManageInvoices());
+        validateBtn.classList.toggle('hidden', !canValidateDraft);
+        validateBtn.onclick = canValidateDraft ? () => validateDraft(inv.id) : null;
     }
 
     const downloadBtn = document.getElementById('download-btn');
@@ -5510,9 +5606,9 @@ function renderSustainability(stats = null) {
                 <h2 class="text-2xl font-bold text-gray-800"><i class="fa-solid fa-leaf text-green-600 mr-2"></i>Durabilité</h2>
                 <p class="text-sm text-gray-500 mt-1">Calcul carbone GLEC Framework 2.0 — Scope 3 par expédition, avec consommation réelle et taux de remplissage.</p>
             </div>
-            <button type="button" onclick="recalculateAllCarbon()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
+            ${typeof planHasFeature === 'function' && planHasFeature('carbon_tracking') ? `<button type="button" onclick="recalculateAllCarbon()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
                 <i class="fa-solid fa-rotate mr-1"></i>Recalculer tous les transports
-            </button>
+            </button>` : ''}
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -5671,7 +5767,7 @@ async function recalculateAllCarbon() {
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error || 'Recalcul impossible');
         showToast(`${json.data?.updated || 0} transport(s) recalculé(s)`, 'success');
-        await refreshData();
+        await fetchAllData();
         const stats = await loadSustainabilityStats();
         document.getElementById('app-content').innerHTML = renderSustainability(stats);
     } catch (e) {
@@ -5993,7 +6089,7 @@ async function renderPublicTrackingPage() {
                     <div><span class="text-gray-400 text-xs uppercase">Mode</span><p>${escapeHtml(data.transportMode || '—')}</p></div>
                     <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Trajet</span><p>${escapeHtml(data.origin || '—')} → ${escapeHtml(data.destination || '—')}</p></div>
                     <div><span class="text-gray-400 text-xs uppercase">Poids taxé</span><p>${data.taxableWeightKg ? `${escapeHtml(data.taxableWeightKg)} kg` : '—'}</p></div>
-                    <div><span class="text-gray-400 text-xs uppercase">Km PL</span><p>${data.routeKmHgv ? `${escapeHtml(data.routeKmHgv)} km` : '—'}</p></div>
+                    <div><span class="text-gray-400 text-xs uppercase">Km PL</span><p>${data.routeKmHgv ? `${escapeHtml(data.routeKmHgv)} km` : '—'}${data.plannedRoute?.durationMin ? ` · ~${escapeHtml(data.plannedRoute.durationMin)} min` : ''}</p></div>
                     <div><span class="text-gray-400 text-xs uppercase">Chauffeur</span><p>${escapeHtml(data.driverName || '—')}</p></div>
                     <div><span class="text-gray-400 text-xs uppercase">Véhicule</span><p>${escapeHtml(data.vehiclePlate || '—')}</p></div>
                 </div>
@@ -6269,8 +6365,8 @@ async function router(route) {
         return;
     }
     if (typeof closeMobileNav === 'function') closeMobileNav();
-    if (currentUser?.isPlatformAdmin && route !== 'platform_ops' && route !== 'platform_crm') {
-        route = 'platform_ops';
+    if (typeof resolveTenantAppRoute === 'function') {
+        route = resolveTenantAppRoute(route);
     }
     if (typeof canAccessRoute === 'function' && !canAccessRoute(route)) {
         showToast("Accès refusé pour votre rôle", "error");
@@ -7064,14 +7160,23 @@ async function submitEditMission() {
             delivery_time: document.getElementById('edit-mission-delivery-time').value
         };
 
-        await apiFetch(`missions/${missionId}`, { method: 'PUT', body: updatedMission });
-        await fetchAllData();
-        showToast('Mission mise à jour avec succès', 'success');
-        closeEditMissionModal();
-        router('planning');
+        try {
+            const res = await apiFetch(`missions/${missionId}`, { method: 'PUT', body: updatedMission });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Mise à jour de la mission impossible.', 'error');
+                return;
+            }
+            await fetchAllData();
+            showToast('Mission mise à jour avec succès', 'success');
+            closeEditMissionModal();
+            router('planning');
+        } catch (e) {
+            showToast('Erreur réseau — mission non mise à jour.', 'error');
+        }
     }
 }
-+
+
     function openAddMissionModal() {
         hideAllModals();
         // Populate clients
@@ -7123,7 +7228,39 @@ async function submitAddMission() {
 }
 
 // --- CLIENT MODALS ---
+const CLIENT_CONTACT_TYPES = ['Dirigeant', 'Exploitant', 'Comptabilité', 'Autre'];
+const CLIENT_CONTACT_TYPE_ALIASES = {
+    dirigeant: 'Dirigeant',
+    direction: 'Dirigeant',
+    admin: 'Dirigeant',
+    exploitant: 'Exploitant',
+    comptable: 'Comptabilité',
+    'comptabilité': 'Comptabilité',
+    comptabilite: 'Comptabilité',
+    autre: 'Autre',
+    other: 'Autre'
+};
+
+function normalizeClientContactType(value) {
+    const raw = String(value || '').trim();
+    if (CLIENT_CONTACT_TYPES.includes(raw)) return raw;
+    return CLIENT_CONTACT_TYPE_ALIASES[raw.toLowerCase()] || 'Exploitant';
+}
+
+function fillClientContactTypeSelect(selected) {
+    const el = document.getElementById('add-client-contact-type');
+    if (!el) return;
+    const value = normalizeClientContactType(selected);
+    el.innerHTML = CLIENT_CONTACT_TYPES
+        .map((type) => `<option value="${type}">${type}</option>`)
+        .join('');
+    el.disabled = false;
+    el.value = value;
+}
+
 function openAddClientModal() {
+    if (typeof canManageClients === 'function' && !canManageClients()) return;
+
     hideAllModals();
 
     // Important: le modal aperçu facture (modal-overlay / modal-content) ne doit jamais être réutilisé ici.
@@ -7153,11 +7290,11 @@ function openAddClientModal() {
     document.getElementById('add-client-address').value = '';
     document.getElementById('add-client-tva').value = '';
     document.getElementById('add-client-contact-name').value = '';
-    const contactTypeEl = document.getElementById('add-client-contact-type');
-    if (contactTypeEl) contactTypeEl.value = 'Exploitant';
+    fillClientContactTypeSelect('Exploitant');
 }
 
 function openEditClientModal(clientId) {
+    if (typeof canManageClients === 'function' && !canManageClients()) return;
     hideAllModals();
     const client = db.clients.find(c => c.id === clientId);
     if (!client) return;
@@ -7172,8 +7309,7 @@ function openEditClientModal(clientId) {
     document.getElementById('add-client-address').value = client.address;
     document.getElementById('add-client-tva').value = client.tva || '';
     document.getElementById('add-client-contact-name').value = client.contact_name || '';
-    const contactTypeEl = document.getElementById('add-client-contact-type');
-    if (contactTypeEl) contactTypeEl.value = client.contact_type || 'Exploitant';
+    fillClientContactTypeSelect(client.contact_type);
 
     document.getElementById('add-client-modal').classList.remove('hidden');
 }
@@ -7193,7 +7329,7 @@ async function submitAddClient() {
         address: document.getElementById('add-client-address').value,
         tva: document.getElementById('add-client-tva').value,
         contact_name: document.getElementById('add-client-contact-name').value,
-        contact_type: document.getElementById('add-client-contact-type')?.value || 'Exploitant'
+        contact_type: normalizeClientContactType(document.getElementById('add-client-contact-type')?.value)
     };
 
     if (!clientData.name) {
@@ -7392,7 +7528,7 @@ function syncDriverMobileSection({ mode, driver } = {}) {
     }
 
     if (regenerateBtn && actionsEl) {
-        const showRegenerate = isEdit && !isActivated;
+        const showRegenerate = isEdit && !isActivated && typeof canManageCarriers === 'function' && canManageCarriers();
         actionsEl.classList.toggle('hidden', !showRegenerate);
         regenerateBtn.innerHTML = hasCode
             ? '<i class="fa-solid fa-rotate mr-1"></i>Nouveau code'
@@ -7421,35 +7557,16 @@ function syncDriverMobileSection({ mode, driver } = {}) {
 }
 
 function showDriverInviteCodeAfterCreate(driver) {
-    const optionEl = document.getElementById('driver-mobile-option');
-    const pendingEl = document.getElementById('driver-mobile-pending');
-    const displayEl = document.getElementById('driver-invite-display');
-    const codeEl = document.getElementById('driver-invite-code');
+    const idEl = document.getElementById('edit-driver-id');
+    if (idEl && driver?.id) idEl.value = driver.id;
+
+    syncDriverMobileSection({ mode: 'edit', driver });
+
     const statusEl = document.getElementById('driver-mobile-status');
-    const actionsEl = document.getElementById('driver-mobile-actions');
-    const regenerateBtn = document.getElementById('btn-regenerate-driver-invite');
-
-    if (optionEl) optionEl.classList.add('hidden');
-    if (pendingEl) pendingEl.classList.add('hidden');
-
-    if (driver?.invite_code) {
-        if (displayEl) displayEl.classList.remove('hidden');
-        if (codeEl) codeEl.value = driver.invite_code;
-        if (actionsEl) actionsEl.classList.remove('hidden');
-        if (regenerateBtn) {
-            regenerateBtn.innerHTML = '<i class="fa-solid fa-rotate mr-1"></i>Nouveau code';
-        }
-        if (statusEl) {
-            statusEl.textContent = 'Code généré — copiez-le et transmettez-le au chauffeur avant de fermer.';
-            statusEl.className = 'text-xs mt-2 ml-7 text-teal-900 font-semibold';
-        }
-    } else {
-        if (displayEl) displayEl.classList.add('hidden');
-        if (actionsEl) actionsEl.classList.add('hidden');
-        if (statusEl) {
-            statusEl.textContent = 'Chauffeur créé sans accès mobile.';
-            statusEl.className = 'text-xs mt-2 ml-7 text-gray-500';
-        }
+    if (!statusEl) return;
+    if (driver?.invite_code && !driver?.user_account_id) {
+        statusEl.textContent = 'Code généré — copiez-le et transmettez-le au chauffeur, ou générez-en un nouveau.';
+        statusEl.className = 'text-xs mt-2 ml-7 text-teal-900 font-semibold';
     }
 }
 
@@ -7540,7 +7657,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function setDriverSubmitButton(mode) {
+    const btn = document.getElementById('btn-submit-driver');
+    if (!btn) return;
+    if (mode === 'created') {
+        btn.type = 'button';
+        btn.disabled = false;
+        btn.textContent = 'Fermer';
+        btn.onclick = () => closeDriverModal();
+        return;
+    }
+    btn.type = 'submit';
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer';
+    btn.onclick = null;
+}
+
 function openAddDriverModal() {
+    if (typeof canManageCarriers === 'function' && !canManageCarriers()) {
+        showToast("Vous n'avez pas l'autorisation d'ajouter un chauffeur.", 'error');
+        return;
+    }
     hideAllModals();
     document.getElementById('driver-modal-title').textContent = 'Nouveau Chauffeur';
     document.getElementById('edit-driver-id').value = '';
@@ -7557,6 +7694,7 @@ function openAddDriverModal() {
     if (licenseHint) licenseHint.innerHTML = '';
     populateDriverFleetSelects(null, null);
     syncDriverMobileSection({ mode: 'create' });
+    setDriverSubmitButton('save');
 
     const deleteBtn = document.getElementById('btn-delete-driver');
     if (deleteBtn) deleteBtn.classList.add('hidden');
@@ -7583,6 +7721,7 @@ function openEditDriverModal(driverId) {
     document.getElementById('driver-notes').value = driver.notes || '';
     populateDriverFleetSelects(driver.default_vehicle_id, driver.default_trailer_id);
     syncDriverMobileSection({ mode: 'edit', driver });
+    setDriverSubmitButton('save');
 
     const deleteBtn = document.getElementById('btn-delete-driver');
     if (deleteBtn) {
@@ -7596,8 +7735,15 @@ function closeDriverModal() {
     hideAllModals();
 }
 
+let driverSubmitInFlight = false;
+
 async function submitDriver(e) {
     if (e) e.preventDefault();
+    if (typeof canManageCarriers === 'function' && !canManageCarriers()) {
+        showToast("Vous n'avez pas l'autorisation d'enregistrer un chauffeur.", 'error');
+        return;
+    }
+    if (driverSubmitInFlight) return;
     const id = document.getElementById('edit-driver-id').value;
     const licenseFile = document.getElementById('driver-license-file')?.files?.[0];
 
@@ -7626,6 +7772,10 @@ async function submitDriver(e) {
         body.append('license_doc', licenseFile);
     }
 
+    const submitBtn = document.getElementById('btn-submit-driver');
+    driverSubmitInFlight = true;
+    if (submitBtn) submitBtn.disabled = true;
+
     try {
         const response = await apiFetch(id ? `drivers/${id}` : 'drivers', { method: id ? 'PUT' : 'POST', body });
 
@@ -7638,26 +7788,33 @@ async function submitDriver(e) {
                 router('drivers');
             } else {
                 await fetchAllData();
-                document.getElementById('edit-driver-id').value = result.id || '';
                 document.getElementById('driver-modal-title').textContent = 'Chauffeur créé';
-                const created = db.drivers.find(d => String(d.id) === String(result.id));
-                showDriverInviteCodeAfterCreate(created || result);
+                const created = db.drivers.find(d => String(d.id) === String(result.id)) || result;
+                if (created?.id) {
+                    document.getElementById('edit-driver-id').value = created.id;
+                }
+                const deleteBtn = document.getElementById('btn-delete-driver');
+                if (deleteBtn) {
+                    deleteBtn.classList.toggle('hidden', !(typeof canDeleteCarriers === 'function' && canDeleteCarriers()));
+                }
+                showDriverInviteCodeAfterCreate(created);
+                setDriverSubmitButton('created');
                 if (result.invite_code) {
                     showToast(`Code d'activation : ${result.invite_code}`, 'success');
                 } else {
                     showToast('Chauffeur ajouté (sans accès mobile)', 'success');
                 }
-                const deleteBtn = document.getElementById('btn-delete-driver');
-                if (deleteBtn && result.id && typeof canDeleteCarriers === 'function' && canDeleteCarriers()) {
-                    deleteBtn.classList.remove('hidden');
-                }
             }
         } else {
             const errorData = await response.json();
             showToast(errorData.error || `Erreur ${response.status}`, "error");
+            if (submitBtn && submitBtn.type === 'submit') submitBtn.disabled = false;
         }
     } catch (error) {
         showToast("Erreur réseau - Vérifiez le serveur Backend", "error");
+        if (submitBtn && submitBtn.type === 'submit') submitBtn.disabled = false;
+    } finally {
+        driverSubmitInFlight = false;
     }
 }
 
@@ -8535,11 +8692,20 @@ async function submitPurchaseInvoice() {
             subcontractor_id: type === 'Sous-traitance' && subcontractorId ? subcontractorId : null,
             order_id: orderId || null
         };
-        await apiFetch('purchase-invoices', { method: 'POST', body: newInvoice });
-        await fetchAllData();
-        showToast('Facture d\'achat ajoutée avec succès', 'success');
-        closeAddPurchaseInvoiceModal();
-        router('purchase_invoices');
+        try {
+            const res = await apiFetch('purchase-invoices', { method: 'POST', body: newInvoice });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Création de la facture impossible.', 'error');
+                return;
+            }
+            await fetchAllData();
+            showToast('Facture d\'achat ajoutée avec succès', 'success');
+            closeAddPurchaseInvoiceModal();
+            router('purchase_invoices');
+        } catch (e) {
+            showToast('Erreur réseau — facture non créée.', 'error');
+        }
     } else {
         showToast('Veuillez remplir tous les champs obligatoires', 'error');
     }
@@ -8586,11 +8752,20 @@ async function submitAddUser() {
         }
         const newUser = { name, email, role, password };
         if (role === 'chauffeur') newUser.driver_id = parseInt(driverId, 10);
-        await apiFetch('users', { method: 'POST', body: newUser });
-        await fetchAllData();
-        showToast('Utilisateur créé avec succès', 'success');
-        closeAddUserModal();
-        router('admin');
+        try {
+            const res = await apiFetch('users', { method: 'POST', body: newUser });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Création de l\'utilisateur impossible.', 'error');
+                return;
+            }
+            await fetchAllData();
+            showToast('Utilisateur créé avec succès', 'success');
+            closeAddUserModal();
+            router('admin');
+        } catch (e) {
+            showToast('Erreur réseau — utilisateur non créé.', 'error');
+        }
     } else {
         showToast('Veuillez remplir tous les champs', 'error');
     }
@@ -8655,6 +8830,10 @@ function closeModal() {
 }
 
 window.validateDraft = async function (invoiceId) {
+    if (typeof canValidateInvoices === 'function' && !canValidateInvoices()) {
+        showToast("Vous n'avez pas l'autorisation de valider des factures.", 'error');
+        return;
+    }
     if (!confirm("Voulez-vous transformer ce brouillon en facture définitive ?")) return;
     try {
         const res = await apiFetch(`sales-invoices/${invoiceId}/validate`, { method: 'POST' });
@@ -9696,6 +9875,7 @@ window.createOrderFromQuotation = function () {
 };
 
 function openAddOrderModal(prefill = {}) {
+    if (typeof canWriteTransport === 'function' && !canWriteTransport()) return;
     hideAllModals();
     populateAddOrderClientSelect(prefill.client_id);
 
@@ -9824,36 +10004,47 @@ async function submitAddOrder() {
     }
 
     if (newOrder.client_id && newOrder.origin && newOrder.dest && newOrder.load_date) {
+        // Verrou maintenu jusqu'à la fin du refresh : un second clic pendant
+        // fetchAllData créerait une commande en double.
         isSubmittingOrder = true;
-        const res = await apiFetch('transport-orders', { method: 'POST', body: newOrder });
-        isSubmittingOrder = false;
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            showToast(err.error || 'Erreur lors de la création', 'error');
-            return;
-        }
-        const created = await res.json().catch(() => ({}));
-        const orderId = created?.id || created?.data?.id;
-        const trackingCode = created?.tracking_code || created?.data?.tracking_code;
-        if (created?.ref) {
-            const refInput = document.getElementById('add-order-ref');
-            if (refInput) refInput.value = created.ref;
-        }
-        if (trackingCode) {
-            showToast(`Commande créée — Code suivi : ${trackingCode}`, 'success');
-        } else {
-            showToast('Commande créée avec succès !', 'success');
-        }
-        saveOrderQuickPrefs({
-            lastClientId: newOrder.client_id,
-            lastDriverId: assignment.driver_id || null
-        });
-        closeAddOrderModal();
-        if (typeof refreshAfterMvpStep === 'function') {
-            await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });
-        } else {
-            await fetchAllData();
-            router('planning');
+        try {
+            let res;
+            try {
+                res = await apiFetch('transport-orders', { method: 'POST', body: newOrder });
+            } catch (err) {
+                showToast(err.message || 'Erreur réseau lors de la création', 'error');
+                return;
+            }
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.error || 'Erreur lors de la création', 'error');
+                return;
+            }
+            const created = await res.json().catch(() => ({}));
+            const orderId = created?.id || created?.data?.id;
+            const trackingCode = created?.tracking_code || created?.data?.tracking_code;
+            if (created?.ref) {
+                const refInput = document.getElementById('add-order-ref');
+                if (refInput) refInput.value = created.ref;
+            }
+            if (trackingCode) {
+                showToast(`Commande créée — Code suivi : ${trackingCode}`, 'success');
+            } else {
+                showToast('Commande créée avec succès !', 'success');
+            }
+            saveOrderQuickPrefs({
+                lastClientId: newOrder.client_id,
+                lastDriverId: assignment.driver_id || null
+            });
+            closeAddOrderModal();
+            if (typeof refreshAfterMvpStep === 'function') {
+                await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });
+            } else {
+                await fetchAllData();
+                router('planning');
+            }
+        } finally {
+            isSubmittingOrder = false;
         }
     } else {
         showToast('Veuillez remplir les champs obligatoires', 'error');
@@ -9959,6 +10150,7 @@ function closeEditOrderModal() {
 }
 
 async function submitEditOrder() {
+    if (isSubmittingOrder) return;
     const orderId = parseInt(document.getElementById('edit-order-id').value, 10);
     const order = db.orders.find(o => o.id === orderId);
 
@@ -9983,32 +10175,49 @@ async function submitEditOrder() {
             return;
         }
 
-        await apiFetch(`transport-orders/${orderId}`, {
-            method: 'PATCH', body: {
-                ref: document.getElementById('edit-order-ref').value,
-                client_id: parseInt(document.getElementById('edit-order-client').value, 10),
-                cargo: document.getElementById('edit-order-cargo').value,
-                origin: document.getElementById('edit-order-origin').value,
-                dest: document.getElementById('edit-order-dest').value,
-                load_date: document.getElementById('edit-order-load-date').value,
-                delivery_date: document.getElementById('edit-order-delivery-date').value,
-                weight: parseFloat(document.getElementById('edit-order-weight').value) || 0,
-                price: parseFloat(document.getElementById('edit-order-price').value) || 0,
-                ...assignment,
-                ...pallet,
-                ...cmr
+        isSubmittingOrder = true;
+        try {
+            const patchRes = await apiFetch(`transport-orders/${orderId}`, {
+                method: 'PATCH', body: {
+                    ref: document.getElementById('edit-order-ref').value,
+                    client_id: parseInt(document.getElementById('edit-order-client').value, 10),
+                    cargo: document.getElementById('edit-order-cargo').value,
+                    origin: document.getElementById('edit-order-origin').value,
+                    dest: document.getElementById('edit-order-dest').value,
+                    load_date: document.getElementById('edit-order-load-date').value,
+                    delivery_date: document.getElementById('edit-order-delivery-date').value,
+                    weight: parseFloat(document.getElementById('edit-order-weight').value) || 0,
+                    price: parseFloat(document.getElementById('edit-order-price').value) || 0,
+                    ...assignment,
+                    ...pallet,
+                    ...cmr
+                }
+            });
+            if (!patchRes.ok) {
+                const err = await patchRes.json().catch(() => ({}));
+                showToast(err.error || 'Impossible de mettre à jour la commande', 'error');
+                return;
             }
-        });
-        if (updatedStatus !== order.status) {
-            await apiFetch(`transport-orders/${orderId}/status`, { method: 'POST', body: { status: updatedStatus } });
-        }
-        showToast('Commande mise à jour avec succès', 'success');
-        closeEditOrderModal();
-        if (typeof refreshAfterMvpStep === 'function') {
-            await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });
-        } else {
-            await fetchAllData();
-            router('planning');
+            if (updatedStatus !== order.status) {
+                const statusRes = await apiFetch(`transport-orders/${orderId}/status`, { method: 'POST', body: { status: updatedStatus } });
+                if (!statusRes.ok) {
+                    const err = await statusRes.json().catch(() => ({}));
+                    showToast(err.error || 'Statut non mis à jour', 'error');
+                    return;
+                }
+            }
+            showToast('Commande mise à jour avec succès', 'success');
+            closeEditOrderModal();
+            if (typeof refreshAfterMvpStep === 'function') {
+                await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });
+            } else {
+                await fetchAllData();
+                router('planning');
+            }
+        } catch (err) {
+            showToast(err.message || 'Erreur lors de la mise à jour', 'error');
+        } finally {
+            isSubmittingOrder = false;
         }
     } else {
         showToast('Commande non trouvée', 'error');

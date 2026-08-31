@@ -200,7 +200,7 @@
                     </li>
                 </ul>
 
-                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Finances & Admin</p>
+                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Finances</p>
                 <ul class="space-y-1 mb-4">
                     <li data-nav-route="preinvoicing" data-tour="nav_prefacture">
                         <button type="button" onclick="router('preinvoicing')"
@@ -282,7 +282,7 @@
                     <li data-nav-route="admin">
                         <button type="button" onclick="router('admin')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-lock w-6" aria-hidden="true"></i>
+                            <i class="fa-solid fa-gear w-6" aria-hidden="true"></i>
                             <span>Administration</span>
                         </button>
                     </li>
@@ -421,7 +421,7 @@
                                     <option value="compact">Densifié</option>
                                 </select>
                             </div>
-                            <button type="button" role="menuitem" onclick="closeAccountMenu(); router('pricing')"
+                            <button type="button" role="menuitem" data-role="admin" onclick="closeAccountMenu(); router('pricing')"
                                 class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                                 <i class="fa-solid fa-tags w-5 text-gray-400" aria-hidden="true"></i> Tarifs / forfait
                             </button>
@@ -442,17 +442,17 @@
             <div id="app-action-rail" class="hidden shrink-0 bg-slate-50 border-b border-gray-200 px-3 sm:px-6 py-2.5 z-[9]"
                 role="toolbar" aria-label="Actions rapides">
                 <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" data-tour="first_order_cta" onclick="openAddOrderModal()"
+                    <button type="button" data-tour="first_order_cta" data-perm-module="transports" data-perm-action="create" onclick="openAddOrderModal()"
                         class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">
                         <i class="fa-solid fa-plus" aria-hidden="true"></i>
                         Créer OT
                         <kbd class="hidden sm:inline text-[10px] font-bold bg-white/20 border border-white/30 rounded px-1.5 py-0.5">N</kbd>
                     </button>
-                    <button type="button" data-tour="dispatch_action" onclick="router('chartered_transports')"
+                    <button type="button" data-tour="dispatch_action" data-perm-module="transports" data-perm-action="assign" onclick="router('chartered_transports')"
                         class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 text-sm font-semibold hover:bg-indigo-100">
                         <i class="fa-solid fa-handshake" aria-hidden="true"></i> Affréter
                     </button>
-                    <button type="button" data-tour="nav_prefacture" onclick="router('preinvoicing')"
+                    <button type="button" data-tour="nav_prefacture" data-perm-module="billing" data-perm-action="generate_invoice" onclick="router('preinvoicing')"
                         class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100">
                         <i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Préfacturer
                     </button>
@@ -982,12 +982,12 @@
 
     <!-- MODAL: ADD/EDIT CLIENT -->
     <div id="add-client-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col fade-in">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center p-4 border-b">
                 <h3 id="client-modal-title" class="font-bold text-lg text-gray-800">Nouveau Client</h3>
                 <button type="button" onclick="closeAddClientModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
-            <div class="p-6 space-y-4 overflow-y-auto">
+            <div class="p-6 space-y-4 overflow-y-auto overflow-x-visible">
                 <input type="hidden" id="edit-client-id">
                 <div>
                     <label for="add-client-name" class="block text-sm font-medium text-gray-700 mb-1">Nom du Client</label>
@@ -1025,12 +1025,12 @@
                     <input type="text" id="add-client-contact-name" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
-                <div>
+                <div class="relative z-20">
                     <label for="add-client-contact-type" class="block text-sm font-medium text-gray-700 mb-1">Type de Contact</label>
-                    <select id="add-client-contact-type" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select id="add-client-contact-type" name="contact_type" class="w-full border border-gray-300 rounded-md p-2 bg-white focus:ring-blue-500 focus:border-blue-500">
+                        <option value="Dirigeant">Dirigeant</option>
                         <option value="Exploitant">Exploitant</option>
                         <option value="Comptabilité">Comptabilité</option>
-                        <option value="Direction">Direction</option>
                         <option value="Autre">Autre</option>
                     </select>
                 </div>
@@ -1069,7 +1069,7 @@
             </div>
             <form onsubmit="submitDriver(event)" class="flex-1 flex flex-col overflow-hidden">
                 <div class="p-6 space-y-4 overflow-y-auto">
-                    <input type="hidden" id="edit-driver-id">
+                    <input type="hidden" id="edit-driver-id" autocomplete="off">
                     <div>
                         <label for="driver-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
                     <input type="text" id="driver-name" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
@@ -1164,7 +1164,7 @@
                     <button type="button" id="btn-delete-driver" onclick="deleteDriver()" class="px-4 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 hidden">Supprimer</button>
                     <div class="flex gap-2 ml-auto">
                         <button type="button" onclick="closeDriverModal()" class="px-4 py-2 border rounded text-gray-600">Annuler</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
+                        <button type="submit" id="btn-submit-driver" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enregistrer</button>
                     </div>
                 </div>
             </form>
@@ -1307,6 +1307,9 @@
           </button>
           <button type="button" id="edit-draft-btn" class="hidden rounded-lg p-2 text-gray-600 hover:bg-white hover:text-orange-600 transition btn-icon" aria-label="Modifier le brouillon">
             <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+          </button>
+          <button type="button" id="validate-draft-btn" class="hidden rounded-lg px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition whitespace-nowrap" aria-label="Valider le brouillon en facture">
+            <i class="fa-solid fa-check mr-1" aria-hidden="true"></i>Valider
           </button>
           <button id="submit-einvoice-btn" type="button" onclick="submitEinvoiceToPA(currentInvoiceModalId)" class="hidden rounded-lg p-2 text-emerald-600 hover:bg-white hover:text-emerald-700 transition btn-icon" aria-label="Réessayer la transmission PA">
             <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>

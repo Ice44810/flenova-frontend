@@ -122,7 +122,7 @@ function routeForMvpStep(step, status) {
         assign: 'planning',
         execute: 'inprogress_transports',
         validate: 'completed_transports',
-        preinvoice: 'preinvoicing'
+        preinvoice: 'sales_invoices_draft'
     };
     if (step && byStep[step]) return byStep[step];
     if (['Brouillon', 'À planifier', 'Planifié'].includes(status)) return 'transports';
@@ -572,14 +572,15 @@ window.bulkCreateInvoiceDrafts = async function () {
         const detail = fail.slice(0, 5).map((f) => `#${f.id}: ${f.error}`).join('\n');
         alert(`${ok} OK · ${fail.length} échec(s)\n\n${detail}${fail.length > 5 ? '\n…' : ''}`);
     } else {
-        showToast(`${ok} préfacture(s) créée(s)`, 'success');
+        showToast(`${ok} préfacture(s) créée(s) — validez-les depuis Brouillon`, 'success');
     }
     if (btn) {
         btn.dataset.busy = '0';
         btn.disabled = false;
         btn.classList.remove('opacity-60');
     }
-    if (typeof loadData === 'function') await loadData();
+    if (typeof fetchAllData === 'function') await fetchAllData();
+    if (ok && typeof router === 'function') router('sales_invoices_draft');
     else if (typeof router === 'function') router('preinvoicing');
 };
 
@@ -940,14 +941,14 @@ window.createInvoiceDraftFromTransport = async function (orderId, options = {}) 
         const res = await apiFetch(`transport-orders/${orderId}/invoice-draft`, { method: 'POST' });
         if (res.ok) {
             const data = await res.json();
-            showToast(`Préfacture ${data.invoice_draft_id} créée`, 'success');
+            showToast(`Préfacture ${data.invoice_draft_id} créée — validez-la depuis Brouillon`, 'success');
             if (typeof completedTransportSelection !== 'undefined') completedTransportSelection.delete(orderId);
             if (typeof transportSelection !== 'undefined') transportSelection.delete(orderId);
             await refreshAfterMvpStep({
                 orderId,
                 step: 'preinvoice',
                 status: 'Clôturé',
-                route: options.route || 'preinvoicing',
+                route: options.route,
                 closeDetail: true,
                 reopenDetail: false
             });
@@ -1250,11 +1251,11 @@ window.bulkPreinvoiceTransports = async function () {
         }
     }
 
-    if (ok) showToast(`${ok} préfacture(s) créée(s)${failed ? ` — ${failed} échec(s)` : ''}`, failed ? 'info' : 'success');
+    if (ok) showToast(`${ok} préfacture(s) créée(s)${failed ? ` — ${failed} échec(s)` : ''} — validez depuis Brouillon`, failed ? 'info' : 'success');
     else showToast('Échec de la préfacturation', 'error');
 
     if (typeof fetchAllData === 'function') await fetchAllData();
-    router('transports');
+    router(ok ? 'sales_invoices_draft' : 'transports');
 };
 
 window.bulkInvoiceTransports = async function () {
@@ -1426,12 +1427,12 @@ window.bulkPreinvoiceCompletedTransports = async function () {
         }
     }
 
-    if (ok) showToast(`${ok} préfacture(s) créée(s)${failed ? ` — ${failed} échec(s)` : ''}`, failed ? 'info' : 'success');
+    if (ok) showToast(`${ok} préfacture(s) créée(s)${failed ? ` — ${failed} échec(s)` : ''} — validez depuis Brouillon`, failed ? 'info' : 'success');
     else showToast('Échec de la préfacturation', 'error');
 
     await refreshAfterMvpStep({
         step: 'preinvoice',
-        route: failed && ok ? 'completed_transports' : 'preinvoicing',
+        route: failed && ok ? 'completed_transports' : undefined,
         closeDetail: true,
         reopenDetail: false
     });
