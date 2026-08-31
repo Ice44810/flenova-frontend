@@ -24,21 +24,28 @@ let invoiceLines = [];
 let editingInvoiceId = null;
 
 function formatDateForInput(value) {
-    if (!value) return new Date().toISOString().split('T')[0];
-    const s = String(value);
-    if (s.includes('T')) return s.split('T')[0];
-    return s.slice(0, 10);
+    const toLocalIso = (dt) => {
+        if (!(dt instanceof Date) || Number.isNaN(dt.getTime())) return '';
+        const yy = dt.getFullYear();
+        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+        const dd = String(dt.getDate()).padStart(2, '0');
+        return `${yy}-${mm}-${dd}`;
+    };
+    if (!value) return toLocalIso(new Date());
+    if (value instanceof Date) return toLocalIso(value) || toLocalIso(new Date());
+    const s = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const parsed = new Date(s);
+    return toLocalIso(parsed) || toLocalIso(new Date());
 }
 
 function addCalendarDaysIso(value, days) {
     const base = formatDateForInput(value || new Date());
     const [y, m, d] = base.split('-').map(Number);
+    if (![y, m, d].every(Number.isFinite)) return formatDateForInput(new Date());
     const dt = new Date(y, m - 1, d);
     dt.setDate(dt.getDate() + Number(days || 0));
-    const yy = dt.getFullYear();
-    const mm = String(dt.getMonth() + 1).padStart(2, '0');
-    const dd = String(dt.getDate()).padStart(2, '0');
-    return `${yy}-${mm}-${dd}`;
+    return formatDateForInput(dt);
 }
 
 function defaultInvoiceDueDate(inv) {
@@ -1783,6 +1790,126 @@ function getSelectedInvoiceIds() {
         .filter(Boolean);
 }
 
+function invoiceRemainingDue(inv) {
+    if (!inv) return 0;
+    return Number(inv.amount_due != null ? inv.amount_due : (Number(inv.amount) || 0) - (Number(inv.amount_paid) || 0));
+}
+
+function isOpenSalesInvoice(inv) {
+    if (!inv || isCreditNoteType(inv) || isSalesInvoiceDraft(inv)) return false;
+    const s = String(inv.status || '').toLowerCase();
+    return !s.includes('annul') && !s.includes('pay') && !s.includes('clôtur') && !s.includes('clotur');
+}
+
+async function runBulkInvoiceAction({ ids, btnId, confirmLabel, requestFn }) {
+    if (!ids.length) {
+        showToast('Cochez au moins une facture.', 'info');
+        return;
+    }
+    if (!confirm(confirmLabel)) return;
+    const btn = document.getElementById(btnId);
+    if (btn) {
+        if (btn.dataset.busy === '1') return;
+        btn.dataset.busy = '1';
+        btn.disabled = true;
+        btn.classList.add('opacity-60');
+    }
+    const results = [];
+    try {
+        for (const id of ids) {
+            try {
+                const outcome = await requestFn(id);
+                results.push({ id, ok: outcome.ok !== false, error: outcome.error, simulated: outcome.simulated });
+            } catch (e) {
+                results.push({ id, ok: false, error: e.message || 'Erreur réseau' });
+            }
+        }
+    } finally {
+        if (btn) {
+            btn.dataset.busy = '0';
+            btn.disabled = false;
+            btn.classList.remove('opacity-60');
+        }
+    }
+    const ok = results.filter((r) => r.ok).length;
+    const fail = results.filter((r) => !r.ok);
+    const simulated = results.some((r) => r.ok && r.simulated);
+    await fetchAllData();
+    if (fail.length && !ok) {
+        showToast(fail[0].error || 'Aucune facture traitée', 'error');
+    } else if (fail.length) {
+        showToast(`${ok} OK — ${fail.length} échec(s) : ${fail[0].error || ''}`.trim(), 'info');
+    } else if (simulated) {
+        showToast(`${ok} facture(s) traitée(s) (SMTP absent — journalisé)`, 'info');
+    } else {
+        showToast(`${ok} facture(s) traitée(s)`, 'success');
+    }
+    router('sales_invoices_validated');
+}
+
+window.bulkSendSelectedInvoices = async function () {
+    if (typeof canValidateInvoices === 'function' && !canValidateInvoices()) {
+        showToast("Vous n'avez pas l'autorisation d'envoyer des factures.", 'error');
+        return;
+    }
+    const selected = getSelectedInvoiceIds()
+        .map((id) => (db.sales_invoices || []).find((i) => String(i.id) === String(id)))
+        .filter(isOpenSalesInvoice);
+    if (!selected.length) {
+        showToast('Aucune facture éligible à l’envoi parmi la sélection (brouillon, payée ou avoir exclus).', 'info');
+        return;
+    }
+    await runBulkInvoiceAction({
+        ids: selected.map((inv) => inv.id),
+        btnId: 'bulk-send-invoices-btn',
+        confirmLabel: `Envoyer ${selected.length} facture(s) par e-mail ?`,
+        requestFn: async (id) => {
+            const res = await apiFetch(`sales-invoices/${id}/send`, { method: 'POST', body: {} });
+            const payload = await res.json().catch(() => ({}));
+            return { ok: res.ok, error: payload.error, simulated: payload.simulated || payload.smtp === false };
+        }
+    });
+};
+
+window.bulkPaySelectedInvoices = function () {
+    if (!canManageInvoices()) {
+        showToast("Vous n'avez pas l'autorisation d'enregistrer un paiement.", 'error');
+        return;
+    }
+    const selected = getSelectedInvoiceIds()
+        .map((id) => (db.sales_invoices || []).find((i) => String(i.id) === String(id)))
+        .filter((inv) => isOpenSalesInvoice(inv) && invoiceRemainingDue(inv) > 0.009);
+    if (!selected.length) {
+        showToast('Cochez au moins une facture avec un solde à encaisser.', 'info');
+        return;
+    }
+    openInvoicePaymentModal(selected[0], { invoices: selected, fromList: true });
+};
+
+window.bulkRemindSelectedInvoices = async function () {
+    if (typeof canValidateInvoices === 'function' && !canValidateInvoices()) {
+        showToast("Vous n'avez pas l'autorisation de relancer des factures.", 'error');
+        return;
+    }
+    const selected = getSelectedInvoiceIds()
+        .map((id) => (db.sales_invoices || []).find((i) => String(i.id) === String(id)))
+        .filter((inv) => isOpenSalesInvoice(inv) && invoiceRemainingDue(inv) > 0.009);
+    if (!selected.length) {
+        showToast('Aucune facture à relancer dans la sélection (payées et brouillons exclus).', 'info');
+        return;
+    }
+    await runBulkInvoiceAction({
+        ids: selected.map((inv) => inv.id),
+        btnId: 'bulk-remind-invoices-btn',
+        confirmLabel: `Envoyer une relance pour ${selected.length} facture(s) ?`,
+        requestFn: async (id) => {
+            const res = await apiFetch(`sales-invoices/${id}/reminders`, { method: 'POST', body: {} });
+            const payload = await res.json().catch(() => ({}));
+            return { ok: res.ok || res.status === 201, error: payload.error, simulated: payload.simulated || payload.smtp === false };
+        }
+    });
+};
+
 window.validateSelectedDrafts = async function () {
     if (typeof canValidateInvoices === 'function' && !canValidateInvoices()) {
         showToast("Vous n'avez pas l'autorisation de valider des factures.", 'error');
@@ -2875,16 +3002,21 @@ window.finishMission = finishMission;
 function createInvoiceFromMission(missionId) {
     const mission = db.missions.find(m => m.id === missionId);
     if (mission) {
+        editingInvoiceId = null;
+        invoiceLines = [{
+            desc: `Transport ${mission.origin || ''} → ${mission.dest || ''}`.trim(),
+            qty: 1,
+            price: Number(mission.price) || 0
+        }];
         router('create_invoice');
         setTimeout(() => {
-            const clientSelect = document.getElementById('create-invoice-client');
-            if (clientSelect) clientSelect.value = mission.client_id;
-            const descInput = document.getElementById('create-invoice-desc');
-            if (descInput) descInput.value = `Transport ${mission.origin} → ${mission.dest}`;
-            const priceInput = document.getElementById('create-invoice-price');
-            if (priceInput) priceInput.value = mission.price;
+            const clientSelect = document.getElementById('invoice-client');
+            if (clientSelect && mission.client_id) {
+                clientSelect.value = mission.client_id;
+                if (typeof onInvoiceClientChange === 'function') onInvoiceClientChange();
+            }
             showToast("Informations de la mission importées", "success");
-        }, 100);
+        }, 120);
     }
 }
 
@@ -4231,11 +4363,11 @@ function renderSalesInvoices(view = 'validated') {
         });
     }
     const showDraftSelect = isDraftView && (canValidate || canManage);
-    const showValidatedSelect = !isDraftView && canManage;
+    const showValidatedSelect = !isDraftView && (canManage || canValidate);
     const title = isDraftView ? 'Factures — Brouillon' : 'Factures';
     const subtitle = isDraftView
         ? 'Cochez les numéros de facture puis validez-les en facture définitive'
-        : 'Filtrez par statut, client, période ou n° — cliquez une ligne pour envoyer, encaisser ou relancer';
+        : 'Cochez des factures pour les envoyer, les encaisser ou les relancer en lot';
     const emptyColSpan = isDraftView
         ? 5
         : (5 + 1 + ((canManage || canValidate) ? 2 : 0));
@@ -4290,11 +4422,24 @@ function renderSalesInvoices(view = 'validated') {
                 <button type="button" onclick="validateSelectedDrafts()" class="bg-emerald-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-emerald-700">
                     <i class="fa-solid fa-check mr-1"></i> Valider en facture
                 </button>` : ''}
+                ${!isDraftView && canValidate ? `
+                <button type="button" id="bulk-send-invoices-btn" onclick="bulkSendSelectedInvoices()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-blue-700">
+                    <i class="fa-solid fa-paper-plane mr-1"></i> Envoyer
+                </button>` : ''}
+                ${!isDraftView && canManage ? `
+                <button type="button" id="bulk-pay-invoices-btn" onclick="bulkPaySelectedInvoices()" class="bg-teal-600 text-white px-3 py-1.5 rounded text-sm font-semibold hover:bg-teal-700">
+                    <i class="fa-solid fa-money-bill mr-1"></i> Paiement
+                </button>` : ''}
+                ${!isDraftView && canValidate ? `
+                <button type="button" id="bulk-remind-invoices-btn" onclick="bulkRemindSelectedInvoices()" class="px-3 py-1.5 rounded text-sm font-semibold text-orange-700 border border-orange-200 bg-white hover:bg-orange-50">
+                    <i class="fa-solid fa-bell mr-1"></i> Relancer
+                </button>` : ''}
                 ${canManage ? `
                 <button onclick="deleteSelectedInvoices()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
                     <i class="fa-solid fa-trash mr-1"></i> Supprimer sélection
-                </button>
-                <button onclick="router('create_invoice')" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                </button>` : ''}
+                ${canManage ? `
+                <button type="button" onclick="startNewManualInvoice()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
                     <i class="fa-solid fa-plus mr-1"></i> Créer une facture
                 </button>
                 <button onclick="router('invoice_settings')" class="bg-gray-100 border text-gray-600 px-3 py-1 rounded text-sm hover:bg-gray-200">
@@ -5016,68 +5161,166 @@ window.loadBankSettingsIntoForm = async function () {
     }
 };
 
-// Optimisation de renderCreateInvoice 
+function clientPaymentTermsDays(terms) {
+    const map = { cash: 0, net_0: 0, net_15: 15, net_30: 30, net_45: 45, net_60: 60, net_30_eom: 30, net_45_eom: 45, net_60_eom: 60 };
+    return map[String(terms || 'net_30').trim().toLowerCase()] ?? 30;
+}
+
+function generateManualDraftId() {
+    return `MAN-${Date.now()}`;
+}
+
+function getManualInvoiceVatRate() {
+    const el = document.getElementById('invoice-vat-rate');
+    const n = Number(el?.value);
+    return Number.isFinite(n) && n >= 0 ? n : 20;
+}
+
+function computeManualInvoiceTotals() {
+    const vatRate = getManualInvoiceVatRate();
+    const lines = (invoiceLines || []).filter((l) => l.desc && String(l.desc).trim() !== '');
+    const subtotalHt = lines.reduce((acc, l) => acc + (Number(l.qty) || 0) * (Number(l.price) || 0), 0);
+    const taxAmount = Math.round(subtotalHt * (vatRate / 100) * 100) / 100;
+    const totalTtc = Math.round((subtotalHt + taxAmount) * 100) / 100;
+    return { lines, subtotalHt, taxAmount, totalTtc, vatRate };
+}
+
+window.startNewManualInvoice = function () {
+    editingInvoiceId = null;
+    invoiceLines = [{ desc: '', qty: 1, price: 0 }];
+    router('create_invoice');
+};
+
+window.filterInvoiceClientOptions = function () {
+    const q = String(document.getElementById('invoice-client-search')?.value || '').trim().toLowerCase();
+    const select = document.getElementById('invoice-client');
+    if (!select) return;
+    Array.from(select.options).forEach((opt) => {
+        if (!opt.value) {
+            opt.hidden = false;
+            return;
+        }
+        opt.hidden = q ? !String(opt.textContent || '').toLowerCase().includes(q) : false;
+    });
+};
+
+window.onInvoiceClientChange = function () {
+    const clientId = document.getElementById('invoice-client')?.value;
+    const client = (db.clients || []).find((c) => String(c.id) === String(clientId));
+    const meta = document.getElementById('invoice-client-meta');
+    const dateEl = document.getElementById('invoice-date');
+    const dueEl = document.getElementById('invoice-due');
+    if (client && dueEl) {
+        dueEl.value = addCalendarDaysIso(dateEl?.value || new Date(), clientPaymentTermsDays(client.payment_terms));
+    }
+    if (meta) {
+        if (!client) {
+            meta.textContent = '';
+        } else {
+            const addr = client.billing_address || client.address || '';
+            const bits = [addr, client.tva ? `TVA ${client.tva}` : '', client.siret ? `SIRET ${client.siret}` : ''].filter(Boolean);
+            meta.textContent = bits.join(' · ');
+        }
+    }
+    previewInvoice();
+};
+
 function renderCreateInvoice() {
     const isEdit = !!editingInvoiceId;
-    const displayNumber = isEdit ? editingInvoiceId : generateInvoiceNumber();
+    const displayNumber = isEdit ? editingInvoiceId : generateManualDraftId();
+    const clients = [...(db.clients || [])].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fr'));
+    const clientOptions = ['<option value="">Choisir un client…</option>']
+        .concat(clients.map((c) => optionHtml(c.id, c.name)))
+        .join('');
+    const emptyClients = !clients.length;
+    const today = formatDateForInput(new Date());
+    const due = addCalendarDaysIso(today, 30);
+    const fieldClass = 'w-full h-11 border border-gray-200 rounded-xl bg-gray-50 px-3 text-sm text-gray-800 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all';
+    const labelClass = 'block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5';
     return `
     <div class="h-full flex flex-col bg-gray-50 -m-6 fade-in">
         <div class="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-            <input type="hidden" id="invoice-number" value="${displayNumber}">
+            <input type="hidden" id="invoice-number" value="${escAttr(displayNumber)}">
             <div>
-                <h3 class="text-xl font-bold text-gray-800">${isEdit ? 'Modifier le brouillon' : 'Édition Facture'}</h3>
-                <p class="text-xs text-gray-500 font-medium"><span id="invoice-editor-number">${displayNumber}</span> • <span id="invoice-editor-subtitle" class="text-blue-600">${isEdit ? 'Reprise du brouillon' : 'Nouveau document'}</span></p>
+                <h3 class="text-xl font-bold text-gray-800">${isEdit ? 'Modifier le brouillon' : 'Nouvelle facture'}</h3>
+                <p class="text-xs text-gray-500 font-medium"><span id="invoice-editor-number">${isEdit ? esc(displayNumber) : 'Brouillon'}</span> • <span id="invoice-editor-subtitle" class="text-blue-600">${isEdit ? 'Reprise du brouillon' : 'Saisie libre — n° attribué à la validation'}</span></p>
             </div>
             <div class="flex gap-3">
-                <button onclick="router('sales_invoices_validated')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all font-medium">Annuler</button>
+                <button type="button" onclick="router('sales_invoices_validated')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-all font-medium">Annuler</button>
                 <div class="h-10 w-[1px] bg-gray-200 mx-2"></div>
-                 <button onclick="saveDraft()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 font-medium flex items-center">
-                    <i class="fa-regular fa-floppy-disk mr-2"></i> Prévisualiser
+                 <button type="button" onclick="saveDraft()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 font-medium flex items-center">
+                    <i class="fa-regular fa-floppy-disk mr-2"></i> Enregistrer le brouillon
                 </button>
-                <button onclick="validateInvoice()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md shadow-blue-200 flex items-center transition-all transform hover:-translate-y-0.5">
-                    <i class="fa-solid fa-check-double mr-2"></i> Valider & Émettre
+                <button type="button" onclick="validateInvoice()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md shadow-blue-200 flex items-center transition-all transform hover:-translate-y-0.5">
+                    <i class="fa-solid fa-check-double mr-2"></i> Valider &amp; Émettre
                 </button>
             </div>
         </div>
 
         <div class="flex flex-1 overflow-hidden">
-            <div class="w-2/2 p-8 overflow-y-auto border-r border-gray-200">
-                <div class="max-w-2xl mx-auto space-y-8">
-                    <section class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                        <div class="flex items-center mb-4 text-blue-600">
+            <div class="w-1/2 p-6 overflow-y-auto border-r border-gray-200">
+                <div class="max-w-2xl mx-auto space-y-6">
+                    <section class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="flex items-center mb-5 text-blue-600">
                             <i class="fa-solid fa-user-tie mr-2"></i>
-                            <h4 class="font-bold uppercase text-xs tracking-widest">Informations Destinataire</h4>
+                            <h4 class="font-bold uppercase text-xs tracking-widest">Informations destinataire</h4>
                         </div>
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div class="col-span-2">
-                                <label class="block text-gray-500 mb-1 font-medium">Client</label>
-                                <select id="invoice-client" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                                    ${db.clients.map(c => optionHtml(c.id, c.name)).join('')}
-                                </select>
-                            </div>
+                        ${emptyClients ? `
+                        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                            Aucun client dans votre fichier.
+                            <button type="button" onclick="typeof openAddClientModal === 'function' && openAddClientModal()" class="ml-2 font-semibold underline">Créer un client</button>
+                        </div>` : `
+                        <div class="space-y-4">
                             <div>
-                                <label class="block text-gray-500 mb-1 font-medium">Date d'émission</label>
-                                <input type="date" id="invoice-date" value="${new Date().toISOString().split('T')[0]}" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50">
+                                <label class="${labelClass}" for="invoice-client-search">Client</label>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                                    <input type="search" id="invoice-client-search" placeholder="Rechercher un client…"
+                                        oninput="filterInvoiceClientOptions()"
+                                        class="w-full h-10 px-3 text-sm bg-transparent border-0 border-b border-gray-200 outline-none">
+                                    <select id="invoice-client" onchange="onInvoiceClientChange()"
+                                        class="w-full h-11 px-3 text-sm bg-white border-0 outline-none">
+                                        ${clientOptions}
+                                    </select>
+                                </div>
+                                <p id="invoice-client-meta" class="mt-2 text-xs text-gray-500 min-h-[1rem]"></p>
                             </div>
-                            <div>
-                                <label class="block text-gray-500 mb-1 font-medium">Échéance</label>
-                                <input type="date" id="invoice-due" value="${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}" onchange="previewInvoice()" class="w-full border-gray-200 border p-3 rounded-xl bg-gray-50">
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="${labelClass}" for="invoice-date">Date d'émission</label>
+                                    <input type="date" id="invoice-date" value="${today}" onchange="onInvoiceClientChange()" class="${fieldClass}">
+                                </div>
+                                <div>
+                                    <label class="${labelClass}" for="invoice-due">Échéance</label>
+                                    <input type="date" id="invoice-due" value="${due}" onchange="previewInvoice()" class="${fieldClass}">
+                                </div>
+                                <div>
+                                    <label class="${labelClass}" for="invoice-vat-rate">TVA (%)</label>
+                                    <input type="number" id="invoice-vat-rate" min="0" max="100" step="0.1" value="20" oninput="previewInvoice()" class="${fieldClass}">
+                                </div>
                             </div>
-                        </div>
+                        </div>`}
                     </section>
 
-                    <section class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                        <div class="flex justify-between items-center mb-6">
+                    <section class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-center mb-4">
                              <div class="flex items-center text-blue-600">
                                 <i class="fa-solid fa-list-ul mr-2"></i>
                                 <h4 class="font-bold uppercase text-xs tracking-widest">Lignes de facturation</h4>
                             </div>
-                            <button onclick="addLine()" class="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors">
+                            <button type="button" onclick="addLine()" class="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors">
                                 <i class="fa fa-plus mr-1"></i> Ajouter
                             </button>
                         </div>
-                        <div id="invoice-lines-container" class="space-y-3">
+                        <div class="rounded-xl border border-gray-200 overflow-hidden">
+                            <div class="grid grid-cols-[minmax(0,1fr)_3rem_3.5rem_6.5rem_2rem] gap-2 px-3 py-2 bg-gray-50 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                                <span>Description</span>
+                                <span class="text-center">Qté</span>
+                                <span class="text-right">P.U. HT</span>
+                                <span class="text-right">Total HT</span>
+                                <span></span>
                             </div>
+                            <div id="invoice-lines-container" class="divide-y divide-gray-100"></div>
+                        </div>
                     </section>
                 </div>
             </div>
@@ -5091,15 +5334,7 @@ function renderCreateInvoice() {
 }
 
 function generateInvoiceNumber() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const prefix = `FAC${year}${month}`;
-
-    // On filtre les factures du mois en cours pour incrémenter le compteur
-    const monthInvoices = db.sales_invoices.filter(inv => inv.id && inv.id.startsWith(prefix));
-    const nextIndex = monthInvoices.length + 1;
-    return `${prefix}${String(nextIndex).padStart(3, '0')}`;
+    return generateManualDraftId();
 }
 
 function addLine() {
@@ -5113,33 +5348,36 @@ function addLine() {
 
 function renderLines() {
     const container = document.getElementById('invoice-lines-container');
-    container.innerHTML = invoiceLines.map((l, i) => `
-        <div class="group flex gap-3 items-start bg-gray-50 p-4 rounded-xl border border-transparent hover:border-blue-200 hover:bg-white transition-all">
-            <div class="w-32 flex items-center">
-                <input value="${escAttr(l.desc)}" oninput="updateLine(${i}, 'desc', this.value)" 
-                    class="w-full bg-transparent text-left font-bold text-gray-700 outline-none" placeholder="Description de la prestation">
-            </div>
-            <div class="w-2">
-                <input type="number" value="${l.qty}" oninput="updateLine(${i}, 'qty', this.value)" 
-                    class="w-full bg-transparent text-center font-bold text-gray-700 outline-none" placeholder="Qté">
-            </div>
-            <div class="w-25 flex items-center">
-                <input type="number" value="${l.price}" oninput="updateLine(${i}, 'price', this.value)" 
-                    class="w-full bg-transparent text-right font-bold text-gray-700 outline-none" placeholder="Prix HT">
-                <span class="ml-1 text-gray-400 text-xs">€</span>
-            </div>
-            <button onclick="removeLine(${i})" class="opacity-0 group-hover:opacity-100 p-2 text-red-400 hover:text-red-600 transition-all">
+    if (!container) return;
+    const money = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const lineField = 'h-10 w-full border border-gray-200 rounded-lg bg-gray-50 px-2.5 text-sm text-gray-800 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none';
+    container.innerHTML = invoiceLines.map((l, i) => {
+        const lineTotal = (Number(l.qty) || 0) * (Number(l.price) || 0);
+        return `
+        <div class="grid grid-cols-[minmax(0,1fr)_3rem_3.5rem_6.5rem_2rem] gap-2 items-center px-3 py-2.5 bg-white">
+            <input value="${escAttr(l.desc)}" oninput="updateLine(${i}, 'desc', this.value)"
+                class="${lineField}" placeholder="Description de la prestation">
+            <input type="number" min="0" step="0.01" value="${l.qty}" oninput="updateLine(${i}, 'qty', this.value)"
+                class="${lineField} text-center" placeholder="1">
+            <input type="number" min="0" step="0.01" value="${l.price}" oninput="updateLine(${i}, 'price', this.value)"
+                class="${lineField} text-right" placeholder="0,00">
+            <p data-line-total class="text-base text-right font-semibold text-gray-700 tabular-nums pr-1">${money(lineTotal)} €</p>
+            <button type="button" onclick="removeLine(${i})" class="h-10 w-8 text-gray-300 hover:text-red-500 transition-colors" aria-label="Supprimer la ligne">
                 <i class="fa-solid fa-circle-xmark"></i>
             </button>
-        </div>
-    `).join('');
-    previewInvoice(); // Appel automatique de l'aperçu
+        </div>`;
+    }).join('');
+    previewInvoice();
 }
 
 function updateLine(i, field, value) {
-    // Parse numeric fields to prevent calculation errors in preview/storage
     const isNumeric = field === 'qty' || field === 'price';
     invoiceLines[i][field] = isNumeric ? (parseFloat(value) || 0) : value;
+    const totalEl = document.getElementById('invoice-lines-container')?.children[i]?.querySelector('[data-line-total]');
+    if (totalEl) {
+        const lineTotal = (Number(invoiceLines[i].qty) || 0) * (Number(invoiceLines[i].price) || 0);
+        totalEl.textContent = `${lineTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+    }
     previewInvoice();
 }
 
@@ -5148,21 +5386,23 @@ function removeLine(i) {
     renderLines();
 }
 function previewInvoice() {
-    const clientId = document.getElementById('invoice-client').value;
-    const client = db.clients.find(c => c.id == clientId);
-    const invNumber = document.getElementById('invoice-number').value;
-    const invDate = document.getElementById('invoice-date').value;
+    const previewEl = document.getElementById('invoice-preview');
+    if (!previewEl) return;
+    const clientId = document.getElementById('invoice-client')?.value;
+    const client = (db.clients || []).find(c => String(c.id) === String(clientId));
+    const invNumber = document.getElementById('invoice-number')?.value || 'Brouillon';
+    const invDate = document.getElementById('invoice-date')?.value;
+    const { subtotalHt, taxAmount, totalTtc, vatRate } = computeManualInvoiceTotals();
+    const money = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    let total = 0;
     const rows = invoiceLines.map(l => {
-        const lineTotal = l.qty * l.price;
-        total += lineTotal;
+        const lineTotal = (Number(l.qty) || 0) * (Number(l.price) || 0);
         return `
             <tr class="border-b border-gray-100">
                 <td class="py-3 text-xs">${l.desc ? esc(l.desc) : '<em>Sans description</em>'}</td>
                 <td class="py-3 text-xs text-center">${l.qty}</td>
-                <td class="py-3 text-xs text-right">${Number(l.price).toLocaleString()} €</td>
-                <td class="py-3 text-xs text-right font-bold">${lineTotal.toLocaleString()} €</td>
+                <td class="py-3 text-xs text-right">${money(l.price)} €</td>
+                <td class="py-3 text-xs text-right font-bold">${money(lineTotal)} €</td>
             </tr>
         `;
     }).join('');
@@ -5171,8 +5411,9 @@ function previewInvoice() {
     const companyAddress = currentUser?.company_address || '';
     const companySiret = currentUser?.company_siret || '';
     const companyTva = currentUser?.company_tva || '';
+    const clientAddr = client?.billing_address || client?.address || '';
 
-    document.getElementById('invoice-preview').innerHTML = `
+    previewEl.innerHTML = `
         <div class="w-full h-full text-gray-800">
             <div class="flex justify-between items-start mb-10">
                 <div>
@@ -5180,7 +5421,7 @@ function previewInvoice() {
                     <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Document Provisoire</p>
                 </div>
                 <div class="text-right">
-                    <p class="font-bold text-lg">${esc(invNumber)}</p>
+                    <p class="font-bold text-lg">${editingInvoiceId ? esc(invNumber) : 'Brouillon'}</p>
                     <p class="text-xs text-gray-500">${esc(formatDisplayDate(invDate))}</p>
                 </div>
             </div>
@@ -5195,8 +5436,8 @@ function previewInvoice() {
                 </div>
                 <div class="text-right">
                     <p class="text-[9px] uppercase font-bold text-gray-400 mb-2 tracking-wider">Client</p>
-                    <p class="font-bold text-sm">${esc(client?.name || '-')}</p>
-                    <p class="text-[11px] text-gray-500">${esc(client?.address || '')}</p>
+                    <p class="font-bold text-sm">${esc(client?.name || 'Aucun client sélectionné')}</p>
+                    <p class="text-[11px] text-gray-500">${esc(clientAddr)}</p>
                     <p class="text-[11px] text-gray-500">${esc(client?.tva || '')}</p>
                 </div>
             </div>
@@ -5214,14 +5455,18 @@ function previewInvoice() {
             </table>
 
             <div class="flex justify-end pt-4">
-                <div class="w-48 space-y-2">
+                <div class="w-56 space-y-2">
                     <div class="flex justify-between text-xs text-gray-500">
                         <span>Total HT</span>
-                        <span>${total.toLocaleString()} €</span>
+                        <span>${money(subtotalHt)} €</span>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500">
+                        <span>TVA ${vatRate} %</span>
+                        <span>${money(taxAmount)} €</span>
                     </div>
                     <div class="flex justify-between text-base font-black text-blue-700 border-t-2 border-blue-100 pt-2">
                         <span>NET À PAYER&nbsp;:&nbsp;</span>
-                        <span>${total.toLocaleString()} €</span>
+                        <span>${money(totalTtc)} €</span>
                     </div>
                 </div>
             </div>
@@ -5247,6 +5492,9 @@ async function saveDraft() {
                     date: data.date,
                     due_date: data.due_date,
                     amount: data.amount,
+                    subtotal_ht: data.subtotal_ht,
+                    tax_amount: data.tax_amount,
+                    vat_rate: data.vat_rate,
                     items: data.items
                 }
             });
@@ -5255,8 +5503,9 @@ async function saveDraft() {
         }
 
         if (res.ok) {
+            const payload = await res.json().catch(() => ({}));
             await fetchAllData();
-            const invoiceId = editingInvoiceId || data.number;
+            const invoiceId = editingInvoiceId || payload.id || data.number;
             editingInvoiceId = null;
             openInvoiceModal(invoiceId);
             showToast("Brouillon sauvegardé avec succès", "success");
@@ -5273,9 +5522,9 @@ async function validateInvoice() {
     const data = getInvoiceFormData('Validée');
     if (!data) return;
 
-    const total = invoiceLines.reduce((acc, l) => acc + (l.qty * l.price), 0);
+    const { totalTtc } = computeManualInvoiceTotals();
 
-    const isConfirmed = window.confirm(`Êtes-vous sûr de vouloir valider cette facture pour un montant total de ${total.toLocaleString()} € ?\n\nCette action est irréversible.`);
+    const isConfirmed = window.confirm(`Êtes-vous sûr de vouloir valider cette facture pour un montant TTC de ${totalTtc.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ?\n\nCette action est irréversible.`);
     if (!isConfirmed) return;
 
     try {
@@ -5288,6 +5537,9 @@ async function validateInvoice() {
                     date: data.date,
                     due_date: data.due_date,
                     amount: data.amount,
+                    subtotal_ht: data.subtotal_ht,
+                    tax_amount: data.tax_amount,
+                    vat_rate: data.vat_rate,
                     items: data.items
                 }
             });
@@ -5523,38 +5775,42 @@ window.submitPartialCreditNote = async function () {
 };
 
 function getInvoiceFormData(status) {
-    const clientId = document.getElementById('invoice-client').value;
+    const clientId = document.getElementById('invoice-client')?.value;
     const dateInput = document.getElementById('invoice-date');
     const date = dateInput?.value ? dateInput.value : formatDateForInput(new Date());
-    const number = document.getElementById('invoice-number').value;
+    const number = document.getElementById('invoice-number')?.value || generateManualDraftId();
     const dueInput = document.getElementById('invoice-due');
-    const due = dueInput?.value ? dueInput.value : formatDateForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
-
-    // Filtrer les lignes vides pour ne pas polluer la base de données
-    const validLines = invoiceLines.filter(l => l.desc && l.desc.trim() !== "");
+    const due = dueInput?.value ? dueInput.value : addCalendarDaysIso(date, 30);
+    const { lines, subtotalHt, taxAmount, totalTtc, vatRate } = computeManualInvoiceTotals();
 
     if (!clientId) {
-        showToast("Veuillez sélectionner un client", "error");
+        showToast("Veuillez sélectionner un client dans votre liste", "error");
         return null;
     }
 
-    if (validLines.length === 0) {
+    if (lines.length === 0) {
         showToast("Veuillez ajouter au moins une ligne avec une description", "error");
         return null;
     }
 
-    const totalAmount = validLines.reduce((acc, l) => acc + (l.qty * l.price), 0);
-
     return {
         number: number,
-        client_id: parseInt(clientId),
+        client_id: parseInt(clientId, 10),
         date: date,
         due_date: due,
-        items: validLines,
-        amount: totalAmount,
+        items: lines.map((l) => ({
+            desc: l.desc,
+            qty: Number(l.qty) || 0,
+            price: Number(l.price) || 0,
+            vat_rate: vatRate
+        })),
+        amount: totalTtc,
+        subtotal_ht: subtotalHt,
+        tax_amount: taxAmount,
+        vat_rate: vatRate,
         status: status,
         currency: 'EUR',
-        typeCode: '380' // Code Factur-X standard pour une facture commerciale
+        typeCode: '380'
     };
 }
 
@@ -9121,6 +9377,17 @@ async function loadInvoiceDraftForm(invoiceId) {
         if (numberEl) numberEl.value = invoiceRef;
         if (numberDisplayEl) numberDisplayEl.textContent = invoiceRef;
         if (subtitleEl) subtitleEl.textContent = 'Reprise du brouillon';
+        const vatEl = document.getElementById('invoice-vat-rate');
+        if (vatEl && invoice.vat_rate != null) vatEl.value = Number(invoice.vat_rate);
+        const meta = document.getElementById('invoice-client-meta');
+        if (meta && invoice.client_id) {
+            const client = (db.clients || []).find((c) => String(c.id) === String(invoice.client_id));
+            if (client) {
+                const addr = client.billing_address || client.address || '';
+                const bits = [addr, client.tva ? `TVA ${client.tva}` : '', client.siret ? `SIRET ${client.siret}` : ''].filter(Boolean);
+                meta.textContent = bits.join(' · ');
+            }
+        }
 
         invoiceLines = normalizeInvoiceItems(invoice.items);
         renderLines();
@@ -9264,15 +9531,42 @@ async function relanceFacture(invoiceId) {
     }
 }
 
-window.openInvoicePaymentModal = function (inv) {
+let pendingInvoicePayment = null;
+
+window.openInvoicePaymentModal = function (inv, options = {}) {
     if (!canManageInvoices()) {
         showToast("Vous n'avez pas l'autorisation d'enregistrer un paiement.", 'error');
         return;
     }
-    const dueAmt = Number(inv.amount_due != null ? inv.amount_due : (Number(inv.amount) || 0) - (Number(inv.amount_paid) || 0));
-    document.getElementById('invoice-payment-id').value = inv.id;
-    document.getElementById('invoice-payment-due').textContent = dueAmt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
-    document.getElementById('invoice-payment-amount').value = dueAmt > 0 ? dueAmt.toFixed(2) : '';
+    const invoices = (options.invoices && options.invoices.length)
+        ? options.invoices
+        : (inv ? [inv] : []);
+    const eligible = invoices.filter((i) => i && isOpenSalesInvoice(i) && invoiceRemainingDue(i) > 0.009);
+    if (!eligible.length) {
+        showToast('Aucune facture avec un solde à encaisser.', 'info');
+        return;
+    }
+    const dueAmt = eligible.reduce((sum, i) => sum + invoiceRemainingDue(i), 0);
+    pendingInvoicePayment = { invoices: eligible, fromList: !!options.fromList };
+    document.getElementById('invoice-payment-id').value = eligible[0].id;
+    const dueLabel = dueAmt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    document.getElementById('invoice-payment-due').textContent = eligible.length > 1
+        ? `${dueLabel} (${eligible.length} factures)`
+        : dueLabel;
+    const bulkHint = document.getElementById('invoice-payment-bulk-hint');
+    if (bulkHint) {
+        if (eligible.length > 1) {
+            bulkHint.textContent = 'Le solde de chaque facture sélectionnée sera encaissé (date, mode, référence et commentaire communs).';
+            bulkHint.classList.remove('hidden');
+        } else {
+            bulkHint.textContent = '';
+            bulkHint.classList.add('hidden');
+        }
+    }
+    const amountEl = document.getElementById('invoice-payment-amount');
+    amountEl.value = dueAmt > 0 ? dueAmt.toFixed(2) : '';
+    amountEl.readOnly = eligible.length > 1;
+    amountEl.classList.toggle('bg-gray-50', eligible.length > 1);
     document.getElementById('invoice-payment-date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('invoice-payment-method').value = 'virement';
     document.getElementById('invoice-payment-ref').value = '';
@@ -9281,37 +9575,79 @@ window.openInvoicePaymentModal = function (inv) {
 };
 
 window.closeInvoicePaymentModal = function () {
+    pendingInvoicePayment = null;
+    const amountEl = document.getElementById('invoice-payment-amount');
+    if (amountEl) {
+        amountEl.readOnly = false;
+        amountEl.classList.remove('bg-gray-50');
+    }
     const el = document.getElementById('invoice-payment-modal');
     if (el) el.classList.add('hidden');
 };
 
 window.submitInvoicePayment = async function () {
+    const targets = pendingInvoicePayment?.invoices?.length
+        ? pendingInvoicePayment.invoices
+        : [];
     const invoiceId = document.getElementById('invoice-payment-id').value;
     const amount = Number(document.getElementById('invoice-payment-amount').value);
-    if (!(amount > 0)) {
+    if (!targets.length && invoiceId) {
+        const fallback = (db.sales_invoices || []).find((i) => String(i.id) === String(invoiceId));
+        if (fallback) targets.push(fallback);
+    }
+    if (!targets.length) {
+        showToast('Facture introuvable', 'error');
+        return;
+    }
+    if (targets.length === 1 && !(amount > 0)) {
         showToast('Montant invalide', 'error');
         return;
     }
+    const bodyBase = {
+        paid_at: document.getElementById('invoice-payment-date').value,
+        method: document.getElementById('invoice-payment-method').value,
+        reference: document.getElementById('invoice-payment-ref').value,
+        comment: document.getElementById('invoice-payment-comment').value
+    };
+    const fromList = !!pendingInvoicePayment?.fromList;
     try {
-        const res = await apiFetch(`sales-invoices/${invoiceId}/payments`, {
-            method: 'POST',
-            body: {
-                amount,
-                paid_at: document.getElementById('invoice-payment-date').value,
-                method: document.getElementById('invoice-payment-method').value,
-                reference: document.getElementById('invoice-payment-ref').value,
-                comment: document.getElementById('invoice-payment-comment').value
+        let lastPayload = {};
+        let ok = 0;
+        let failMsg = '';
+        for (const inv of targets) {
+            const payAmount = targets.length === 1 ? amount : invoiceRemainingDue(inv);
+            if (!(payAmount > 0)) continue;
+            const res = await apiFetch(`sales-invoices/${inv.id}/payments`, {
+                method: 'POST',
+                body: { ...bodyBase, amount: payAmount }
+            });
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok && res.status !== 201) {
+                failMsg = payload.error || 'Paiement refusé';
+                continue;
             }
-        });
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            showToast(payload.error || 'Paiement refusé', 'error');
+            ok += 1;
+            lastPayload = payload;
+        }
+        if (!ok) {
+            showToast(failMsg || 'Paiement refusé', 'error');
             return;
         }
-        showToast(payload.status === 'Payée' ? 'Facture soldée' : `Paiement enregistré — reste ${Number(payload.amount_due || 0).toLocaleString('fr-FR')} €`, 'success');
+        if (targets.length > 1) {
+            showToast(`${ok} paiement(s) enregistré(s)${failMsg ? ` — ${failMsg}` : ''}`, failMsg ? 'info' : 'success');
+        } else {
+            showToast(lastPayload.status === 'Payée'
+                ? 'Facture soldée'
+                : `Paiement enregistré — reste ${Number(lastPayload.amount_due || 0).toLocaleString('fr-FR')} €`, 'success');
+        }
+        const firstId = targets[0].id;
         closeInvoicePaymentModal();
         await fetchAllData();
-        openInvoiceModal(invoiceId);
+        if (fromList) {
+            router('sales_invoices_validated');
+        } else {
+            openInvoiceModal(firstId);
+        }
     } catch (e) {
         showToast('Erreur de communication avec le serveur', 'error');
     }
