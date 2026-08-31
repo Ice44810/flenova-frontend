@@ -164,7 +164,7 @@ function getTransportBillingOptions(order) {
     if (order.status === 'Livré' && typeof canValidateTransport === 'function' && canValidateTransport()) {
         options.push({ value: 'validate', label: 'Valider' });
     }
-    if (order.status === 'Validé' && !order.invoice_draft_id && typeof canManageFinance === 'function' && canManageFinance()) {
+    if (order.status === 'Validé' && !order.invoice_draft_id && typeof canManageFinance === 'function' && canManageFinance() && !isBillingBlocked(order)) {
         options.push({ value: 'preinvoice', label: 'Préfacturer' });
     }
     if (typeof canManageFinance === 'function' && canManageFinance()) {
@@ -429,12 +429,45 @@ function filterPrefactureCandidates(all) {
     });
 }
 
+function parseBillingCheck(order) {
+    const raw = order?.billing_check_issues;
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try { return JSON.parse(raw); } catch { return null; }
+}
+
+function isBillingBlocked(order) {
+    if (order?.billing_check_status === 'blocked') return true;
+    const parsed = parseBillingCheck(order);
+    return parsed?.status === 'blocked' || (Array.isArray(parsed?.issues) && parsed.issues.length > 0);
+}
+
+function billingCheckToastError(err) {
+    const issues = Array.isArray(err?.issues) ? err.issues.map((i) => i.message || i).filter(Boolean) : [];
+    return issues.length ? issues.join(' · ') : (err?.error || 'Échec préfacturation');
+}
+
+function renderBillingCheckList(order) {
+    const parsed = parseBillingCheck(order);
+    const issues = parsed?.issues || [];
+    const warnings = parsed?.warnings || [];
+    if (!issues.length && !warnings.length && order?.billing_check_status !== 'ok') {
+        return '<p class="text-xs text-gray-500">Contrôle non encore effectué — il sera lancé à la validation / préfacture.</p>';
+    }
+    const issueHtml = issues.map((i) => `<li class="text-red-700"><i class="fa-solid fa-circle-xmark mr-1"></i>${typeof escapeHtml === 'function' ? escapeHtml(i.message || i) : (i.message || i)}</li>`).join('');
+    const warnHtml = warnings.map((i) => `<li class="text-amber-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${typeof escapeHtml === 'function' ? escapeHtml(i.message || i) : (i.message || i)}</li>`).join('');
+    const ok = order?.billing_check_status === 'ok' && !issues.length;
+    return `<ul class="text-xs space-y-1">${ok ? '<li class="text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i>Contrôle facturation OK</li>' : ''}${issueHtml}${warnHtml}</ul>`;
+}
+
 function renderPreInvoicing() {
     const f = window.prefactureFilters;
     const allCandidates = (db.orders || []).filter((o) => o.status === 'Validé' && !o.invoice_draft_id);
     const candidates = filterPrefactureCandidates(db.orders);
+    const ready = candidates.filter((o) => !isBillingBlocked(o));
+    const blocked = candidates.filter((o) => isBillingBlocked(o));
     const canFinance = typeof canManageFinance === 'function' && canManageFinance();
-    const total = candidates.reduce((sum, o) => sum + Number(o.price || 0), 0);
+    const total = ready.reduce((sum, o) => sum + Number(o.price || 0), 0);
     const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
     const clientOptions = ['<option value="">Tous les clients</option>']
         .concat((db.clients || []).map((c) =>
@@ -444,17 +477,39 @@ function renderPreInvoicing() {
     const filteredHint = candidates.length !== allCandidates.length
         ? ` · ${allCandidates.length} au total`
         : '';
-    const colSpan = canFinance ? 7 : 6;
+
+    const renderRows = (rows, kind) => {
+        if (!rows.length) {
+            return `<tr><td colspan="${canFinance ? 7 : 6}" class="px-4 py-6 text-center text-gray-500 italic">${kind === 'ready' ? 'Aucune mission prête' : 'Aucune anomalie bloquante'}</td></tr>`;
+        }
+        return rows.map((o) => {
+            const blockedRow = kind === 'blocked';
+            const action = !canFinance ? '-' : (blockedRow
+                ? `<button type="button" onclick="openTransportDetail(${o.id})" class="bg-amber-600 text-white px-3 py-1 rounded text-xs hover:bg-amber-700"><i class="fa-solid fa-wrench mr-1"></i>Corriger</button>`
+                : `<button type="button" onclick="createInvoiceDraftFromTransport(${o.id})" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"><i class="fa-solid fa-file-invoice mr-1"></i>Créer la facture</button>`);
+            return `<tr class="border-b hover:bg-gray-50 ${blockedRow ? 'bg-amber-50/40' : ''}">
+                        ${canFinance && !blockedRow ? `<td class="px-4 py-3"><input type="checkbox" class="prefacture-row-cb" value="${o.id}" aria-label="Sélectionner ${esc(o.ref || o.id)}"></td>` : (canFinance ? '<td class="px-4 py-3"></td>' : '')}
+                        <td class="px-4 py-3 font-medium">${esc(o.ref || o.id)}</td>
+                        <td class="px-4 py-3">${esc(o.client_name || '-')}</td>
+                        <td class="px-4 py-3 text-xs whitespace-nowrap">${formatDisplayDate(orderPrefactureDate(o)) || '—'}</td>
+                        <td class="px-4 py-3 text-xs">${esc(o.origin)} → ${esc(o.dest)}</td>
+                        <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString('fr-FR')} €</td>
+                        <td class="px-4 py-3">${action}</td>
+                    </tr>`;
+        }).join('');
+    };
 
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div>
                 <h3 class="font-bold text-lg text-gray-800">À préfacturer</h3>
-                <p class="text-xs text-gray-500">Transports validés non encore facturés — filtrez par client ou période de livraison</p>
+                <p class="text-xs text-gray-500">Missions validées — prêtes ou à corriger selon le contrôle facturation</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
+                <span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold">${ready.length} prête(s)</span>
+                <span class="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold">${blocked.length} à corriger</span>
                 <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">${candidates.length} affiché(s)${filteredHint} · ${total.toLocaleString('fr-FR')} €</span>
-                ${canFinance && candidates.length ? `
+                ${canFinance && ready.length ? `
                 <button type="button" onclick="selectAllPrefactureCandidates(true)" class="text-xs px-3 py-1.5 border rounded-lg hover:bg-gray-50">Tout sélectionner</button>
                 <button type="button" id="prefacture-bulk-btn" data-tour="prefacture_bulk" onclick="bulkCreateInvoiceDrafts()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700">
                     <i class="fa-solid fa-file-invoice mr-1"></i>Générer les préfactures sélectionnées
@@ -496,7 +551,8 @@ function renderPreInvoicing() {
                 Réinitialiser
             </button>` : ''}
         </div>
-        <div class="overflow-x-auto">
+        <h4 class="font-semibold text-sm text-gray-800 mb-2"><i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>Prêtes à facturer</h4>
+        <div class="overflow-x-auto mb-6">
         <table class="w-full text-sm text-left text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
                 <tr>
@@ -509,20 +565,24 @@ function renderPreInvoicing() {
                     <th class="px-4 py-3">Action</th>
                 </tr>
             </thead>
-            <tbody>
-                ${candidates.length ? candidates.map(o => `
-                    <tr class="border-b hover:bg-gray-50">
-                        ${canFinance ? `<td class="px-4 py-3"><input type="checkbox" class="prefacture-row-cb" value="${o.id}" aria-label="Sélectionner ${esc(o.ref || o.id)}"></td>` : ''}
-                        <td class="px-4 py-3 font-medium">${esc(o.ref || o.id)}</td>
-                        <td class="px-4 py-3">${esc(o.client_name || '-')}</td>
-                        <td class="px-4 py-3 text-xs whitespace-nowrap">${formatDisplayDate(orderPrefactureDate(o)) || '—'}</td>
-                        <td class="px-4 py-3 text-xs">${esc(o.origin)} → ${esc(o.dest)}</td>
-                        <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString('fr-FR')} €</td>
-                        <td class="px-4 py-3">
-                            ${canFinance ? `<button type="button" onclick="createInvoiceDraftFromTransport(${o.id})" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"><i class="fa-solid fa-file-invoice mr-1"></i>Préfacture</button>` : '-'}
-                        </td>
-                    </tr>`).join('') : `<tr><td colspan="${colSpan}" class="px-4 py-10 text-center text-gray-600 italic">${allCandidates.length ? 'Aucun transport pour ces filtres' : 'Aucun transport à préfacturer'}</td></tr>`}
-            </tbody>
+            <tbody>${renderRows(ready, 'ready')}</tbody>
+        </table>
+        </div>
+        <h4 class="font-semibold text-sm text-gray-800 mb-2"><i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i>À corriger</h4>
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                <tr>
+                    ${canFinance ? '<th class="px-4 py-3 w-10"></th>' : ''}
+                    <th class="px-4 py-3">Réf.</th>
+                    <th class="px-4 py-3">Client</th>
+                    <th class="px-4 py-3">Livraison</th>
+                    <th class="px-4 py-3">Trajet</th>
+                    <th class="px-4 py-3">Montant</th>
+                    <th class="px-4 py-3">Action</th>
+                </tr>
+            </thead>
+            <tbody>${renderRows(blocked, 'blocked')}</tbody>
         </table>
         </div>
     </div>`;
@@ -561,7 +621,7 @@ window.bulkCreateInvoiceDrafts = async function () {
             const res = await apiFetch(`transport-orders/${id}/invoice-draft`, { method: 'POST' });
             const payload = await res.json().catch(() => ({}));
             if (res.ok) results.push({ id, ok: true });
-            else results.push({ id, ok: false, error: payload.error || `HTTP ${res.status}` });
+            else results.push({ id, ok: false, error: billingCheckToastError(payload) || `HTTP ${res.status}` });
         } catch (e) {
             results.push({ id, ok: false, error: e.message || 'Erreur réseau' });
         }
@@ -710,10 +770,21 @@ function renderTransportDetailModal(t) {
             actionsHtml += `<button onclick="changeTransportStatus(${t.id}, '${s}')" class="px-3 py-1 border border-blue-300 text-blue-700 rounded text-xs hover:bg-blue-50 mr-1 mb-1">${s}</button>`;
         });
     }
-    if (typeof canManageFinance === 'function' && canManageFinance() && t.status === 'Validé' && !t.invoice_draft_id) {
+    if (typeof canManageFinance === 'function' && canManageFinance() && t.status === 'Validé' && !t.invoice_draft_id && !isBillingBlocked(t)) {
         actionsHtml += `<button onclick="createInvoiceDraftFromTransport(${t.id})" class="px-3 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700">Préfacturer</button>`;
     }
     actionsEl.innerHTML = actionsHtml || '<span class="text-xs text-gray-400">Aucune action disponible pour votre rôle</span>';
+
+    const billingEl = document.getElementById('td-billing-check');
+    if (billingEl) {
+        if (t.status === 'Validé' && !t.invoice_draft_id) {
+            billingEl.classList.remove('hidden');
+            billingEl.innerHTML = `<h4 class="font-bold text-xs uppercase text-gray-500 mb-2">Contrôle facturation</h4>${renderBillingCheckList(t)}`;
+        } else {
+            billingEl.classList.add('hidden');
+            billingEl.innerHTML = '';
+        }
+    }
 
     document.getElementById('td-upload-section').style.display = (typeof canUploadDocument === 'function' && canUploadDocument()) ? 'block' : 'none';
     document.getElementById('td-comment-section').style.display = (typeof can === 'function' && can(PERM.MODULES.COMMENTS, PERM.ACTIONS.CREATE)) ? 'block' : 'none';
@@ -954,7 +1025,7 @@ window.createInvoiceDraftFromTransport = async function (orderId, options = {}) 
             });
         } else {
             const err = await res.json().catch(() => ({}));
-            showToast(err.error || 'Échec préfacturation', 'error');
+            showToast(billingCheckToastError(err), 'error');
         }
     } catch (e) { showToast('Erreur serveur', 'error'); }
 };
@@ -977,7 +1048,7 @@ window.openInvoiceFromTransport = async function (orderId) {
             const res = await apiFetch(`transport-orders/${orderId}/invoice-draft`, { method: 'POST' });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                showToast(err.error || 'Échec préfacturation', 'error');
+                showToast(billingCheckToastError(err), 'error');
                 return;
             }
             const data = await res.json();
@@ -1376,7 +1447,7 @@ window.renderOrdersCompleted = function() {
                             ${o.status === 'Livré' && typeof canValidateTransport === 'function' && canValidateTransport()
                                 ? `<button onclick="validateTransportFromDetail(${o.id})" class="text-green-600 hover:underline text-xs ml-2">Valider</button>`
                                 : ''}
-                            ${canSelect && canPreinvoice
+                            ${canSelect && canPreinvoice && !isBillingBlocked(o)
                                 ? `<button onclick="createInvoiceDraftFromTransport(${o.id})" class="text-orange-600 hover:underline text-xs ml-2">Préfacturer</button>`
                                 : ''}
                         </td>

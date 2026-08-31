@@ -11,6 +11,13 @@ let driverSelectedIds = new Set();
 let purchaseInvoiceFilter = { subcontractor_id: '', type: '' };
 let affretementConfirmationOrderId = null;
 let cmrPreviewOrderId = null;
+window.invoiceListFilters = window.invoiceListFilters || {
+    status: 'all',
+    clientId: '',
+    period: 'all',
+    search: '',
+    due: 'all'
+};
 
 let salesChartInstance = null;
 let invoiceLines = [];
@@ -143,7 +150,7 @@ function hideAllModals() {
         'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
         'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
         'invoice-modal', 'transport-detail-modal', 'credit-note-modal', 'dashboard-advanced-filter-modal',
-        'validate-due-modal'
+        'validate-due-modal', 'invoice-payment-modal'
     ];
 
     // Invariant: le modal aperçu facture A4 (modal-overlay/modal-content) ne doit jamais être visible
@@ -2646,33 +2653,36 @@ function renderDashboard(stats = {}) {
         </div>`;
     } else if (activeTab === 'invoicing') {
         const invoices = Array.isArray(db.sales_invoices) ? db.sales_invoices : [];
-        const isDraft = (inv) => ['Brouillon', 'Draft', 'En attente'].includes(inv.status);
-        const isOutstanding = (inv) => !['Payée', 'Paid', 'Annulée', 'Cancelled'].includes(inv.status);
-        const isValidatedRevenue = (inv) => ['Validée', 'Validated', 'Payée', 'Paid'].includes(inv.status);
-
-        const totalInvoiced = stats.totalRevenue != null
-            ? Number(stats.totalRevenue) || 0
-            : sumInvoiceAmounts(invoices, isValidatedRevenue);
-        const pendingValidation = stats.pendingInvoiceValidation != null
-            ? Number(stats.pendingInvoiceValidation) || 0
-            : invoices.filter(isDraft).length;
+        const toInvoice = stats.uninvoicedTransports != null
+            ? Number(stats.uninvoicedTransports) || 0
+            : (db.orders || []).filter((o) => o.status === 'Validé' && !o.invoice_draft_id).length;
         const outstanding = stats.outstandingAmount != null
             ? Number(stats.outstandingAmount) || 0
-            : sumInvoiceAmounts(invoices, isOutstanding);
+            : sumInvoiceAmounts(invoices, (inv) => ['Validée', 'Envoyée', 'En attente', 'En retard'].includes(inv.status));
+        const overdue = stats.overdueInvoiceAmount != null
+            ? Number(stats.overdueInvoiceAmount) || 0
+            : sumInvoiceAmounts(invoices, (inv) => inv.status === 'En retard' || invoiceOverdueDays(inv) > 0);
+        const paid = stats.paidInvoiceAmount != null
+            ? Number(stats.paidInvoiceAmount) || 0
+            : sumInvoiceAmounts(invoices, (inv) => inv.status === 'Payée' || inv.status === 'Paid');
 
         tabContent = `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-gray-700">${formatEuro(totalInvoiced)} €</h3>
-                <p class="dash-v2-muted text-sm">Montant total facturé</p>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-blue-200" onclick="router('preinvoicing')">
+                <h3 class="text-3xl font-bold text-blue-600">${toInvoice}</h3>
+                <p class="dash-v2-muted text-sm">À facturer</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-amber-200" onclick="router('sales_invoices_validated')">
+                <h3 class="text-3xl font-bold text-amber-600">${formatEuro(outstanding)} €</h3>
+                <p class="dash-v2-muted text-sm">À encaisser</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-red-200" onclick="invoiceListFilters.due='overdue'; invoiceListFilters.status='all'; router('sales_invoices_validated')">
+                <h3 class="text-3xl font-bold text-red-600">${formatEuro(overdue)} €</h3>
+                <p class="dash-v2-muted text-sm">En retard${stats.overdueInvoiceCount ? ` · ${stats.overdueInvoiceCount}` : ''}</p>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-orange-600">${pendingValidation}</h3>
-                <p class="dash-v2-muted text-sm">Factures en attente validation</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                <h3 class="text-3xl font-bold text-red-600">${formatEuro(outstanding)} €</h3>
-                <p class="dash-v2-muted text-sm">Encours Clients</p>
+                <h3 class="text-3xl font-bold text-emerald-600">${formatEuro(paid)} €</h3>
+                <p class="dash-v2-muted text-sm">Payé</p>
             </div>
         </div>
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -4003,7 +4013,9 @@ function isCreditNoteType(inv) {
 
 function isSalesInvoiceDraft(inv) {
     const s = (inv?.status || '').toString().trim().toLowerCase();
-    return s === 'brouillon' || s === 'draft' || s === 'en attente';
+    if (s === 'brouillon' || s === 'draft') return true;
+    if (s === 'en attente' && !inv.invoice_number) return true;
+    return false;
 }
 
 function isSalesInvoiceValidated(inv) {
@@ -4013,14 +4025,39 @@ function isSalesInvoiceValidated(inv) {
 function isCreditNoteEligibleInvoice(inv) {
     if (!inv || isCreditNoteType(inv)) return false;
     const status = (inv.status || '').toString().trim().toLowerCase();
-    if (status.includes('brouillon') || status === 'draft') return false;
-    return status.includes('valid') || status === 'payée' || status === 'payee' || status === 'paid';
+    if (status.includes('brouillon') || status === 'draft' || status.includes('annul')) return false;
+    return true;
 }
 
 function isValidatedForPaSubmission(inv) {
-    if (!inv || isCreditNoteType(inv)) return false;
+    if (!inv || isCreditNoteType(inv) || isSalesInvoiceDraft(inv)) return false;
     const status = (inv.status || '').toString().trim().toLowerCase();
-    return status.includes('valid') || status === 'validated' || status === 'validée' || status === 'validee';
+    if (status.includes('annul') || status.includes('clôtur') || status.includes('clotur')) return false;
+    return Boolean(inv.invoice_number) || status.includes('valid') || status.includes('envoy') || status === 'en attente' || status === 'en retard';
+}
+
+function invoiceStatusBadgeClass(status) {
+    const s = (status || '').toString().trim().toLowerCase();
+    if (s.includes('pay')) return 'bg-green-100 text-green-800';
+    if (s.includes('brouillon') || s === 'draft') return 'bg-gray-100 text-gray-800';
+    if (s.includes('retard')) return 'bg-red-100 text-red-800';
+    if (s.includes('annul')) return 'bg-gray-200 text-gray-600';
+    if (s.includes('envoy')) return 'bg-sky-100 text-sky-800';
+    if (s === 'en attente') return 'bg-amber-100 text-amber-800';
+    if (s.includes('clôtur') || s.includes('clotur')) return 'bg-slate-100 text-slate-700';
+    return 'bg-orange-100 text-orange-800';
+}
+
+function invoiceOverdueDays(inv) {
+    if (!inv?.due_date) return 0;
+    const dueAmt = Number(inv.amount_due != null ? inv.amount_due : (Number(inv.amount) || 0) - (Number(inv.amount_paid) || 0));
+    if (dueAmt <= 0.009) return 0;
+    const due = new Date(inv.due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    const diff = Math.round((today - due) / 86400000);
+    return diff > 0 ? diff : 0;
 }
 
 function canSubmitToPA(inv) {
@@ -4145,23 +4182,102 @@ function updateInvoiceModalCreditNoteUi(inv) {
     }
 }
 
+window.invoiceListFilters = window.invoiceListFilters || {
+    status: 'all',
+    clientId: '',
+    period: 'all',
+    search: '',
+    due: 'all'
+};
+
 function renderSalesInvoices(view = 'validated') {
     const canManage = canManageInvoices();
     const canValidate = typeof canValidateInvoices === 'function' ? canValidateInvoices() : canManage;
     const allInvoices = Array.isArray(db.sales_invoices) ? db.sales_invoices : [];
-    const invoices = view === 'draft'
+    let invoices = view === 'draft'
         ? allInvoices.filter(isSalesInvoiceDraft)
         : allInvoices.filter(isSalesInvoiceValidated);
     const isDraftView = view === 'draft';
+    const f = window.invoiceListFilters;
+    if (!isDraftView) {
+        const q = String(f.search || '').trim().toLowerCase();
+        invoices = invoices.filter((inv) => {
+            if (f.status && f.status !== 'all' && String(inv.status) !== f.status) return false;
+            if (f.clientId && String(inv.client_id) !== String(f.clientId)) return false;
+            if (q) {
+                const num = String(inv.number || inv.invoice_number || inv.id || '').toLowerCase();
+                const client = (db.clients || []).find((c) => Number(c.id) === Number(inv.client_id));
+                const name = String(client?.name || inv.client_name || '').toLowerCase();
+                if (!num.includes(q) && !name.includes(q)) return false;
+            }
+            if (f.due === 'overdue' && invoiceOverdueDays(inv) <= 0) return false;
+            if (f.period === 'month' || f.period === 'prev_month') {
+                const d = String(inv.date || '').slice(0, 10);
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = now.getMonth();
+                const start = f.period === 'month'
+                    ? new Date(y, m, 1)
+                    : new Date(y, m - 1, 1);
+                const end = f.period === 'month'
+                    ? new Date(y, m + 1, 0)
+                    : new Date(y, m, 0);
+                const pad = (n) => String(n).padStart(2, '0');
+                const from = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-01`;
+                const to = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+                if (d < from || d > to) return false;
+            }
+            return true;
+        });
+    }
     const showDraftSelect = isDraftView && (canValidate || canManage);
     const showValidatedSelect = !isDraftView && canManage;
-    const title = isDraftView ? 'Factures — Brouillon' : 'Factures validées';
+    const title = isDraftView ? 'Factures — Brouillon' : 'Factures';
     const subtitle = isDraftView
         ? 'Cochez les numéros de facture puis validez-les en facture définitive'
-        : 'Factures validées, payées ou avoirs émis — cliquez sur une ligne pour voir le détail et émettre un avoir';
+        : 'Filtrez par statut, client, période ou n° — cliquez une ligne pour envoyer, encaisser ou relancer';
     const emptyColSpan = isDraftView
         ? 5
-        : (5 + 1 + (canManage ? 2 : 0));
+        : (5 + 1 + ((canManage || canValidate) ? 2 : 0));
+    const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
+    const clientOptions = ['<option value="">Tous les clients</option>']
+        .concat((db.clients || []).map((c) =>
+            `<option value="${esc(c.id)}" ${String(f.clientId) === String(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`
+        )).join('');
+    const statusOptions = ['all', 'Validée', 'Envoyée', 'En attente', 'En retard', 'Payée', 'Annulée', 'Clôturée']
+        .map((s) => `<option value="${s}" ${f.status === s ? 'selected' : ''}>${s === 'all' ? 'Tous les statuts' : s}</option>`)
+        .join('');
+    const filterBar = isDraftView ? '' : `
+        <div class="flex flex-wrap items-end gap-2 mb-4 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+            <label class="text-xs text-gray-600"><span class="block mb-1 font-medium">N°</span>
+                <input type="search" value="${esc(f.search || '')}" placeholder="FAC…"
+                    onchange="invoiceListFilters.search=this.value; router('sales_invoices_validated')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white min-w-[8rem]">
+            </label>
+            <label class="text-xs text-gray-600"><span class="block mb-1 font-medium">Statut</span>
+                <select onchange="invoiceListFilters.status=this.value; router('sales_invoices_validated')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white">${statusOptions}</select>
+            </label>
+            <label class="text-xs text-gray-600"><span class="block mb-1 font-medium">Client</span>
+                <select onchange="invoiceListFilters.clientId=this.value; router('sales_invoices_validated')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white min-w-[10rem]">${clientOptions}</select>
+            </label>
+            <label class="text-xs text-gray-600"><span class="block mb-1 font-medium">Période</span>
+                <select onchange="invoiceListFilters.period=this.value; router('sales_invoices_validated')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="all" ${f.period === 'all' ? 'selected' : ''}>Toutes</option>
+                    <option value="month" ${f.period === 'month' ? 'selected' : ''}>Mois en cours</option>
+                    <option value="prev_month" ${f.period === 'prev_month' ? 'selected' : ''}>Mois précédent</option>
+                </select>
+            </label>
+            <label class="text-xs text-gray-600"><span class="block mb-1 font-medium">Échéance</span>
+                <select onchange="invoiceListFilters.due=this.value; router('sales_invoices_validated')"
+                    class="border rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="all" ${f.due === 'all' ? 'selected' : ''}>Toutes</option>
+                    <option value="overdue" ${f.due === 'overdue' ? 'selected' : ''}>En retard</option>
+                </select>
+            </label>
+        </div>`;
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
         <div class="flex justify-between items-center mb-6 gap-4 flex-wrap">
             <div>
@@ -4187,6 +4303,7 @@ function renderSalesInvoices(view = 'validated') {
             </div>
         </div>
         ${canExportAccounting() && !isDraftView ? `<div class="mb-4"><a href="#" onclick="router('accounting_export')" class="text-sm text-emerald-700 hover:underline"><i class="fa-solid fa-file-csv mr-1"></i>Export comptable CSV</a></div>` : ''}
+        ${filterBar}
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left text-gray-500">
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
@@ -4203,7 +4320,7 @@ function renderSalesInvoices(view = 'validated') {
                         <th class="px-4 py-3">Montant TTC</th>
                         <th class="px-4 py-3">Statut</th>
                         ${isDraftView ? '' : '<th class="px-4 py-3">PA</th>'}
-                        ${isDraftView || !canManage ? '' : '<th class="px-4 py-3">Relances</th>'}
+                        ${isDraftView || !(canManage || canValidate) ? '' : '<th class="px-4 py-3">Relances</th>'}
                     </tr>
                 </thead>
                 <tbody>
@@ -4219,8 +4336,8 @@ function renderSalesInvoices(view = 'validated') {
             : `${Number(inv.amount).toLocaleString('fr-FR')} €`;
         const amountClass = isCreditNote ? 'text-red-600' : 'text-gray-700';
         const invIdEsc = String(inv.id).replace(/'/g, "\\'");
-        const showRelance = !isDraftView && !isCreditNote && inv.status !== 'Payée' && canManage;
-        const relanceCell = isDraftView || !canManage ? '' : `<td class="px-4 py-3 text-sm text-gray-600" onclick="event.stopPropagation()">
+        const showRelance = !isDraftView && !isCreditNote && inv.status !== 'Payée' && inv.status !== 'Annulée' && (canManage || canValidate);
+        const relanceCell = isDraftView || !(canManage || canValidate) ? '' : `<td class="px-4 py-3 text-sm text-gray-600" onclick="event.stopPropagation()">
                                 ${showRelance ? `<button onclick="relanceFacture('${invIdEsc}')" class="text-orange-600 hover:underline text-xs mr-2">Relancer</button>` : ''}
                                 ${reminderLabel}
                             </td>`;
@@ -4242,9 +4359,7 @@ function renderSalesInvoices(view = 'validated') {
                             <td class="px-4 py-3">${formatDisplayDate(inv.date)}</td>
                             <td class="px-4 py-3 font-bold ${amountClass}">${amountLabel}</td>
                             <td class="px-4 py-3">
-                                <span class="px-2 py-1 rounded text-xs font-semibold ${inv.status === 'Payée' ? 'bg-green-100 text-green-800' :
-                inv.status === 'Brouillon' ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800'
-            }">${esc(String(inv.status || ''))}</span>
+                                <span class="px-2 py-1 rounded text-xs font-semibold ${invoiceStatusBadgeClass(inv.status)}">${esc(String(inv.status || ''))}</span>
                             </td>
                             ${isDraftView ? '' : `<td class="px-4 py-3">${renderPaStatusBadge(inv)}</td>`}
                             ${relanceCell}
@@ -4336,7 +4451,7 @@ window.openInvoiceModal = async function (invoiceId) {
     if (clientName) clientName.innerText = inv.client_name || client?.name || "Client Inconnu";
 
     const clientAddress = document.getElementById('modal-client-address');
-    if (clientAddress) clientAddress.innerText = inv.client_address || client?.address || "";
+    if (clientAddress) clientAddress.innerText = inv.client_billing_address || client?.billing_address || inv.client_address || client?.address || "";
 
     const clientSiretEl = document.getElementById('modal-client-siret');
     if (clientSiretEl) {
@@ -4395,7 +4510,13 @@ window.openInvoiceModal = async function (invoiceId) {
     if (taxRows) taxRows.innerHTML = '';
 
     let totalTVA = 0;
-    if (taxRows) {
+    if (inv.subtotal_ht != null && inv.subtotal_ht !== '') {
+        totalHT = Number(inv.subtotal_ht) || 0;
+        totalTVA = Number(inv.tax_amount) || 0;
+        const ratePct = Number(inv.vat_rate);
+        taxes = {};
+        taxes[(Number.isFinite(ratePct) ? ratePct : 20) / 100] = totalTVA;
+    } else if (taxRows) {
         for (let rate in taxes) {
             totalTVA += taxes[rate];
             taxRows.innerHTML += `
@@ -4409,12 +4530,39 @@ window.openInvoiceModal = async function (invoiceId) {
         totalTVA = Object.values(taxes).reduce((a, b) => a + b, 0);
     }
 
-    const totalTTC = (totalHT + totalTVA).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    if (taxRows && inv.subtotal_ht != null && inv.subtotal_ht !== '') {
+        for (let rate in taxes) {
+            taxRows.innerHTML += `
+                <div class="flex justify-between font-mono tabular-nums">
+                    <span>TVA (${(Number(rate) * 100).toFixed(1)}%)</span>
+                    <span>${taxes[rate].toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                </div>
+            `;
+        }
+    }
+
+    const ttcNumber = Number(inv.amount) || (totalHT + totalTVA);
+    const totalTTC = ttcNumber.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
     const summaryTTCEl = document.getElementById('modal-summary-ttc');
     if (summaryTTCEl) summaryTTCEl.innerText = totalTTC;
-
     const totalTTCEl = document.getElementById('modal-total-ttc');
     if (totalTTCEl) totalTTCEl.innerText = totalTTC;
+    if (totalHTEl) totalHTEl.innerText = totalHT.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+
+    const dueAmt = Number(inv.amount_due != null ? inv.amount_due : (ttcNumber - (Number(inv.amount_paid) || 0)));
+    const dueElAmt = document.getElementById('modal-amount-due');
+    if (dueElAmt) dueElAmt.innerText = dueAmt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    const overdueDays = invoiceOverdueDays({ ...inv, amount_due: dueAmt });
+    const overdueEl = document.getElementById('modal-overdue-days');
+    if (overdueEl) {
+        if (overdueDays > 0) {
+            overdueEl.textContent = `Retard ${overdueDays} jour${overdueDays > 1 ? 's' : ''}`;
+            overdueEl.classList.remove('hidden');
+        } else {
+            overdueEl.textContent = '';
+            overdueEl.classList.add('hidden');
+        }
+    }
 
     // 6. Coordonnées bancaires (table bank_settings)
     const methodEl = document.getElementById('modal-payment-method');
@@ -4446,8 +4594,49 @@ window.openInvoiceModal = async function (invoiceId) {
 
     const downloadBtn = document.getElementById('download-btn');
     if (downloadBtn) {
-        // Actuellement le backend retourne un PDF. On garde la fonction en attendant XML dédié.
         downloadBtn.onclick = () => downloadInvoicePDF(invoiceId);
+    }
+
+    const canSend = !isDraft && !isCreditNoteType(inv) && inv.status !== 'Annulée' && inv.status !== 'Payée'
+        && (typeof canValidateInvoices === 'function' ? canValidateInvoices() : canManageInvoices());
+    const sendBtn = document.getElementById('send-invoice-btn');
+    if (sendBtn) {
+        sendBtn.classList.toggle('hidden', !canSend);
+        sendBtn.onclick = canSend ? () => sendInvoice(inv.id) : null;
+    }
+
+    const canPay = !isDraft && !isCreditNoteType(inv) && inv.status !== 'Annulée' && dueAmt > 0.009 && canManageInvoices();
+    const payBtn = document.getElementById('record-payment-btn');
+    if (payBtn) {
+        payBtn.classList.toggle('hidden', !canPay);
+        payBtn.onclick = canPay ? () => openInvoicePaymentModal(inv) : null;
+    }
+
+    const canRemind = !isDraft && !isCreditNoteType(inv) && inv.status !== 'Annulée' && inv.status !== 'Payée' && dueAmt > 0.009
+        && (typeof canValidateInvoices === 'function' ? canValidateInvoices() : canManageInvoices());
+    const remindBtn = document.getElementById('remind-invoice-btn');
+    if (remindBtn) {
+        remindBtn.classList.toggle('hidden', !canRemind);
+        remindBtn.onclick = canRemind ? () => relanceFacture(inv.id) : null;
+    }
+
+    const eventsEl = document.getElementById('modal-invoice-events');
+    if (eventsEl) {
+        const events = Array.isArray(inv.events) ? inv.events : [];
+        if (events.length) {
+            eventsEl.classList.remove('hidden');
+            eventsEl.innerHTML = `<h3 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Journal</h3>
+                <ul class="space-y-2 text-sm text-gray-600">${events.map((ev) => {
+                    const when = ev.created_at ? formatDisplayDate(ev.created_at) : '';
+                    const who = ev.created_by_name ? ` · ${ev.created_by_name}` : '';
+                    return `<li><span class="font-semibold text-gray-800">${esc(ev.event_type || '')}</span>
+                        <span class="text-gray-400 text-xs">${esc(when)}${esc(who)}</span>
+                        <p>${esc(ev.message || '')}</p></li>`;
+                }).join('')}</ul>`;
+        } else {
+            eventsEl.classList.add('hidden');
+            eventsEl.innerHTML = '';
+        }
     }
 
     updateInvoiceModalPaUi(inv);
@@ -7403,6 +7592,10 @@ function openAddClientModal() {
     document.getElementById('add-client-accounting-email').value = '';
     document.getElementById('add-client-phone').value = '';
     document.getElementById('add-client-address').value = '';
+    const billingAddrEl = document.getElementById('add-client-billing-address');
+    if (billingAddrEl) billingAddrEl.value = '';
+    const termsEl = document.getElementById('add-client-payment-terms');
+    if (termsEl) termsEl.value = 'net_30';
     document.getElementById('add-client-tva').value = '';
     document.getElementById('add-client-contact-name').value = '';
     fillClientContactTypeSelect('Exploitant');
@@ -7422,6 +7615,10 @@ function openEditClientModal(clientId) {
     document.getElementById('add-client-accounting-email').value = client.accounting_email || '';
     document.getElementById('add-client-phone').value = client.phone;
     document.getElementById('add-client-address').value = client.address;
+    const billingAddrEdit = document.getElementById('add-client-billing-address');
+    if (billingAddrEdit) billingAddrEdit.value = client.billing_address || '';
+    const termsEdit = document.getElementById('add-client-payment-terms');
+    if (termsEdit) termsEdit.value = client.payment_terms || 'net_30';
     document.getElementById('add-client-tva').value = client.tva || '';
     document.getElementById('add-client-contact-name').value = client.contact_name || '';
     fillClientContactTypeSelect(client.contact_type);
@@ -7442,6 +7639,8 @@ async function submitAddClient() {
         accounting_email: document.getElementById('add-client-accounting-email').value,
         phone: document.getElementById('add-client-phone').value,
         address: document.getElementById('add-client-address').value,
+        billing_address: document.getElementById('add-client-billing-address')?.value || '',
+        payment_terms: document.getElementById('add-client-payment-terms')?.value || 'net_30',
         tva: document.getElementById('add-client-tva').value,
         contact_name: document.getElementById('add-client-contact-name').value,
         contact_type: normalizeClientContactType(document.getElementById('add-client-contact-type')?.value)
@@ -9007,67 +9206,116 @@ function confirmSendInvoice(invoiceId, clientEmail) {
         showToast('Aucun email trouvé pour ce client. Veuillez éditer le client pour ajouter un email.', 'error');
         return;
     }
-
-    if (confirm('Êtes-vous sûr de vouloir envoyer la facture ' + invoiceId + ' à l\'adresse email:\n\n' + clientEmail + ' ?')) {
+    if (confirm('Envoyer la facture ' + invoiceId + ' à :\n\n' + clientEmail + ' ?')) {
         sendInvoice(invoiceId);
     }
 }
 
-function sendInvoice(invoiceId) {
-    // Check if user is admin
-    if (!canManageInvoices()) {
+async function sendInvoice(invoiceId) {
+    if (!(typeof canValidateInvoices === 'function' ? canValidateInvoices() : canManageInvoices())) {
         showToast("Vous n'avez pas l'autorisation d'envoyer des factures.", "error");
-        closeModal();
         return;
     }
-
-    const invoice = db.sales_invoices.find(inv => inv.id === invoiceId);
-    const client = db.clients.find(c => c.id == invoice.client_id);
-
-    if (invoice && client && client.email) {
-        invoice.sent_date = new Date().toISOString().split('T')[0];
-
-        // Show success message with client email
-        showToast('Facture envoyée par email à: ' + client.email, 'success');
-
-        // Refresh the invoice list
-        router('sales_invoices_validated');
-    } else if (invoice) {
-        invoice.sent_date = new Date().toISOString().split('T')[0];
-        showToast('Facture marquée comme envoyée', 'success');
-        router('sales_invoices_validated');
+    try {
+        const res = await apiFetch(`sales-invoices/${invoiceId}/send`, { method: 'POST', body: {} });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || 'Envoi impossible', 'error');
+            return;
+        }
+        if (payload.simulated || payload.smtp === false) {
+            showToast(`Envoi enregistré (SMTP absent) — destinataire ${payload.to || ''}`.trim(), 'info');
+        } else {
+            showToast(`Facture envoyée à ${payload.to || 'le client'}`, 'success');
+        }
+        await fetchAllData();
+        openInvoiceModal(invoiceId);
+    } catch (e) {
+        showToast('Erreur de communication avec le serveur', 'error');
     }
-    closeModal();
 }
 
-function relanceFacture(invoiceId) {
-    if (!canManageInvoices()) {
+async function relanceFacture(invoiceId) {
+    if (!(typeof canValidateInvoices === 'function' ? canValidateInvoices() : canManageInvoices())) {
         showToast("Vous n'avez pas l'autorisation de relancer des factures.", "error");
         return;
     }
-
-    const today = new Date().toISOString().split('T')[0];
     if (!confirm(`Envoyer une relance pour la facture ${invoiceId} ?`)) return;
-
-    (async () => {
-        try {
-            const res = await apiFetch(`sales-invoices/${invoiceId}`, {
-                method: 'PUT',
-                body: { reminder_date: today }
-            });
-            if (res.ok) {
-                showToast('Relance enregistrée pour la facture ' + invoiceId, 'success');
-                await fetchAllData();
-                router('sales_invoices_validated');
-            } else {
-                const err = await res.json().catch(() => ({}));
-                showToast(err.error || 'Échec de la relance', 'error');
-            }
-        } catch (e) {
-            showToast('Erreur de communication avec le serveur', 'error');
+    try {
+        const res = await apiFetch(`sales-invoices/${invoiceId}/reminders`, { method: 'POST', body: {} });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || 'Échec de la relance', 'error');
+            return;
         }
-    })();
+        if (payload.simulated || payload.smtp === false) {
+            showToast(`Relance enregistrée (SMTP absent) — ${payload.to || ''}`.trim(), 'info');
+        } else {
+            showToast(`Relance n°${payload.level || ''} envoyée à ${payload.to || ''}`.trim(), 'success');
+        }
+        await fetchAllData();
+        if (document.getElementById('invoice-modal') && !document.getElementById('invoice-modal').classList.contains('hidden')) {
+            openInvoiceModal(invoiceId);
+        } else {
+            router('sales_invoices_validated');
+        }
+    } catch (e) {
+        showToast('Erreur de communication avec le serveur', 'error');
+    }
 }
+
+window.openInvoicePaymentModal = function (inv) {
+    if (!canManageInvoices()) {
+        showToast("Vous n'avez pas l'autorisation d'enregistrer un paiement.", 'error');
+        return;
+    }
+    const dueAmt = Number(inv.amount_due != null ? inv.amount_due : (Number(inv.amount) || 0) - (Number(inv.amount_paid) || 0));
+    document.getElementById('invoice-payment-id').value = inv.id;
+    document.getElementById('invoice-payment-due').textContent = dueAmt.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+    document.getElementById('invoice-payment-amount').value = dueAmt > 0 ? dueAmt.toFixed(2) : '';
+    document.getElementById('invoice-payment-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('invoice-payment-method').value = 'virement';
+    document.getElementById('invoice-payment-ref').value = '';
+    document.getElementById('invoice-payment-comment').value = '';
+    document.getElementById('invoice-payment-modal').classList.remove('hidden');
+};
+
+window.closeInvoicePaymentModal = function () {
+    const el = document.getElementById('invoice-payment-modal');
+    if (el) el.classList.add('hidden');
+};
+
+window.submitInvoicePayment = async function () {
+    const invoiceId = document.getElementById('invoice-payment-id').value;
+    const amount = Number(document.getElementById('invoice-payment-amount').value);
+    if (!(amount > 0)) {
+        showToast('Montant invalide', 'error');
+        return;
+    }
+    try {
+        const res = await apiFetch(`sales-invoices/${invoiceId}/payments`, {
+            method: 'POST',
+            body: {
+                amount,
+                paid_at: document.getElementById('invoice-payment-date').value,
+                method: document.getElementById('invoice-payment-method').value,
+                reference: document.getElementById('invoice-payment-ref').value,
+                comment: document.getElementById('invoice-payment-comment').value
+            }
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast(payload.error || 'Paiement refusé', 'error');
+            return;
+        }
+        showToast(payload.status === 'Payée' ? 'Facture soldée' : `Paiement enregistré — reste ${Number(payload.amount_due || 0).toLocaleString('fr-FR')} €`, 'success');
+        closeInvoicePaymentModal();
+        await fetchAllData();
+        openInvoiceModal(invoiceId);
+    } catch (e) {
+        showToast('Erreur de communication avec le serveur', 'error');
+    }
+};
 
 async function downloadInvoicePDF(invoiceId) {
     showToast('Génération de la facture Factur-X (PDF/A-3)...', 'info');
