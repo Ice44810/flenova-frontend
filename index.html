@@ -1918,6 +1918,30 @@
         </div>
     </div>
 
+    <!-- MODAL: DATE D'ÉCHÉANCE AVANT VALIDATION -->
+    <div id="validate-due-modal" class="hidden fixed inset-0 z-[120] items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md fade-in">
+            <div class="flex justify-between items-center p-4 border-b bg-gray-50 rounded-t-xl">
+                <div>
+                    <h3 class="font-bold text-lg text-gray-800">Date d'échéance</h3>
+                    <p id="validate-due-subtitle" class="text-sm text-gray-500 mt-1">Vérifiez l'échéance avant de valider la facture</p>
+                </div>
+                <button type="button" onclick="closeValidateDueModal()" class="text-gray-400 hover:text-red-500" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
+            </div>
+            <div class="p-5 space-y-3">
+                <label for="validate-due-date" class="block text-sm font-medium text-gray-700">Échéance de paiement</label>
+                <input type="date" id="validate-due-date" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                <p class="text-xs text-gray-500">Cette date sera figée sur la facture définitive.</p>
+            </div>
+            <div class="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end gap-2">
+                <button type="button" onclick="closeValidateDueModal()" class="px-4 py-2 border rounded text-gray-600 hover:bg-white">Annuler</button>
+                <button type="button" id="validate-due-confirm-btn" onclick="confirmValidateDue()" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-semibold">
+                    <i class="fa-solid fa-check mr-1"></i>Valider la facture
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: TRANSPORT DETAIL (MVP) -->
     <div id="transport-detail-modal" class="hidden transport-detail-overlay z-[90]">
         <div class="transport-detail-panel bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col fade-in mx-auto">

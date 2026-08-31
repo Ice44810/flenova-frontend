@@ -23,6 +23,22 @@ function formatDateForInput(value) {
     return s.slice(0, 10);
 }
 
+function addCalendarDaysIso(value, days) {
+    const base = formatDateForInput(value || new Date());
+    const [y, m, d] = base.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + Number(days || 0));
+    const yy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+}
+
+function defaultInvoiceDueDate(inv) {
+    if (inv?.due_date) return formatDateForInput(inv.due_date);
+    return addCalendarDaysIso(inv?.date || new Date(), 30);
+}
+
 function getInvoiceAmount(inv) {
     if (!inv) return 0;
     const raw = inv.amount ?? inv.total ?? inv.total_ttc ?? inv.total_ht;
@@ -126,7 +142,8 @@ function hideAllModals() {
         'driver-card-modal', 'driver-modal', 'add-vehicle-modal', 'edit-vehicle-modal',
         'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
         'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
-        'invoice-modal', 'transport-detail-modal', 'credit-note-modal', 'dashboard-advanced-filter-modal'
+        'invoice-modal', 'transport-detail-modal', 'credit-note-modal', 'dashboard-advanced-filter-modal',
+        'validate-due-modal'
     ];
 
     // Invariant: le modal aperçu facture A4 (modal-overlay/modal-content) ne doit jamais être visible
@@ -1769,19 +1786,89 @@ window.validateSelectedDrafts = async function () {
         showToast('Cochez au moins un numéro de facture à valider.', 'info');
         return;
     }
-    if (!confirm(`Valider ${selectedIds.length} brouillon(s) en facture définitive ?\nUn numéro FAC sera attribué à chacune.`)) {
+    const invoices = selectedIds.map((id) => (db.sales_invoices || []).find((i) => String(i.id) === String(id))).filter(Boolean);
+    const dues = [...new Set(invoices.map((inv) => defaultInvoiceDueDate(inv)))];
+    openValidateDueModal({
+        ids: selectedIds,
+        bulk: true,
+        defaultDue: dues.length === 1 ? dues[0] : addCalendarDaysIso(new Date(), 30)
+    });
+};
+
+let pendingDraftValidation = null;
+
+function openValidateDueModal({ ids, bulk, defaultDue }) {
+    pendingDraftValidation = { ids: ids || [], bulk: !!bulk };
+    const input = document.getElementById('validate-due-date');
+    const subtitle = document.getElementById('validate-due-subtitle');
+    if (input) input.value = defaultDue || addCalendarDaysIso(new Date(), 30);
+    if (subtitle) {
+        subtitle.textContent = bulk
+            ? `Cette échéance sera appliquée aux ${ids.length} brouillon(s) sélectionné(s)`
+            : 'Vérifiez l’échéance avant de valider la facture';
+    }
+    const modal = document.getElementById('validate-due-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    if (input) {
+        input.focus();
+        input.select?.();
+    }
+}
+
+window.closeValidateDueModal = function () {
+    pendingDraftValidation = null;
+    const modal = document.getElementById('validate-due-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+};
+
+window.confirmValidateDue = async function () {
+    const pending = pendingDraftValidation;
+    if (!pending?.ids?.length) {
+        closeValidateDueModal();
         return;
     }
+    const dueDate = document.getElementById('validate-due-date')?.value;
+    if (!dueDate) {
+        showToast('Choisissez une date d’échéance.', 'info');
+        return;
+    }
+    const btn = document.getElementById('validate-due-confirm-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-60');
+    }
+    try {
+        if (pending.bulk) {
+            await submitBulkDraftValidation(pending.ids, dueDate);
+        } else {
+            await submitSingleDraftValidation(pending.ids[0], dueDate);
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-60');
+        }
+    }
+};
+
+async function submitBulkDraftValidation(selectedIds, dueDate) {
     try {
         const res = await apiFetch('sales-invoices/bulk-validate', {
             method: 'POST',
-            body: { ids: selectedIds }
+            body: { ids: selectedIds, due_date: dueDate }
         });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
             showToast(payload.error || payload.message || 'Validation impossible.', 'error');
             return;
         }
+        closeValidateDueModal();
         const okCount = Array.isArray(payload.validated) ? payload.validated.length : 0;
         const skipCount = Array.isArray(payload.skipped) ? payload.skipped.length : 0;
         await fetchAllData();
@@ -1802,7 +1889,30 @@ window.validateSelectedDrafts = async function () {
     } catch (e) {
         showToast('Erreur réseau — factures non validées.', 'error');
     }
-};
+}
+
+async function submitSingleDraftValidation(invoiceId, dueDate) {
+    try {
+        const res = await apiFetch(`sales-invoices/${invoiceId}/validate`, {
+            method: 'POST',
+            body: { due_date: dueDate }
+        });
+        if (res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            closeValidateDueModal();
+            showToast('Facture validée avec succès !', 'success');
+            showEinvoiceValidationFeedback(payload.einvoice);
+            await fetchAllData();
+            closeModal();
+            router('sales_invoices_validated');
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Erreur de validation', 'error');
+        }
+    } catch (e) {
+        showToast('Serveur injoignable', 'error');
+    }
+}
 
 // Function to delete selected sales invoices
 async function deleteSelectedInvoices() {
@@ -4331,7 +4441,7 @@ window.openInvoiceModal = async function (invoiceId) {
     if (validateBtn) {
         const canValidateDraft = isDraft && (typeof canValidateInvoices === 'function' ? canValidateInvoices() : canManageInvoices());
         validateBtn.classList.toggle('hidden', !canValidateDraft);
-        validateBtn.onclick = canValidateDraft ? () => validateDraft(inv.id) : null;
+        validateBtn.onclick = canValidateDraft ? () => validateDraft(inv.id, inv) : null;
     }
 
     const downloadBtn = document.getElementById('download-btn');
@@ -4946,6 +5056,7 @@ async function saveDraft() {
                 body: {
                     client_id: data.client_id,
                     date: data.date,
+                    due_date: data.due_date,
                     amount: data.amount,
                     items: data.items
                 }
@@ -4986,6 +5097,7 @@ async function validateInvoice() {
                 body: {
                     client_id: data.client_id,
                     date: data.date,
+                    due_date: data.due_date,
                     amount: data.amount,
                     items: data.items
                 }
@@ -4995,7 +5107,10 @@ async function validateInvoice() {
                 showToast(err.error || "Erreur lors de la mise à jour du brouillon", "error");
                 return;
             }
-            res = await apiFetch(`sales-invoices/${editingInvoiceId}/validate`, { method: 'POST' });
+            res = await apiFetch(`sales-invoices/${editingInvoiceId}/validate`, {
+                method: 'POST',
+                body: { due_date: data.due_date }
+            });
         } else {
             res = await apiFetch('sales-invoices', { method: 'POST', body: data });
         }
@@ -8829,26 +8944,17 @@ function closeModal() {
     hideAllModals();
 }
 
-window.validateDraft = async function (invoiceId) {
+window.validateDraft = async function (invoiceId, invoiceHint) {
     if (typeof canValidateInvoices === 'function' && !canValidateInvoices()) {
         showToast("Vous n'avez pas l'autorisation de valider des factures.", 'error');
         return;
     }
-    if (!confirm("Voulez-vous transformer ce brouillon en facture définitive ?")) return;
-    try {
-        const res = await apiFetch(`sales-invoices/${invoiceId}/validate`, { method: 'POST' });
-        if (res.ok) {
-            const payload = await res.json().catch(() => ({}));
-            showToast("Facture validée avec succès !", "success");
-            showEinvoiceValidationFeedback(payload.einvoice);
-            await fetchAllData();
-            closeModal();
-            router('sales_invoices_validated');
-        } else {
-            const err = await res.json().catch(() => ({}));
-            showToast(err.error || "Erreur de validation", "error");
-        }
-    } catch (e) { showToast("Serveur injoignable", "error"); }
+    const inv = invoiceHint || (db.sales_invoices || []).find((i) => String(i.id) === String(invoiceId));
+    openValidateDueModal({
+        ids: [invoiceId],
+        bulk: false,
+        defaultDue: defaultInvoiceDueDate(inv)
+    });
 };
 
 window.createCreditNote = async function (invoiceId, isPartial) {
