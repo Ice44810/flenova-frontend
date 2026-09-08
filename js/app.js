@@ -8076,6 +8076,7 @@ function syncDriverMobileSection({ mode, driver } = {}) {
     const statusEl = document.getElementById('driver-mobile-status');
     const actionsEl = document.getElementById('driver-mobile-actions');
     const regenerateBtn = document.getElementById('btn-regenerate-driver-invite');
+    const tempPasswordBtn = document.getElementById('btn-temp-driver-password');
 
     const isEdit = mode === 'edit';
     const isActivated = Boolean(driver?.user_account_id);
@@ -8098,16 +8099,20 @@ function syncDriverMobileSection({ mode, driver } = {}) {
     }
 
     if (regenerateBtn && actionsEl) {
-        const showRegenerate = isEdit && !isActivated && typeof canManageCarriers === 'function' && canManageCarriers();
-        actionsEl.classList.toggle('hidden', !showRegenerate);
+        const canManage = typeof canManageCarriers === 'function' && canManageCarriers();
+        const showRegenerate = isEdit && !isActivated && canManage;
+        const showTempPassword = isEdit && isActivated && canManage;
+        actionsEl.classList.toggle('hidden', !showRegenerate && !showTempPassword);
+        regenerateBtn.classList.toggle('hidden', !showRegenerate);
         regenerateBtn.innerHTML = hasCode
             ? '<i class="fa-solid fa-rotate mr-1"></i>Nouveau code'
             : '<i class="fa-solid fa-key mr-1"></i>Générer un code';
+        if (tempPasswordBtn) tempPasswordBtn.classList.toggle('hidden', !showTempPassword);
     }
 
     if (statusEl) {
         if (isEdit && isActivated) {
-            statusEl.textContent = 'Compte TMS Mobile activé — le chauffeur se connecte avec son code et son mot de passe.';
+            statusEl.textContent = 'Compte activé — le chauffeur se reconnecte avec son mot de passe. En cas d’oubli, générez un mot de passe provisoire.';
             statusEl.className = 'text-xs mt-2 ml-7 text-green-700 font-medium';
         } else if (isEdit && hasCode) {
             statusEl.textContent = 'En attente d\'activation — transmettez ce code au chauffeur.';
@@ -8173,6 +8178,35 @@ async function regenerateDriverInviteCode() {
 
 window.copyDriverInviteCode = copyDriverInviteCode;
 window.regenerateDriverInviteCode = regenerateDriverInviteCode;
+
+async function issueDriverTemporaryPassword() {
+    const driverId = document.getElementById('edit-driver-id')?.value;
+    if (!driverId) return;
+    if (!confirm('Générer un mot de passe provisoire ? L’ancien mot de passe du chauffeur ne fonctionnera plus. Il devra en choisir un nouveau dans l’application.')) {
+        return;
+    }
+    try {
+        const response = await apiFetch(`drivers/${driverId}/temporary-password`, { method: 'POST' });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Génération impossible');
+        }
+        const pwd = result.temporary_password;
+        if (pwd && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(pwd).catch(() => {});
+        }
+        alert(
+            `Mot de passe provisoire pour ${result.driver_name || 'le chauffeur'} :\n\n${pwd}\n\n`
+            + 'Transmettez-le uniquement au chauffeur. Il devra le remplacer à la connexion.\n'
+            + (pwd ? 'Le mot de passe a été copié dans le presse-papiers.' : '')
+        );
+        showToast('Mot de passe provisoire généré', 'success');
+    } catch (err) {
+        showToast(err.message || 'Erreur lors de la génération', 'error');
+    }
+}
+
+window.issueDriverTemporaryPassword = issueDriverTemporaryPassword;
 
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof initMobileNav === 'function') initMobileNav();
@@ -10682,7 +10716,7 @@ async function submitAddOrder() {
         agency_id: agencyVal ? parseInt(agencyVal, 10) : null,
         volume: Number.isFinite(volumeVal) ? volumeVal : null,
         price: parseFloat(document.getElementById('add-order-price').value) || 0,
-        status: 'Brouillon',
+        status: assignment.driver_id ? 'Pris en charge' : 'Brouillon',
         ...assignment,
         ...pallet,
         ...cmr

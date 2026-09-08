@@ -380,9 +380,10 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <button type="button" id="global-search-toggle" class="sm:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-                        aria-label="Ouvrir la recherche" onclick="toggleMobileGlobalSearch()">
-                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                    <button type="button" id="global-search-toggle" class="sm:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 cursor-pointer"
+                        aria-label="Ouvrir la recherche" aria-expanded="false" aria-controls="global-search-wrap"
+                        onclick="toggleMobileGlobalSearch(event)">
+                        <i class="fa-solid fa-magnifying-glass pointer-events-none" aria-hidden="true"></i>
                     </button>
                     <div id="global-search-wrap" class="relative hidden sm:block">
                         <label for="global-search-input" class="sr-only">Recherche globale</label>
@@ -1166,9 +1167,12 @@
                                 </button>
                             </div>
                         </div>
-                        <div id="driver-mobile-actions" class="hidden mt-3 ml-7">
+                        <div id="driver-mobile-actions" class="hidden mt-3 ml-7 flex flex-wrap gap-2">
                             <button type="button" id="btn-regenerate-driver-invite" onclick="regenerateDriverInviteCode()" class="px-3 py-2 border border-teal-600 text-teal-700 rounded-md text-sm hover:bg-teal-100 whitespace-nowrap">
                                 <i class="fa-solid fa-rotate mr-1"></i>Nouveau code
+                            </button>
+                            <button type="button" id="btn-temp-driver-password" onclick="issueDriverTemporaryPassword()" class="hidden px-3 py-2 border border-amber-600 text-amber-800 rounded-md text-sm hover:bg-amber-50 whitespace-nowrap">
+                                <i class="fa-solid fa-unlock-keyhole mr-1"></i>Mot de passe provisoire
                             </button>
                         </div>
                         <p id="driver-mobile-status" class="text-xs mt-2 ml-7 text-gray-600"></p>
@@ -2033,6 +2037,7 @@
                     <div class="col-span-2"><span class="text-gray-400 text-xs uppercase">Code suivi</span><p id="td-tracking-code" class="font-mono text-sm text-teal-700">—</p></div>
                     <div class="td-price-row"><span class="text-gray-400 text-xs uppercase">Montant</span><p id="td-price" class="font-bold text-blue-700"></p></div>
                 </div>
+                <div id="td-planned-vs-actual" class="hidden border-t pt-4"></div>
                 <div id="td-billing-check" class="hidden border-t pt-4"></div>
                 <div id="td-actions" class="flex flex-wrap gap-2 border-t pt-4"></div>
                 <div>

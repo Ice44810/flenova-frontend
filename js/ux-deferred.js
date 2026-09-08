@@ -647,11 +647,13 @@
         if (!window.isAuthenticated && typeof isAuthenticated !== 'undefined' && !isAuthenticated) return;
         if (e.key === 'n' || e.key === 'N') {
             if (e.metaKey || e.ctrlKey || e.altKey) return;
+            if (typeof canWriteTransport === 'function' && !canWriteTransport()) return;
             e.preventDefault();
             if (typeof openAddOrderModal === 'function') openAddOrderModal();
         } else if (e.key === '/') {
             e.preventDefault();
-            document.getElementById('global-search-input')?.focus();
+            if (typeof toggleMobileGlobalSearch === 'function') toggleMobileGlobalSearch();
+            else document.getElementById('global-search-input')?.focus();
         } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
             e.preventDefault();
             document.getElementById('keyboard-help-modal')?.classList.remove('hidden');
@@ -659,6 +661,7 @@
             document.getElementById('keyboard-help-modal')?.classList.add('hidden');
             document.getElementById('notification-center-panel')?.classList.add('hidden');
             document.getElementById('global-search-results')?.classList.add('hidden');
+            if (typeof closeMobileGlobalSearch === 'function') closeMobileGlobalSearch();
             if (typeof closeAccountMenu === 'function') closeAccountMenu();
         }
     });

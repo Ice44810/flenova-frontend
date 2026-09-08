@@ -715,6 +715,53 @@ function renderTransportDetailModal(t) {
         priceEl.closest('.td-price-row')?.classList.remove('hidden');
     }
 
+    const compareEl = document.getElementById('td-planned-vs-actual');
+    if (compareEl) {
+        const hasActuals = t.actual_weight_kg != null || t.delivered_weight_kg != null
+            || t.actual_vehicle_plate || t.actual_qty != null;
+        if (!hasActuals) {
+            compareEl.classList.add('hidden');
+            compareEl.innerHTML = '';
+        } else {
+            const plannedW = t.weight || t.taxable_weight_kg;
+            const plannedQty = t.pallet_count;
+            const plannedCargo = t.cargo || '—';
+            const qtyType = t.actual_qty_type || t.pallet_type || 'palettes';
+            const row = (label, planned, actual, delivered) => {
+                const p = planned == null || planned === '' ? '—' : planned;
+                const a = actual == null || actual === '' ? '—' : actual;
+                const d = delivered == null || delivered === '' ? '' : delivered;
+                const diff = planned != null && actual != null && String(planned) !== String(actual);
+                return `<tr class="${diff ? 'bg-amber-50' : ''}">
+                    <td class="py-1 pr-3 text-gray-500">${esc(label)}</td>
+                    <td class="py-1 pr-3 font-medium">${esc(p)}</td>
+                    <td class="py-1 pr-3 font-medium ${diff ? 'text-amber-800' : ''}">${esc(a)}</td>
+                    ${d ? `<td class="py-1 font-medium">${esc(d)}</td>` : '<td class="py-1 text-gray-400">—</td>'}
+                </tr>`;
+            };
+            const fmtKg = (v) => (v == null || v === '' ? null : `${Number(v).toLocaleString('fr-FR')} kg`);
+            const fmtQty = (v, type) => (v == null || v === '' ? null : `${v} ${type || ''}`.trim());
+            compareEl.classList.remove('hidden');
+            compareEl.innerHTML = `
+                <h4 class="font-bold text-xs uppercase text-gray-500 mb-2">Données de la mission — prévu vs réel</h4>
+                <table class="w-full text-xs">
+                    <thead><tr class="text-gray-400 uppercase">
+                        <th class="text-left py-1"> </th>
+                        <th class="text-left py-1">Prévu</th>
+                        <th class="text-left py-1">Chargé</th>
+                        <th class="text-left py-1">Livré</th>
+                    </tr></thead>
+                    <tbody>
+                        ${row('Poids', fmtKg(plannedW), fmtKg(t.actual_weight_kg), fmtKg(t.delivered_weight_kg))}
+                        ${row('Quantité', fmtQty(plannedQty, t.pallet_type || 'palettes'), fmtQty(t.actual_qty, qtyType), fmtQty(t.delivered_qty, t.delivered_qty_type || qtyType))}
+                        ${row('Nature', plannedCargo, t.actual_cargo, t.delivered_cargo)}
+                        ${row('Camion', t.vehicle_plate || '—', t.actual_vehicle_plate, '')}
+                        ${row('Remorque', t.trailer_plate || (t.no_trailer ? 'Sans remorque' : '—'), t.no_trailer ? 'Sans remorque' : t.actual_trailer_plate, '')}
+                    </tbody>
+                </table>`;
+        }
+    }
+
     const historyEl = document.getElementById('td-history');
     historyEl.innerHTML = (t.history || []).map(h => `
         <div class="flex gap-3 text-xs border-b pb-2 mb-2">

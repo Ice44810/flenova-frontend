@@ -681,24 +681,39 @@
         }
     };
 
-    window.toggleMobileGlobalSearch = function () {
+    window.closeMobileGlobalSearch = function () {
+        const wrap = document.getElementById('global-search-wrap');
+        const toggle = document.getElementById('global-search-toggle');
+        if (!wrap) return;
+        wrap.classList.remove('mobile-search-open');
+        wrap.classList.add('hidden');
+        toggle?.setAttribute('aria-expanded', 'false');
+        document.getElementById('global-search-results')?.classList.add('hidden');
+    };
+
+    window.toggleMobileGlobalSearch = function (ev) {
+        if (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
         const wrap = document.getElementById('global-search-wrap');
         const input = document.getElementById('global-search-input');
+        const toggle = document.getElementById('global-search-toggle');
         if (!wrap) return;
-        const isDesktop = window.matchMedia('(min-width: 640px)').matches;
-        if (isDesktop) {
-            input?.focus();
+        const toggleVisible = !toggle || getComputedStyle(toggle).display !== 'none';
+        const wrapHidden = getComputedStyle(wrap).display === 'none';
+        if (toggleVisible || wrapHidden) {
+            if (wrap.classList.contains('mobile-search-open')) {
+                closeMobileGlobalSearch();
+            } else {
+                wrap.classList.remove('hidden');
+                wrap.classList.add('mobile-search-open');
+                toggle?.setAttribute('aria-expanded', 'true');
+                setTimeout(() => input?.focus(), 30);
+            }
             return;
         }
-        const open = wrap.classList.contains('mobile-search-open');
-        if (open) {
-            wrap.classList.remove('mobile-search-open');
-            wrap.classList.add('hidden');
-        } else {
-            wrap.classList.remove('hidden');
-            wrap.classList.add('mobile-search-open');
-            setTimeout(() => input?.focus(), 30);
-        }
+        input?.focus();
     };
 
     window.updateAppActionRail = function (route) {
@@ -707,7 +722,7 @@
         const sub = window.cachedSubscription;
         const suspended = !!(sub?.accessSuspended || (sub?.needsPayment && !sub?.gracePeriod && !sub?.isDemo && !sub?.isActive));
         const r = route || window.currentAppRoute || 'dashboard';
-        const show = !suspended && !currentUser?.isPlatformAdmin && ACTION_RAIL_ROUTES.has(r);
+        const show = !suspended && ACTION_RAIL_ROUTES.has(r);
         rail.classList.toggle('hidden', !show);
     };
 
@@ -715,7 +730,7 @@
     window.requestSubscriptionCancellation = async function () {
         const sub = window.cachedSubscription || {};
         const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
-        if (!user || user.role !== 'admin') {
+        if (!user || (typeof normalizeRole === 'function' ? normalizeRole(user.role) : user.role) !== 'admin') {
             showToast('Réservé à l\'administrateur de l\'entreprise', 'error');
             return;
         }
@@ -785,8 +800,15 @@
         }
         const searchBox = document.getElementById('global-search-results');
         const searchInput = document.getElementById('global-search-input');
-        if (searchBox && !searchBox.classList.contains('hidden') && !searchBox.contains(e.target) && e.target !== searchInput) {
+        const searchWrap = document.getElementById('global-search-wrap');
+        const searchToggle = document.getElementById('global-search-toggle');
+        if (searchBox && !searchBox.classList.contains('hidden') && !searchBox.contains(e.target) && e.target !== searchInput
+            && !searchToggle?.contains(e.target)) {
             searchBox.classList.add('hidden');
+        }
+        if (searchWrap?.classList.contains('mobile-search-open')
+            && !searchWrap.contains(e.target) && !searchToggle?.contains(e.target)) {
+            closeMobileGlobalSearch();
         }
         const accountPanel = document.getElementById('account-menu-panel');
         const accountBtn = document.getElementById('account-menu-btn');
