@@ -5119,6 +5119,10 @@ window.saveInvoiceSettings = async function (e) {
         showToast('IBAN requis', 'error');
         return;
     }
+    if (!isValidIbanClient(payload.iban)) {
+        showToast('IBAN invalide (clé de contrôle incorrecte)', 'error');
+        return;
+    }
 
     try {
         const response = await apiFetch('bank-settings', {
@@ -5875,6 +5879,19 @@ function formatBankSettingsDate(value) {
     return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+function isValidIbanClient(value) {
+    const iban = String(value || '').replace(/[\s-]/g, '').toUpperCase();
+    if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
+    if (iban.length < 15 || iban.length > 34) return false;
+    const rearranged = iban.slice(4) + iban.slice(0, 4);
+    const numeric = rearranged.replace(/[A-Z]/g, (ch) => String(ch.charCodeAt(0) - 55));
+    let remainder = 0;
+    for (let i = 0; i < numeric.length; i += 1) {
+        remainder = (remainder * 10 + Number(numeric[i])) % 97;
+    }
+    return remainder === 1;
+}
+
 function renderAdmin(bankSettings = null) {
     const isAdminUser = typeof canManageUsers === 'function' && canManageUsers();
     const emailEnabled = currentUser?.company_notifications === 1;
@@ -5893,7 +5910,7 @@ function renderAdmin(bankSettings = null) {
                         ${db.users.map(u => `<tr class="border-b last:border-0">
                             <td class="py-2">${esc(u.name)}</td>
                             <td class="py-2"><span class="${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'} px-2 rounded text-[10px] font-bold uppercase">${esc(u.role)}</span></td>
-                            <td class="py-2"><button class="text-blue-600 text-xs">Modifier</button></td>
+                            <td class="py-2"><button type="button" onclick="openEditUserModal(${Number(u.id)})" class="text-blue-600 text-xs">Modifier</button></td>
                         </tr>`).join('')}
                     </tbody>
                 </table>
@@ -5907,7 +5924,7 @@ function renderAdmin(bankSettings = null) {
                     <thead class="border-b"><tr><th class="pb-2">Code</th><th class="pb-2">Nom</th><th class="pb-2">Adresse</th></tr></thead>
                     <tbody>
                         ${(db.agencies || []).map(a => `<tr class="border-b last:border-0">
-                            <td class="py-2 font-mono text-xs">${a.code}</td>
+                            <td class="py-2 font-mono text-xs">${esc(a.code)}</td>
                             <td class="py-2">${esc(a.name)}</td>
                             <td class="py-2 text-gray-500">${[a.address, a.city].filter(Boolean).join(', ') || '—'}</td>
                         </tr>`).join('') || '<tr><td colspan="3" class="py-4 text-gray-400 italic">Aucune agence</td></tr>'}
@@ -6065,6 +6082,10 @@ window.saveAdminBankSettings = async function () {
 
     if (!payload.iban) {
         showToast('IBAN requis', 'error');
+        return;
+    }
+    if (!isValidIbanClient(payload.iban)) {
+        showToast('IBAN invalide (clé de contrôle incorrecte)', 'error');
         return;
     }
 
@@ -7865,12 +7886,12 @@ function openEditClientModal(clientId) {
 
     document.getElementById('client-modal-title').textContent = 'Éditer Client';
     document.getElementById('edit-client-id').value = clientId;
-    document.getElementById('add-client-name').value = client.name;
+    document.getElementById('add-client-name').value = client.name || '';
     document.getElementById('add-client-siret').value = client.siret || '';
     document.getElementById('add-client-email').value = client.email || '';
     document.getElementById('add-client-accounting-email').value = client.accounting_email || '';
-    document.getElementById('add-client-phone').value = client.phone;
-    document.getElementById('add-client-address').value = client.address;
+    document.getElementById('add-client-phone').value = client.phone || '';
+    document.getElementById('add-client-address').value = client.address || '';
     const billingAddrEdit = document.getElementById('add-client-billing-address');
     if (billingAddrEdit) billingAddrEdit.value = client.billing_address || '';
     const termsEdit = document.getElementById('add-client-payment-terms');
@@ -9009,19 +9030,7 @@ function closeAddVehicleModal() {
 }
 
 async function submitAddVehicle() {
-    const vehicleType = document.getElementById('add-vehicle-type')?.value || 'TRUCK';
-    const isTrailer = vehicleType === 'TRAILER';
-    const newVehicle = {
-        plate: document.getElementById('add-vehicle-plate').value,
-        model: document.getElementById('add-vehicle-model').value,
-        fuel: isTrailer ? null : document.getElementById('add-vehicle-fuel').value,
-        mileage: parseInt(document.getElementById('add-vehicle-mileage').value, 10) || 0,
-        next_maintenance: document.getElementById('add-vehicle-maintenance').value,
-        status: 'Disponible',
-        driver_id: null,
-        insurance_expiry: '2025-12-31',
-        vehicle_type: vehicleType
-    };
+    const newVehicle = buildVehiclePayload('add');
 
     if (newVehicle.plate && newVehicle.model) {
         try {
@@ -9316,15 +9325,56 @@ async function submitPurchaseInvoice() {
 }
 
 // --- USER MODAL (ADMIN) ---
+function setUserModalMode(mode) {
+    const title = document.getElementById('add-user-modal-title');
+    const submit = document.getElementById('add-user-submit');
+    const pwdLabel = document.querySelector('label[for="add-user-password"]');
+    const pwdInput = document.getElementById('add-user-password');
+    const emailInput = document.getElementById('add-user-email');
+    if (title) title.textContent = mode === 'edit' ? 'Modifier l\'utilisateur' : 'Ajouter un Nouvel Utilisateur';
+    if (submit) submit.textContent = mode === 'edit' ? 'Enregistrer' : 'Créer l\'utilisateur';
+    if (pwdLabel) pwdLabel.textContent = mode === 'edit' ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe temporaire';
+    if (pwdInput) pwdInput.required = mode !== 'edit';
+    if (emailInput) emailInput.disabled = mode === 'edit';
+}
+
 function openAddUserModal() {
     hideAllModals();
+    const idEl = document.getElementById('edit-user-id');
+    if (idEl) idEl.value = '';
     document.getElementById('add-user-name').value = '';
     document.getElementById('add-user-email').value = '';
     document.getElementById('add-user-role').value = 'lecture';
     document.getElementById('add-user-password').value = '';
+    setUserModalMode('create');
     toggleAddUserDriverField();
     document.getElementById('add-user-modal').classList.remove('hidden');
 }
+
+function openEditUserModal(userId) {
+    if (typeof canManageUsers === 'function' && !canManageUsers()) {
+        showToast("Vous n'avez pas l'autorisation de modifier un utilisateur.", 'error');
+        return;
+    }
+    const user = (db.users || []).find((u) => Number(u.id) === Number(userId));
+    if (!user) {
+        showToast('Utilisateur introuvable', 'error');
+        return;
+    }
+    hideAllModals();
+    const idEl = document.getElementById('edit-user-id');
+    if (idEl) idEl.value = String(user.id);
+    document.getElementById('add-user-name').value = user.name || '';
+    document.getElementById('add-user-email').value = user.email || '';
+    document.getElementById('add-user-role').value = user.role || 'lecture';
+    document.getElementById('add-user-password').value = '';
+    setUserModalMode('edit');
+    toggleAddUserDriverField();
+    const driverSelect = document.getElementById('add-user-driver');
+    if (driverSelect && user.driver_id) driverSelect.value = String(user.driver_id);
+    document.getElementById('add-user-modal').classList.remove('hidden');
+}
+window.openEditUserModal = openEditUserModal;
 
 function toggleAddUserDriverField() {
     const role = document.getElementById('add-user-role')?.value;
@@ -9343,35 +9393,47 @@ function closeAddUserModal() {
 }
 
 async function submitAddUser() {
-    const name = document.getElementById('add-user-name').value;
-    const email = document.getElementById('add-user-email').value;
+    const editId = document.getElementById('edit-user-id')?.value;
+    const name = document.getElementById('add-user-name').value.trim();
+    const email = document.getElementById('add-user-email').value.trim();
     const role = document.getElementById('add-user-role').value;
     const password = document.getElementById('add-user-password').value;
     const driverId = document.getElementById('add-user-driver')?.value;
 
-    if (name && email && password) {
-        if (role === 'chauffeur' && !driverId) {
-            showToast('Sélectionnez le conducteur lié au compte chauffeur', 'error');
+    if (!name || !email || (!editId && !password)) {
+        showToast(editId ? 'Nom et email requis' : 'Veuillez remplir tous les champs', 'error');
+        return;
+    }
+    if (role === 'chauffeur' && !driverId) {
+        showToast('Sélectionnez le conducteur lié au compte chauffeur', 'error');
+        return;
+    }
+    const payload = { name, role };
+    if (!editId) {
+        payload.email = email;
+        payload.password = password;
+    } else if (password) {
+        payload.password = password;
+    }
+    if (role === 'chauffeur') payload.driver_id = parseInt(driverId, 10);
+    else if (editId) payload.driver_id = null;
+
+    try {
+        const res = await apiFetch(editId ? `users/${editId}` : 'users', {
+            method: editId ? 'PUT' : 'POST',
+            body: payload
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || (editId ? 'Modification impossible.' : 'Création de l\'utilisateur impossible.'), 'error');
             return;
         }
-        const newUser = { name, email, role, password };
-        if (role === 'chauffeur') newUser.driver_id = parseInt(driverId, 10);
-        try {
-            const res = await apiFetch('users', { method: 'POST', body: newUser });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                showToast(err.error || 'Création de l\'utilisateur impossible.', 'error');
-                return;
-            }
-            await fetchAllData();
-            showToast('Utilisateur créé avec succès', 'success');
-            closeAddUserModal();
-            router('admin');
-        } catch (e) {
-            showToast('Erreur réseau — utilisateur non créé.', 'error');
-        }
-    } else {
-        showToast('Veuillez remplir tous les champs', 'error');
+        await fetchAllData();
+        showToast(editId ? 'Utilisateur mis à jour' : 'Utilisateur créé avec succès', 'success');
+        closeAddUserModal();
+        router('admin');
+    } catch (e) {
+        showToast(editId ? 'Erreur réseau — utilisateur non modifié.' : 'Erreur réseau — utilisateur non créé.', 'error');
     }
 }
 
