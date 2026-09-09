@@ -771,15 +771,30 @@ function renderTransportDetailModal(t) {
         </div>`).join('') || '<p class="text-gray-600 italic text-xs">Aucun historique</p>';
 
     const docsEl = document.getElementById('td-documents');
-    docsEl.innerHTML = (t.documents || []).map(d => {
+    const docs = Array.isArray(t.documents) ? t.documents : [];
+    const isEcmrType = (type) => {
+        const v = String(type || '').toUpperCase();
+        return v === 'CMR' || v === 'ECMR';
+    };
+    const hasEcmrDoc = docs.some((d) => isEcmrType(d.doc_type));
+    const docRows = docs.map((d) => {
         const fileUrl = typeof resolveProtectedUploadUrl === 'function'
             ? resolveProtectedUploadUrl(d.file_url)
             : (d.file_url || '');
+        const typeLabel = isEcmrType(d.doc_type) ? 'eCMR' : d.doc_type;
         return `
-        <a href="${esc(fileUrl)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-blue-600 hover:underline text-xs mb-1">
-            <i class="fa-solid fa-file-pdf"></i> ${esc(d.file_name)} (${esc(d.doc_type)})
+        <a href="${esc(fileUrl)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-teal-700 hover:underline text-xs mb-1">
+            <i class="fa-solid fa-file-pdf"></i> ${esc(d.file_name)} (${esc(typeLabel)})
         </a>`;
-    }).join('') || '<p class="text-gray-600 italic text-xs">Aucun document</p>';
+    });
+    if (!hasEcmrDoc) {
+        docRows.unshift(`
+        <a href="#" class="flex items-center gap-2 text-teal-700 hover:underline text-xs mb-1"
+           onclick="event.preventDefault(); closeTransportDetail(); openTransportCmr(${t.id});">
+            <i class="fa-solid fa-file-contract"></i> eCMR — Lettre de voiture ${esc(t.cmr_number || t.ref || '')}
+        </a>`);
+    }
+    docsEl.innerHTML = docRows.join('') || '<p class="text-gray-600 italic text-xs">Aucun document</p>';
 
     const commentsEl = document.getElementById('td-comments');
     commentsEl.innerHTML = (t.comments || []).map(c => `
