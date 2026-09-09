@@ -3497,7 +3497,7 @@ function updateMarginDashboard(data) {
 }
 
 function renderAffretementConfirmationShell() {
-    return `<div class="fade-in h-full flex flex-col">
+    return `<div class="fade-in">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div>
                 <button onclick="router('planning')" class="text-sm text-gray-600 hover:text-blue-600 mb-1"><i class="fa-solid fa-arrow-left mr-1"></i>Retour au planning</button>
@@ -3516,8 +3516,8 @@ function renderAffretementConfirmationShell() {
         </div>
         <div id="affretement-quota-banner" class="hidden mb-4 p-3 rounded-lg text-sm border"></div>
         <div id="affretement-sent-status" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
-        <div class="flex-1 overflow-auto bg-slate-100 rounded-xl border border-gray-200 p-4">
-            <div id="affretement-preview" class="bg-white rounded-xl shadow-sm mx-auto">
+        <div class="bg-slate-100 rounded-xl border border-gray-200 p-4 md:p-6">
+            <div id="affretement-preview" class="bg-white rounded-xl shadow-sm w-full overflow-hidden">
                 <p class="p-8 text-center text-gray-400">Chargement de la confirmation…</p>
             </div>
         </div>
@@ -3719,9 +3719,37 @@ function renderSecureHtmlPreview(container, html, emptyMessage) {
     const iframe = document.createElement('iframe');
     iframe.setAttribute('sandbox', 'allow-same-origin');
     iframe.setAttribute('title', 'Aperçu document');
-    iframe.className = 'w-full min-h-[800px] border-0';
+    iframe.className = 'w-full border-0 bg-white block';
+    iframe.style.width = '100%';
+    iframe.style.minHeight = '75vh';
+    iframe.style.height = '75vh';
+    iframe.style.border = '0';
+    iframe.style.display = 'block';
+    iframe.style.overflow = 'hidden';
+    const fitPreviewIframe = () => {
+        try {
+            const doc = iframe.contentDocument;
+            if (!doc) return;
+            const root = doc.querySelector('.aff-conf, .cmr-sheet, .cmr-page') || doc.body;
+            const height = Math.max(
+                root?.scrollHeight || 0,
+                doc.body?.scrollHeight || 0,
+                doc.documentElement?.scrollHeight || 0
+            );
+            if (height > 80) {
+                iframe.style.minHeight = '0';
+                iframe.style.height = `${height + 8}px`;
+            }
+        } catch (_) { /* aperçu sandbox */ }
+    };
+    iframe.addEventListener('load', () => {
+        fitPreviewIframe();
+        setTimeout(fitPreviewIframe, 80);
+        setTimeout(fitPreviewIframe, 300);
+    });
     iframe.srcdoc = html;
     container.appendChild(iframe);
+    setTimeout(fitPreviewIframe, 50);
 }
 
 function renderCmrPreviewShell() {
