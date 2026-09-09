@@ -3731,8 +3731,12 @@ function renderCmrPreviewShell() {
                 <button onclick="router('planning')" class="text-sm text-gray-600 hover:text-blue-600 mb-1"><i class="fa-solid fa-arrow-left mr-1"></i>Retour au planning</button>
                 <h3 class="font-bold text-lg text-gray-800">Lettre de voiture internationale (CMR)</h3>
                 <p class="text-xs text-gray-500" id="cmr-page-subtitle">Chargement…</p>
+                <p class="text-xs mt-1 hidden" id="cmr-completeness"></p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
+                <a id="cmr-pod-link" href="#" target="_blank" class="hidden px-3 py-2 border border-teal-600 text-teal-700 rounded text-sm hover:bg-teal-50">
+                    <i class="fa-solid fa-clipboard-check mr-1"></i>Voir le POD
+                </a>
                 <a id="cmr-pdf-link" href="#" target="_blank" class="hidden px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">
                     <i class="fa-solid fa-file-pdf mr-1 text-red-500"></i>Télécharger PDF
                 </a>
@@ -3753,7 +3757,9 @@ async function loadCmrPreviewPage() {
     const orderId = cmrPreviewOrderId;
     const preview = document.getElementById('cmr-preview');
     const subtitle = document.getElementById('cmr-page-subtitle');
+    const completenessEl = document.getElementById('cmr-completeness');
     const pdfLink = document.getElementById('cmr-pdf-link');
+    const podLink = document.getElementById('cmr-pod-link');
     const generateBtn = document.getElementById('cmr-generate-btn');
 
     if (!orderId) {
@@ -3772,6 +3778,16 @@ async function loadCmrPreviewPage() {
         if (subtitle) {
             subtitle.textContent = `Transport ${data.orderRef}${data.hasSignatures ? ' — signatures présentes' : ''}`;
         }
+        const completeness = data.completeness || {};
+        if (completenessEl) {
+            const bits = [];
+            if (completeness.locked) bits.push('OT clôturé — PDF snapshot');
+            bits.push(completeness.loading ? 'Chargement complet' : 'Chargement incomplet');
+            bits.push(completeness.delivery ? 'Livraison complète' : 'Livraison incomplète');
+            completenessEl.textContent = bits.join(' · ');
+            completenessEl.classList.remove('hidden');
+            completenessEl.className = `text-xs mt-1 ${completeness.loading && completeness.delivery ? 'text-emerald-700' : 'text-amber-700'}`;
+        }
         renderSecureHtmlPreview(preview, data.html, 'Aucun contenu');
 
         if (pdfLink && data.pdfUrl) {
@@ -3779,6 +3795,13 @@ async function loadCmrPreviewPage() {
             pdfLink.classList.remove('hidden');
         } else if (pdfLink) {
             pdfLink.classList.add('hidden');
+        }
+
+        if (podLink && completeness.podUrl) {
+            podLink.href = normalizeUploadUrl(completeness.podUrl);
+            podLink.classList.remove('hidden');
+        } else if (podLink) {
+            podLink.classList.add('hidden');
         }
 
         if (generateBtn) generateBtn.disabled = false;
@@ -3804,9 +3827,12 @@ async function generateTransportCmr() {
         const res = await apiFetch(`transport-orders/${orderId}/cmr`, { method: 'POST' });
         const payload = await res.json().catch(() => ({}));
         if (!res.ok) {
-            throw new Error(payload.error || 'Génération impossible');
+            const missing = Array.isArray(payload.missing) && payload.missing.length
+                ? ` (${payload.missing.join(', ')})`
+                : '';
+            throw new Error((payload.error || 'Génération impossible') + missing);
         }
-        showToast('Lettre de voiture générée', 'success');
+        showToast(payload.snapshot ? 'PDF snapshot enregistré' : 'Lettre de voiture générée', 'success');
         await loadCmrPreviewPage();
     } catch (e) {
         showToast(e.message, 'error');
