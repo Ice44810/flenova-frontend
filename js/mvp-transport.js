@@ -947,6 +947,8 @@ window.validateTransportFromDetail = async function (orderId, options = {}) {
     } catch (e) { showToast('Erreur serveur', 'error'); }
 };
 
+let assignDriverReturnOrderId = null;
+
 window.assignTransportFromDetail = async function (orderId) {
     const modal = document.getElementById('assign-driver-modal');
     const listEl = document.getElementById('assign-driver-list');
@@ -956,8 +958,19 @@ window.assignTransportFromDetail = async function (orderId) {
         return;
     }
 
-    modal.classList.remove('hidden');
+    const detailEl = document.getElementById('transport-detail-modal');
+    const fromDetail = !!(detailEl && !detailEl.classList.contains('hidden'));
+    assignDriverReturnOrderId = fromDetail ? orderId : null;
+
+    if (typeof hideAllModals === 'function') hideAllModals();
+    else if (fromDetail && typeof closeTransportDetail === 'function') closeTransportDetail();
+
     modal.dataset.orderId = String(orderId);
+    if (typeof showAppModal === 'function') showAppModal('assign-driver-modal');
+    else {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
     listEl.innerHTML = '<p class="text-sm text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Recherche des chauffeurs disponibles…</p>';
 
     let mapData = null;
@@ -985,6 +998,9 @@ window.assignTransportFromDetail = async function (orderId) {
 
     if (!drivers.length) {
         listEl.innerHTML = '<p class="text-sm text-amber-600">Aucun chauffeur disponible à proximité. Vérifiez les statuts, permis et adresses de base.</p>';
+        if (typeof LiveMap !== 'undefined' && LiveMap.resizeAssignmentMap) {
+            LiveMap.resizeAssignmentMap();
+        }
         return;
     }
 
@@ -1006,13 +1022,25 @@ window.assignTransportFromDetail = async function (orderId) {
             <p class="text-[10px] text-gray-400 mt-1">${esc(d.compliance?.license || '')} · ${esc(d.compliance?.vehicleInsurance || '')}</p>
         </button>
     `).join('');
+
+    if (typeof LiveMap !== 'undefined' && LiveMap.resizeAssignmentMap) {
+        LiveMap.resizeAssignmentMap();
+    }
 };
 
-window.closeAssignDriverModal = function () {
+window.closeAssignDriverModal = function (options = {}) {
     const modal = document.getElementById('assign-driver-modal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
     if (typeof LiveMap !== 'undefined' && LiveMap.destroyAssignmentMap) {
         LiveMap.destroyAssignmentMap();
+    }
+    const reopenId = assignDriverReturnOrderId;
+    assignDriverReturnOrderId = null;
+    if (!options.skipReopen && reopenId && typeof openTransportDetail === 'function') {
+        openTransportDetail(reopenId);
     }
 };
 
@@ -1025,7 +1053,7 @@ window.confirmAssignDriver = async function (orderId, driverId) {
         });
         if (res.ok) {
             showToast('Transport affecté (camion + remorque du chauffeur)', 'success');
-            closeAssignDriverModal();
+            closeAssignDriverModal({ skipReopen: true });
             await refreshAfterMvpStep({ orderId, step: 'assign', status: 'Pris en charge' });
         } else {
             const err = await res.json().catch(() => ({}));

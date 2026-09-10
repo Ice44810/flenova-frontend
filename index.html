@@ -1740,8 +1740,8 @@
     </div>
 
     <!-- MODAL: ASSIGN DRIVER (proximity) -->
-    <div id="assign-driver-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col fade-in">
+    <div id="assign-driver-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+        <div class="assign-driver-panel bg-white rounded-lg shadow-2xl w-full max-w-4xl flex flex-col fade-in">
             <div class="flex justify-between items-center p-4 border-b">
                 <div>
                     <h3 class="font-bold text-lg text-gray-800">Affecter un chauffeur</h3>
@@ -1749,8 +1749,8 @@
                 </div>
                 <button type="button" onclick="closeAssignDriverModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
-            <div class="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-2 min-h-[320px]">
-                <div id="assign-driver-map" class="min-h-[240px] bg-slate-100 border-b lg:border-b-0 lg:border-r border-gray-200"></div>
+            <div class="assign-driver-body">
+                <div id="assign-driver-map" class="bg-slate-100 border-b lg:border-b-0 lg:border-r border-gray-200"></div>
                 <div id="assign-driver-list" class="overflow-y-auto p-4 space-y-2">
                     <p class="text-sm text-gray-500">Chargement…</p>
                 </div>

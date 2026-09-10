@@ -16,6 +16,11 @@
     let followOrderId = null;
     let publicMap = null;
     let publicPollTimer = null;
+    let publicFitted = false;
+    let publicEndpoints = { origin: null, dest: null };
+    let followEndpoints = { origin: null, dest: null };
+    const plannedSourceId = 'planned-route';
+    const plannedLayerId = 'planned-route-line';
 
     function statusColor(status) {
         if (['En cours', 'Pris en charge', 'Affrété'].includes(status)) return '#2563eb';
@@ -83,6 +88,92 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function createEndpointEl(color, icon, title) {
+        const el = document.createElement('div');
+        el.className = 'flenova-live-marker';
+        el.style.background = color;
+        el.title = title || '';
+        el.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+        return el;
+    }
+
+    function clearEndpointMarkers(store) {
+        if (!store) return;
+        if (store.origin) {
+            try { store.origin.remove(); } catch (_) { /* ignore */ }
+            store.origin = null;
+        }
+        if (store.dest) {
+            try { store.dest.remove(); } catch (_) { /* ignore */ }
+            store.dest = null;
+        }
+    }
+
+    function setEndpointMarkers(map, store, data) {
+        clearEndpointMarkers(store);
+        if (!map) return;
+        const origin = data.originCoords;
+        const dest = data.destCoords;
+        if (origin) {
+            store.origin = new maplibregl.Marker({
+                element: createEndpointEl('#dc2626', 'fa-warehouse', data.origin || 'Chargement')
+            }).setLngLat([origin.longitude, origin.latitude]).addTo(map);
+        }
+        if (dest) {
+            store.dest = new maplibregl.Marker({
+                element: createEndpointEl('#0f766e', 'fa-flag-checkered', data.destination || data.dest || 'Livraison')
+            }).setLngLat([dest.longitude, dest.latitude]).addTo(map);
+        }
+    }
+
+    function removeLayerSource(map, layerId, sourceId) {
+        if (!map || !map.getStyle()) return;
+        try {
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            if (map.getSource(sourceId)) map.removeSource(sourceId);
+        } catch (_) { /* ignore */ }
+    }
+
+    function upsertLine(map, sourceId, layerId, coordinates, paint) {
+        if (!map || !map.isStyleLoaded() || !Array.isArray(coordinates) || coordinates.length < 2) return;
+        const data = {
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates }
+        };
+        const existing = map.getSource(sourceId);
+        if (existing) {
+            existing.setData(data);
+            return;
+        }
+        map.addSource(sourceId, { type: 'geojson', data });
+        map.addLayer({ id: layerId, type: 'line', source: sourceId, paint });
+    }
+
+    function fitTrackingView(map, data, { force = false, userMovedFlag } = {}) {
+        if (!map || (userMovedFlag && map[userMovedFlag] && !force)) return;
+        const bounds = new maplibregl.LngLatBounds();
+        let n = 0;
+        const add = (lng, lat) => {
+            if (lng == null || lat == null || Number.isNaN(Number(lng)) || Number.isNaN(Number(lat))) return;
+            bounds.extend([Number(lng), Number(lat)]);
+            n += 1;
+        };
+        (data.plannedRoute?.coordinates || []).forEach((pair) => add(pair[0], pair[1]));
+        if (data.originCoords) add(data.originCoords.longitude, data.originCoords.latitude);
+        if (data.destCoords) add(data.destCoords.longitude, data.destCoords.latitude);
+        if (data.lastPosition) add(data.lastPosition.longitude, data.lastPosition.latitude);
+        (data.trail || []).forEach((t) => add(t.longitude, t.latitude));
+        if (n >= 2) {
+            map.fitBounds(bounds, { padding: 48, maxZoom: 12, duration: 600 });
+        } else if (n === 1 && data.lastPosition) {
+            map.easeTo({
+                center: [data.lastPosition.longitude, data.lastPosition.latitude],
+                zoom: 12,
+                duration: 500
+            });
+        }
     }
 
     function createTruckEl(color, label) {
@@ -211,32 +302,24 @@
 
             if (!operationalMap) return;
             const trail = data.trail || [];
-            if (operationalMap.getSource(trailSourceId)) {
-                operationalMap.getSource(trailSourceId).setData({
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: trail.map((p) => [p.longitude, p.latitude])
-                    }
-                });
-            } else if (trail.length >= 2) {
-                operationalMap.addSource(trailSourceId, {
-                    type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        geometry: {
-                            type: 'LineString',
-                            coordinates: trail.map((p) => [p.longitude, p.latitude])
-                        }
-                    }
-                });
-                operationalMap.addLayer({
-                    id: 'order-trail-line',
-                    type: 'line',
-                    source: trailSourceId,
-                    paint: { 'line-color': '#2563eb', 'line-width': 3, 'line-opacity': 0.7 }
-                });
-            }
+            upsertLine(operationalMap, trailSourceId, 'order-trail-line', trail.map((p) => [p.longitude, p.latitude]), {
+                'line-color': '#2563eb',
+                'line-width': 3,
+                'line-opacity': 0.7
+            });
+            upsertLine(
+                operationalMap,
+                plannedSourceId,
+                plannedLayerId,
+                data.plannedRoute?.coordinates || [],
+                {
+                    'line-color': '#64748b',
+                    'line-width': 3,
+                    'line-dasharray': [2, 2],
+                    'line-opacity': 0.85
+                }
+            );
+            setEndpointMarkers(operationalMap, followEndpoints, data);
 
             if (followMarker) followMarker.remove();
             if (data.lastPosition) {
@@ -245,12 +328,9 @@
                 followMarker = new maplibregl.Marker({ element: el })
                     .setLngLat([data.lastPosition.longitude, data.lastPosition.latitude])
                     .addTo(operationalMap);
-                operationalMap.flyTo({
-                    center: [data.lastPosition.longitude, data.lastPosition.latitude],
-                    zoom: 12,
-                    essential: true
-                });
             }
+            fitTrackingView(operationalMap, data, { force: !operationalMap._flenovaFollowFitted });
+            operationalMap._flenovaFollowFitted = true;
         } catch (err) {
             console.warn('[LiveMap] follow:', err.message);
             if (typeof showToast === 'function') showToast(err.message, 'error');
@@ -264,12 +344,10 @@
             followMarker.remove();
             followMarker = null;
         }
-        if (operationalMap?.getLayer('order-trail-line')) {
-            operationalMap.removeLayer('order-trail-line');
-        }
-        if (operationalMap?.getSource(trailSourceId)) {
-            operationalMap.removeSource(trailSourceId);
-        }
+        clearEndpointMarkers(followEndpoints);
+        removeLayerSource(operationalMap, 'order-trail-line', trailSourceId);
+        removeLayerSource(operationalMap, plannedLayerId, plannedSourceId);
+        if (operationalMap) operationalMap._flenovaFollowFitted = false;
     }
 
     async function initOperationalMap(containerId = 'dash-live-map') {
@@ -324,49 +402,47 @@
             const config = await loadMapsConfig();
             await loadMapLibre();
             if (publicMap) {
+                clearEndpointMarkers(publicEndpoints);
                 try { publicMap.remove(); } catch (_) { /* ignore */ }
                 publicMap = null;
             }
 
             const pos = trackingData.lastPosition;
+            const start = trackingData.originCoords || pos;
+            publicFitted = false;
             publicMap = new maplibregl.Map({
                 container,
                 style: buildStyle(config),
-                center: pos ? [pos.longitude, pos.latitude] : FRANCE_CENTER,
-                zoom: pos ? 12 : DEFAULT_ZOOM
+                center: start ? [start.longitude, start.latitude] : FRANCE_CENTER,
+                zoom: start ? 10 : DEFAULT_ZOOM
             });
             publicMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
             const draw = (data) => {
+                if (!publicMap || !publicMap.isStyleLoaded()) return;
                 const p = data.lastPosition;
                 const trail = data.trail || [];
-                if (publicMap.getLayer('public-trail-line')) publicMap.removeLayer('public-trail-line');
-                if (publicMap.getSource('public-trail')) publicMap.removeSource('public-trail');
-                if (trail.length >= 2) {
-                    publicMap.addSource('public-trail', {
-                        type: 'geojson',
-                        data: {
-                            type: 'Feature',
-                            geometry: {
-                                type: 'LineString',
-                                coordinates: trail.map((t) => [t.longitude, t.latitude])
-                            }
-                        }
-                    });
-                    publicMap.addLayer({
-                        id: 'public-trail-line',
-                        type: 'line',
-                        source: 'public-trail',
-                        paint: { 'line-color': '#0d9488', 'line-width': 3 }
-                    });
-                }
+                upsertLine(publicMap, 'public-trail', 'public-trail-line', trail.map((t) => [t.longitude, t.latitude]), {
+                    'line-color': '#0d9488',
+                    'line-width': 3
+                });
+                upsertLine(publicMap, plannedSourceId, plannedLayerId, data.plannedRoute?.coordinates || [], {
+                    'line-color': '#64748b',
+                    'line-width': 3,
+                    'line-dasharray': [2, 2],
+                    'line-opacity': 0.85
+                });
+                setEndpointMarkers(publicMap, publicEndpoints, data);
                 if (window._publicDriverMarker) window._publicDriverMarker.remove();
                 if (p) {
                     const el = createTruckEl('#0d9488', data.ref);
                     window._publicDriverMarker = new maplibregl.Marker({ element: el })
                         .setLngLat([p.longitude, p.latitude])
                         .addTo(publicMap);
-                    publicMap.easeTo({ center: [p.longitude, p.latitude], zoom: 12, duration: 500 });
+                }
+                if (!publicFitted) {
+                    fitTrackingView(publicMap, data, { force: true });
+                    publicFitted = true;
                 }
                 const stamp = document.getElementById('public-live-stamp');
                 if (stamp && p?.recorded_at) {
@@ -394,10 +470,42 @@
 
     let assignmentMap = null;
     let assignmentMarkers = [];
+    let assignmentResizeObserver = null;
+    let assignmentResizeTimers = [];
 
     function clearAssignmentMarkers() {
         assignmentMarkers.forEach((m) => m.remove());
         assignmentMarkers = [];
+    }
+
+    function clearAssignmentResizeTimers() {
+        assignmentResizeTimers.forEach((id) => clearTimeout(id));
+        assignmentResizeTimers = [];
+    }
+
+    function resizeAssignmentMap() {
+        if (!assignmentMap) return;
+        try { assignmentMap.resize(); } catch (_) { /* ignore */ }
+    }
+
+    function scheduleAssignmentMapResize() {
+        if (!assignmentMap) return;
+        resizeAssignmentMap();
+        requestAnimationFrame(() => {
+            resizeAssignmentMap();
+            assignmentResizeTimers.push(setTimeout(resizeAssignmentMap, 80));
+            assignmentResizeTimers.push(setTimeout(resizeAssignmentMap, 250));
+        });
+    }
+
+    function bindAssignmentMapResize(container) {
+        if (assignmentResizeObserver) {
+            assignmentResizeObserver.disconnect();
+            assignmentResizeObserver = null;
+        }
+        if (typeof ResizeObserver === 'undefined' || !container) return;
+        assignmentResizeObserver = new ResizeObserver(() => resizeAssignmentMap());
+        assignmentResizeObserver.observe(container);
     }
 
     async function renderAssignmentMap(containerId, orderId) {
@@ -424,6 +532,7 @@
                 assignmentMap = null;
             }
             clearAssignmentMarkers();
+            clearAssignmentResizeTimers();
 
             assignmentMap = new maplibregl.Map({
                 container,
@@ -432,8 +541,11 @@
                 zoom: loading ? 9 : DEFAULT_ZOOM
             });
             assignmentMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+            bindAssignmentMapResize(container);
+            scheduleAssignmentMapResize();
 
             assignmentMap.on('load', () => {
+                scheduleAssignmentMapResize();
                 if (loading) {
                     const loadEl = document.createElement('div');
                     loadEl.className = 'flenova-live-marker';
@@ -467,6 +579,8 @@
                 }
             });
 
+            assignmentMap.once('idle', () => scheduleAssignmentMapResize());
+
             return data;
         } catch (err) {
             container.textContent = '';
@@ -479,6 +593,11 @@
     }
 
     function destroyAssignmentMap() {
+        clearAssignmentResizeTimers();
+        if (assignmentResizeObserver) {
+            assignmentResizeObserver.disconnect();
+            assignmentResizeObserver = null;
+        }
         clearAssignmentMarkers();
         if (assignmentMap) {
             try { assignmentMap.remove(); } catch (_) { /* ignore */ }
@@ -500,6 +619,7 @@
         initOperationalMap,
         initPublicTrackingMap,
         renderAssignmentMap,
+        resizeAssignmentMap: scheduleAssignmentMapResize,
         destroyAssignmentMap,
         follow: followOrder,
         unfollow,

@@ -156,7 +156,7 @@ function hideAllModals() {
         'driver-card-modal', 'driver-modal', 'add-vehicle-modal', 'edit-vehicle-modal',
         'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
         'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
-        'invoice-modal', 'transport-detail-modal', 'credit-note-modal', 'dashboard-advanced-filter-modal',
+        'invoice-modal', 'transport-detail-modal', 'assign-driver-modal', 'credit-note-modal', 'dashboard-advanced-filter-modal',
         'validate-due-modal', 'invoice-payment-modal'
     ];
 
@@ -5021,6 +5021,7 @@ function renderSettingInvoices() {
                     </div>
                 </div>
 
+                ${typeof isPlatformOperatorSession === 'function' && isPlatformOperatorSession() ? `
                 <div class="space-y-4">
                     <h3 class="flex items-center font-bold text-emerald-700 uppercase text-xs tracking-wider">
                         <i class="fa-solid fa-building-shield mr-2"></i> Plateforme Agréée — Iopole
@@ -5035,6 +5036,7 @@ function renderSettingInvoices() {
                         se configurent dans <code class="text-[11px] bg-gray-100 px-1 rounded">Backend/.env</code> sur le serveur.
                     </p>
                 </div>
+                ` : ''}
 
                 <div class="flex justify-end pt-6 gap-4 border-t">
                     <button type="button" onclick="router('sales_invoices_validated')" class="px-6 py-2.5 text-gray-500 font-medium hover:bg-gray-100 rounded-xl transition-all">Annuler</button>
@@ -5090,6 +5092,7 @@ window.updateThemePreview = function (color) {
 };
 
 window.refreshIopoleConfigPanel = async function () {
+    if (typeof isPlatformOperatorSession === 'function' && !isPlatformOperatorSession()) return;
     const panel = document.getElementById('iopole-config-panel');
     if (!panel) return;
 
@@ -5160,6 +5163,10 @@ window.refreshIopoleConfigPanel = async function () {
 };
 
 window.setupIopoleWebhooks = async function () {
+    if (typeof isPlatformOperatorSession === 'function' && !isPlatformOperatorSession()) {
+        showToast('Action réservée à l\'équipe Flenova', 'error');
+        return;
+    }
     if (!confirm('Enregistrer les URLs webhook Flenova chez Iopole (POST /v1/config/webhook) ?')) return;
     showToast('Configuration des webhooks Iopole…', 'info');
     try {
@@ -7369,7 +7376,9 @@ async function router(route) {
             content = renderSettingInvoices();
             setTimeout(() => {
                 loadBankSettingsIntoForm();
-                refreshIopoleConfigPanel();
+                if (typeof isPlatformOperatorSession === 'function' && isPlatformOperatorSession()) {
+                    refreshIopoleConfigPanel();
+                }
             }, 0);
             break;
         case 'create_invoice':
