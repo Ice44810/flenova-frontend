@@ -4265,6 +4265,24 @@ const EINVOICE_STATUS_LABELS = {
     PAYMENT_RECEIVED: 'Paiement reçu'
 };
 
+const INVOICE_EVENT_TYPE_LABELS = {
+    created: 'Création',
+    validated: 'Validation',
+    reminder: 'Relance',
+    sent: 'Envoi',
+    paid: 'Paiement',
+    payment: 'Paiement',
+    error: 'Erreur',
+    cancelled: 'Annulation',
+    credit_note: 'Avoir'
+};
+
+function formatInvoiceEventTypeLabel(type) {
+    const key = String(type || '').trim().toLowerCase();
+    if (!key) return '';
+    return INVOICE_EVENT_TYPE_LABELS[key] || String(type).replace(/_/g, ' ');
+}
+
 function formatEinvoiceStatusLabel(code) {
     if (!code) return 'Non transmise';
     return EINVOICE_STATUS_LABELS[code] || String(code).replace(/_/g, ' ').toLowerCase();
@@ -4828,7 +4846,7 @@ window.openInvoiceModal = async function (invoiceId) {
                 <ul class="space-y-2 text-sm text-gray-600">${events.map((ev) => {
                     const when = ev.created_at ? formatDisplayDate(ev.created_at) : '';
                     const who = ev.created_by_name ? ` · ${ev.created_by_name}` : '';
-                    return `<li><span class="font-semibold text-gray-800">${esc(ev.event_type || '')}</span>
+                    return `<li><span class="font-semibold text-gray-800">${esc(formatInvoiceEventTypeLabel(ev.event_type))}</span>
                         <span class="text-gray-400 text-xs">${esc(when)}${esc(who)}</span>
                         <p>${esc(ev.message || '')}</p></li>`;
                 }).join('')}</ul>`;
@@ -4920,10 +4938,11 @@ window.printInvoice = function () {
                 <meta charset="UTF-8">
                 <title>Impression Facture</title>
                 <link rel="stylesheet" href="/css/tailwind.css">
+                <link rel="stylesheet" href="/css/styles.css">
                 <style>
-                    body { margin: 0; padding: 20px; font-family: Arial, sans-serif; color: #1f2937; }
-                    table { width: 100%; border-collapse: collapse; }
-                    th, td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+                    @page { size: A4 portrait; margin: 8mm 10mm; }
+                    html, body { margin: 0; padding: 0; background: #fff; }
+                    .invoice-print-hide { display: none !important; }
                     @media print { body { padding: 0; } }
                 </style>
             </head>
@@ -6006,7 +6025,7 @@ function renderAffretementSettingsCard(isAdminUser) {
     const data = normalizeAffCopy(window.cachedAffretementSettings || {});
     const agencies = (data.agencies || db.agencies || []).map(normalizeAffCopy);
     const agencyPanels = agencies.map((a) => `
-        <div id="admin-aff-agency-${Number(a.id)}" class="${companyWide ? 'hidden' : ''} mt-3 p-3 rounded-lg border border-teal-100 bg-teal-50/40">
+        <div id="admin-aff-agency-${Number(a.id)}" class="hidden mt-3 p-3 rounded-lg border border-teal-100 bg-teal-50/40">
             <p class="text-xs font-semibold text-teal-800 mb-3">Textes spécifiques — ${esc(a.code)} ${esc(a.name)} <span class="font-normal text-teal-700">(champs vides = textes société)</span></p>
             ${affCopyFieldsHtml(`aff-ag-${Number(a.id)}`, a, 'Champs vides = textes société.')}
             ${isAdminUser ? `<button type="button" onclick="saveAgencyAffretementSettings(${Number(a.id)})" class="mt-3 px-3 py-2 bg-teal-700 text-white rounded text-sm font-semibold">Enregistrer cette agence</button>` : ''}
@@ -6021,11 +6040,19 @@ function renderAffretementSettingsCard(isAdminUser) {
         </div>` : '';
 
     return `<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-2">
-        <h3 class="font-bold text-gray-700 mb-1 uppercase text-xs tracking-wider">Confirmation d'affrètement</h3>
-        <p class="text-xs text-gray-500 mb-4">Chaque confirmation porte le nom de l'agence émettrice. Les textes société s'appliquent par défaut ; une agence peut les remplacer.</p>
-        ${affCopyFieldsHtml('aff-co', data, 'Vide = nom de l\'agence émettrice de la confirmation.')}
-        ${companyWide ? `<button type="button" onclick="saveCompanyAffretementSettings()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700">Enregistrer les textes société</button>` : '<p class="text-xs text-gray-400 mt-3">Les textes société sont gérés par l\'administrateur siège.</p>'}
-        ${agencySwitcher}
+        <button type="button" onclick="toggleAffretementSettingsCard()" class="w-full flex items-center justify-between gap-3 text-left">
+            <div>
+                <h3 class="font-bold text-gray-700 uppercase text-xs tracking-wider">Confirmation d'affrètement</h3>
+                <p class="text-xs text-gray-500 mt-1">Textes de facturation, consignes et RSE — cliquer pour configurer.</p>
+            </div>
+            <span id="admin-aff-settings-chevron" class="text-gray-400 shrink-0"><i class="fa-solid fa-chevron-down"></i></span>
+        </button>
+        <div id="admin-aff-settings-body" class="hidden mt-4 pt-4 border-t border-gray-100">
+            <p class="text-xs text-gray-500 mb-4">Chaque confirmation porte le nom de l'agence émettrice. Les textes société s'appliquent par défaut ; une agence peut les remplacer.</p>
+            ${affCopyFieldsHtml('aff-co', data, 'Vide = nom de l\'agence émettrice de la confirmation.')}
+            ${companyWide ? `<button type="button" onclick="saveCompanyAffretementSettings()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700">Enregistrer les textes société</button>` : '<p class="text-xs text-gray-400 mt-3">Les textes société sont gérés par l\'administrateur siège.</p>'}
+            ${agencySwitcher}
+        </div>
     </div>`;
 }
 
@@ -6286,7 +6313,21 @@ window.createAgencyFromAdmin = async function () {
     }
 };
 
+window.toggleAffretementSettingsCard = function (forceOpen) {
+    const body = document.getElementById('admin-aff-settings-body');
+    const chevron = document.getElementById('admin-aff-settings-chevron');
+    if (!body) return;
+    const open = forceOpen === true ? true : (forceOpen === false ? false : body.classList.contains('hidden'));
+    body.classList.toggle('hidden', !open);
+    if (chevron) {
+        chevron.innerHTML = open
+            ? '<i class="fa-solid fa-chevron-up"></i>'
+            : '<i class="fa-solid fa-chevron-down"></i>';
+    }
+};
+
 window.toggleAgencyAffretementEditor = function (agencyId) {
+    toggleAffretementSettingsCard(true);
     const panel = document.getElementById(`admin-aff-agency-${agencyId}`);
     if (!panel) return;
     document.querySelectorAll('[id^="admin-aff-agency-"]').forEach((el) => {

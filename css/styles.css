@@ -362,54 +362,246 @@ body.invoice-modal-open {
     margin: 0 auto;
 }
 
-/* Print styles for invoice modal */
+/* Impression facture — une page A4 portrait */
 @media print {
-    body * {
-        visibility: hidden;
+    @page {
+        size: A4 portrait;
+        margin: 8mm 10mm;
     }
 
-    #printable-invoice,
-    #printable-invoice * {
-        visibility: visible;
+    html,
+    body {
+        width: auto !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    body.invoice-modal-open > *:not(#app-modals) {
+        display: none !important;
+    }
+
+    body.invoice-modal-open #app-modals {
+        display: block !important;
+        position: static !important;
+        height: auto !important;
+        overflow: visible !important;
+        width: 100% !important;
+    }
+
+    body.invoice-modal-open #app-modals > *:not(#invoice-modal) {
+        display: none !important;
+    }
+
+    #invoice-modal.invoice-modal-overlay {
+        position: static !important;
+        display: block !important;
+        inset: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        overflow: visible !important;
+        height: auto !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    #invoice-modal .invoice-modal-panel {
+        display: block !important;
+        width: 100% !important;
+        max-width: none !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    .invoice-print-toolbar,
+    .invoice-print-hide {
+        display: none !important;
     }
 
     #printable-invoice {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+        display: block !important;
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        background: #fff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-size: 9pt;
+        line-height: 1.3;
+        color: #1f2937;
     }
 
-    #invoice-modal > div > .border-b.bg-gray-50,
-    #invoice-modal > div > div:first-child {
-        display: none !important;
+    #printable-invoice .invoice-print-header {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        gap: 6mm !important;
     }
-}
 
-/* A4 Print Styles */
-@media print {
+    #printable-invoice .invoice-print-parties {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 4mm !important;
+        margin-top: 4mm !important;
+    }
+
+    #printable-invoice .invoice-print-payment {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 2.5mm 6mm !important;
+    }
+
+    #printable-invoice .invoice-modal-banner {
+        padding: 3mm 4mm !important;
+        margin: 0 !important;
+        border-radius: 2mm !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    #printable-invoice .invoice-modal-banner h1 {
+        font-size: 13pt !important;
+        margin-top: 1mm !important;
+    }
+
+    #printable-invoice .invoice-modal-banner-kicker {
+        font-size: 7pt !important;
+        letter-spacing: 0.12em !important;
+    }
+
+    #printable-invoice .invoice-modal-banner-card {
+        padding: 2mm 3mm !important;
+    }
+
+    #printable-invoice #modal-inv-number {
+        font-size: 14pt !important;
+        margin: 0 !important;
+    }
+
+    #printable-invoice .mt-6 {
+        margin-top: 3.5mm !important;
+    }
+
+    #printable-invoice .mt-8 {
+        margin-top: 3.5mm !important;
+    }
+
+    #printable-invoice .mt-5 {
+        margin-top: 2mm !important;
+    }
+
+    #printable-invoice .mt-4 {
+        margin-top: 1.5mm !important;
+    }
+
+    #printable-invoice .p-6 {
+        padding: 3mm 4mm !important;
+    }
+
+    #printable-invoice .p-5 {
+        padding: 2.5mm 3.5mm !important;
+    }
+
+    #printable-invoice .px-5 {
+        padding-left: 3mm !important;
+        padding-right: 3mm !important;
+    }
+
+    #printable-invoice .py-4 {
+        padding-top: 1.5mm !important;
+        padding-bottom: 1.5mm !important;
+    }
+
+    #printable-invoice .pb-2 {
+        padding-bottom: 1mm !important;
+    }
+
+    #printable-invoice .pt-6,
+    #printable-invoice .pt-4 {
+        padding-top: 2mm !important;
+    }
+
+    #printable-invoice .mb-4 {
+        margin-bottom: 2mm !important;
+    }
+
+    #printable-invoice .text-lg {
+        font-size: 10.5pt !important;
+    }
+
+    #printable-invoice .text-2xl,
+    #printable-invoice .text-3xl {
+        font-size: 13pt !important;
+    }
+
+    #printable-invoice #modal-company-logo {
+        max-height: 28px !important;
+        max-width: 120px !important;
+        margin-bottom: 1.5mm !important;
+    }
+
+    #printable-invoice table th,
+    #printable-invoice table td {
+        padding: 1.4mm 2.5mm !important;
+        font-size: 8.5pt !important;
+    }
+
+    #printable-invoice .invoice-modal-totals-panel {
+        padding: 3mm 4mm !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    #printable-invoice #modal-total-ttc {
+        font-size: 13pt !important;
+    }
+
+    #printable-invoice .invoice-modal-footer {
+        margin-top: 4mm !important;
+        padding-top: 3mm !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    #printable-invoice .invoice-modal-footer-payment {
+        padding: 3mm 4mm !important;
+        margin-bottom: 2mm !important;
+    }
+
+    #printable-invoice .shadow-sm,
+    #printable-invoice .shadow-2xl {
+        box-shadow: none !important;
+    }
+
+    #printable-invoice .rounded-2xl,
+    #printable-invoice .rounded-xl {
+        border-radius: 2mm !important;
+    }
+
     .invoice-box {
         width: 100%;
-        height: 100%;
+        min-height: auto;
         margin: 0;
-        padding: 15mm;
+        padding: 0;
         box-shadow: none;
         border: none;
-        page-break-after: always;
-    }
-    
-    body * {
-        visibility: hidden;
-    }
-    
-    .invoice-box, .invoice-box * {
-        visibility: visible;
-    }
-    
-    .invoice-box {
-        position: absolute;
-        left: 0;
-        top: 0;
+        page-break-after: auto;
     }
 }
 
