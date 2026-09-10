@@ -5946,6 +5946,88 @@ function isValidIbanClient(value) {
     return remainder === 1;
 }
 
+function normalizeAffCopy(row = {}) {
+    return {
+        ...row,
+        payment_terms: row.payment_terms || row.aff_payment_terms || '',
+        billing_email: row.billing_email || row.aff_billing_email || '',
+        billing_recipient: row.billing_recipient || row.aff_billing_recipient || '',
+        billing_instructions: row.billing_instructions || row.aff_billing_instructions || '',
+        rse_commitments: row.rse_commitments || row.aff_rse_commitments || '',
+        mandatory_clauses: row.mandatory_clauses || row.aff_mandatory_clauses || ''
+    };
+}
+
+function affCopyFieldsHtml(prefix, data = {}, recipientHint = '') {
+    const fieldClass = 'w-full border border-gray-200 rounded-lg p-2 text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none';
+    const labelClass = 'block text-[10px] font-bold text-gray-400 uppercase mb-1';
+    return `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+            <label class="${labelClass}" for="${prefix}-payment-terms">Conditions de règlement</label>
+            <input id="${prefix}-payment-terms" class="${fieldClass}" value="${escAttr(data.payment_terms || '')}" placeholder="Virement bancaire · 30 jours fin de mois">
+        </div>
+        <div>
+            <label class="${labelClass}" for="${prefix}-billing-email">E-mail de facturation</label>
+            <input type="email" id="${prefix}-billing-email" class="${fieldClass}" value="${escAttr(data.billing_email || '')}" placeholder="facturation@agence.fr">
+        </div>
+        <div class="md:col-span-2">
+            <label class="${labelClass}" for="${prefix}-billing-recipient">Agence / service destinataire des factures</label>
+            <input id="${prefix}-billing-recipient" class="${fieldClass}" value="${escAttr(data.billing_recipient || '')}" placeholder="Agence Nantes — service comptabilité">
+            ${recipientHint ? `<p class="text-[11px] text-gray-400 mt-1">${recipientHint}</p>` : ''}
+        </div>
+        <div class="md:col-span-2">
+            <label class="${labelClass}" for="${prefix}-billing-instructions">Consignes de facturation</label>
+            <textarea id="${prefix}-billing-instructions" rows="3" class="${fieldClass}" placeholder="Pour un règlement rapide, adresser DUT, attestation Gayssot, bons de pesée… à cette adresse e-mail. Rappeler le n° de commande.">${esc(data.billing_instructions || '')}</textarea>
+        </div>
+        <div class="md:col-span-2">
+            <label class="${labelClass}" for="${prefix}-mandatory-clauses">Instructions impératives</label>
+            <textarea id="${prefix}-mandatory-clauses" rows="4" class="${fieldClass}" placeholder="Ré-affrètement interdit. EPI obligatoires. Protocoles de sécurité. Preuves de livraison émargées. Palettes à échanger…">${esc(data.mandatory_clauses || '')}</textarea>
+        </div>
+        <div class="md:col-span-2">
+            <label class="${labelClass}" for="${prefix}-rse-commitments">Engagements RSE</label>
+            <textarea id="${prefix}-rse-commitments" rows="3" class="${fieldClass}" placeholder="Charte conducteur, réduction CO₂, tri des déchets, conduite éco…">${esc(data.rse_commitments || '')}</textarea>
+        </div>
+    </div>`;
+}
+
+function readAffCopyFields(prefix) {
+    return {
+        payment_terms: document.getElementById(`${prefix}-payment-terms`)?.value || '',
+        billing_email: document.getElementById(`${prefix}-billing-email`)?.value || '',
+        billing_recipient: document.getElementById(`${prefix}-billing-recipient`)?.value || '',
+        billing_instructions: document.getElementById(`${prefix}-billing-instructions`)?.value || '',
+        mandatory_clauses: document.getElementById(`${prefix}-mandatory-clauses`)?.value || '',
+        rse_commitments: document.getElementById(`${prefix}-rse-commitments`)?.value || ''
+    };
+}
+
+function renderAffretementSettingsCard(isAdminUser) {
+    const data = normalizeAffCopy(window.cachedAffretementSettings || {});
+    const agencies = (data.agencies || db.agencies || []).map(normalizeAffCopy);
+    const agencyPanels = agencies.map((a) => `
+        <div id="admin-aff-agency-${Number(a.id)}" class="hidden mt-3 p-3 rounded-lg border border-teal-100 bg-teal-50/40">
+            <p class="text-xs font-semibold text-teal-800 mb-3">Textes spécifiques — ${esc(a.code)} ${esc(a.name)} <span class="font-normal text-teal-700">(champs vides = textes société)</span></p>
+            ${affCopyFieldsHtml(`aff-ag-${Number(a.id)}`, a, 'Champs vides = textes société.')}
+            ${isAdminUser ? `<button type="button" onclick="saveAgencyAffretementSettings(${Number(a.id)})" class="mt-3 px-3 py-2 bg-teal-700 text-white rounded text-sm font-semibold">Enregistrer cette agence</button>` : ''}
+        </div>`).join('');
+    const agencySwitcher = agencies.length ? `<div class="mt-5 pt-4 border-t border-gray-100">
+            <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Surcharge par agence</p>
+            <p class="text-xs text-gray-500 mb-3">La confirmation porte le nom de l'agence du transport. Cliquez une agence pour y adapter facturation, consignes ou RSE.</p>
+            <div class="flex flex-wrap gap-2">
+                ${agencies.map((a) => `<button type="button" onclick="toggleAgencyAffretementEditor(${Number(a.id)})" class="text-xs px-3 py-1.5 rounded-lg border border-teal-200 text-teal-800 hover:bg-teal-50">${esc(a.code)} · ${esc(a.name)}</button>`).join('')}
+            </div>
+            ${agencyPanels}
+        </div>` : '';
+
+    return `<div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 md:col-span-2">
+        <h3 class="font-bold text-gray-700 mb-1 uppercase text-xs tracking-wider">Confirmation d'affrètement</h3>
+        <p class="text-xs text-gray-500 mb-4">Chaque confirmation porte le nom de l'agence émettrice. Les textes société s'appliquent par défaut ; une agence peut les remplacer.</p>
+        ${affCopyFieldsHtml('aff-co', data, 'Vide = nom de l\'agence émettrice de la confirmation.')}
+        ${isAdminUser ? `<button type="button" onclick="saveCompanyAffretementSettings()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700">Enregistrer les textes société</button>` : ''}
+        ${agencySwitcher}
+    </div>`;
+}
+
 function renderAdmin(bankSettings = null) {
     const isAdminUser = typeof canManageUsers === 'function' && canManageUsers();
     const emailEnabled = currentUser?.company_notifications === 1;
@@ -5975,13 +6057,14 @@ function renderAdmin(bankSettings = null) {
                 <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Agences / Dépôts</h3>
                 <p class="text-xs text-gray-500 mb-4">Multi-agences : chaque exploitant ne voit que les transports de son agence. L'administrateur voit tout.</p>
                 <table class="w-full text-sm text-left mb-4">
-                    <thead class="border-b"><tr><th class="pb-2">Code</th><th class="pb-2">Nom</th><th class="pb-2">Adresse</th></tr></thead>
+                    <thead class="border-b"><tr><th class="pb-2">Code</th><th class="pb-2">Nom</th><th class="pb-2">Adresse</th>${isAdminUser ? '<th class="pb-2"></th>' : ''}</tr></thead>
                     <tbody>
                         ${(db.agencies || []).map(a => `<tr class="border-b last:border-0">
                             <td class="py-2 font-mono text-xs">${esc(a.code)}</td>
                             <td class="py-2">${esc(a.name)}</td>
                             <td class="py-2 text-gray-500">${[a.address, a.city].filter(Boolean).join(', ') || '—'}</td>
-                        </tr>`).join('') || '<tr><td colspan="3" class="py-4 text-gray-400 italic">Aucune agence</td></tr>'}
+                            ${isAdminUser ? `<td class="py-2 text-right"><button type="button" onclick="toggleAgencyAffretementEditor(${Number(a.id)})" class="text-blue-600 text-xs">Confirmation</button></td>` : ''}
+                        </tr>`).join('') || `<tr><td colspan="${isAdminUser ? 4 : 3}" class="py-4 text-gray-400 italic">Aucune agence</td></tr>`}
                     </tbody>
                 </table>
                 ${isAdminUser ? `<form onsubmit="event.preventDefault(); createAgencyFromAdmin(); return false;" class="grid grid-cols-2 gap-2">
@@ -5992,6 +6075,8 @@ function renderAdmin(bankSettings = null) {
                     <button type="submit" class="col-span-2 py-2 bg-teal-600 text-white rounded text-sm font-bold hover:bg-teal-700">+ Créer une agence</button>
                 </form>` : '<p class="text-xs text-gray-400">Seul un administrateur peut gérer les agences.</p>'}
             </div>
+
+            ${renderAffretementSettingsCard(isAdminUser)}
 
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
                 <div>
@@ -6191,6 +6276,56 @@ window.createAgencyFromAdmin = async function () {
         await fetchAllData();
         router('admin');
         showToast('Agence créée', 'success');
+    } catch (e) {
+        showToast(e.message || 'Erreur', 'error');
+    }
+};
+
+window.toggleAgencyAffretementEditor = function (agencyId) {
+    const panel = document.getElementById(`admin-aff-agency-${agencyId}`);
+    if (!panel) return;
+    document.querySelectorAll('[id^="admin-aff-agency-"]').forEach((el) => {
+        if (el !== panel) el.classList.add('hidden');
+    });
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+};
+
+window.saveCompanyAffretementSettings = async function () {
+    try {
+        const res = await apiFetch(`companies/${currentUser.company_id}/affretement-settings`, {
+            method: 'PUT',
+            body: readAffCopyFields('aff-co')
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || 'Enregistrement impossible');
+        window.cachedAffretementSettings = {
+            ...(window.cachedAffretementSettings || {}),
+            ...(payload.data || readAffCopyFields('aff-co'))
+        };
+        showToast('Textes de confirmation enregistrés', 'success');
+    } catch (e) {
+        showToast(e.message || 'Erreur', 'error');
+    }
+};
+
+window.saveAgencyAffretementSettings = async function (agencyId) {
+    try {
+        const res = await apiFetch(`agencies/${agencyId}`, {
+            method: 'PUT',
+            body: readAffCopyFields(`aff-ag-${agencyId}`)
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || 'Enregistrement impossible');
+        showToast('Textes de l\'agence enregistrés', 'success');
+        await fetchAllData();
+        const settingsRes = await apiFetch(`companies/${currentUser.company_id}/affretement-settings`);
+        if (settingsRes.ok) {
+            const json = await settingsRes.json();
+            window.cachedAffretementSettings = json.data || null;
+        }
     } catch (e) {
         showToast(e.message || 'Erreur', 'error');
     }
@@ -7215,6 +7350,12 @@ async function router(route) {
                 }
             } catch (e) {
                 window.cachedBankSettings = null;
+            }
+            try {
+                const affRes = await apiFetch(`companies/${currentUser.company_id}/affretement-settings`);
+                window.cachedAffretementSettings = affRes.ok ? (await affRes.json()).data || null : null;
+            } catch (e) {
+                window.cachedAffretementSettings = null;
             }
             content = renderAdmin(window.cachedBankSettings);
             break;
