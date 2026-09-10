@@ -222,6 +222,14 @@ window.canExportAccounting = () => can(PERM_MODULES.BILLING, PERM_ACTIONS.EXPORT
     && (typeof planHasFeature !== 'function' || planHasFeature('accounting_export'));
 window.canChangeTransportStatus = () => can(PERM_MODULES.STATUSES, PERM_ACTIONS.CHANGE_STATUS);
 window.canManageUsers = () => can(PERM_MODULES.USERS, PERM_ACTIONS.MANAGE_USERS);
+window.isCompanyWideAdmin = () => {
+    const user = typeof getCurrentUser === 'function' ? getCurrentUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
+    return getUserRole() === 'admin' && !user?.agency_id;
+};
+window.isAgencyAdmin = () => {
+    const user = typeof getCurrentUser === 'function' ? getCurrentUser() : (typeof currentUser !== 'undefined' ? currentUser : null);
+    return getUserRole() === 'admin' && !!user?.agency_id;
+};
 window.canManageClients = () => can(PERM_MODULES.CLIENTS, PERM_ACTIONS.CREATE) || can(PERM_MODULES.CLIENTS, PERM_ACTIONS.EDIT);
 window.canDeleteClients = () => can(PERM_MODULES.CLIENTS, PERM_ACTIONS.DELETE);
 window.canManageCarriers = () => can(PERM_MODULES.CARRIERS, PERM_ACTIONS.CREATE) || can(PERM_MODULES.CARRIERS, PERM_ACTIONS.EDIT);

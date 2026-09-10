@@ -3,7 +3,7 @@
  */
 
 // --- MOCK DATABASE ---
-let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], users: [], sales_invoices: [], purchase_invoices: [], subcontractors: [] };
+let db = { orders: [], clients: [], missions: [], drivers: [], vehicles: [], users: [], sales_invoices: [], purchase_invoices: [], subcontractors: [], agencies: [] };
 let subcontractorFilters = { search: '', status: '', compliance: '' };
 let subcontractorSelectedIds = new Set();
 let clientSelectedIds = new Set();
@@ -6002,10 +6002,11 @@ function readAffCopyFields(prefix) {
 }
 
 function renderAffretementSettingsCard(isAdminUser) {
+    const companyWide = typeof isCompanyWideAdmin === 'function' && isCompanyWideAdmin();
     const data = normalizeAffCopy(window.cachedAffretementSettings || {});
     const agencies = (data.agencies || db.agencies || []).map(normalizeAffCopy);
     const agencyPanels = agencies.map((a) => `
-        <div id="admin-aff-agency-${Number(a.id)}" class="hidden mt-3 p-3 rounded-lg border border-teal-100 bg-teal-50/40">
+        <div id="admin-aff-agency-${Number(a.id)}" class="${companyWide ? 'hidden' : ''} mt-3 p-3 rounded-lg border border-teal-100 bg-teal-50/40">
             <p class="text-xs font-semibold text-teal-800 mb-3">Textes spécifiques — ${esc(a.code)} ${esc(a.name)} <span class="font-normal text-teal-700">(champs vides = textes société)</span></p>
             ${affCopyFieldsHtml(`aff-ag-${Number(a.id)}`, a, 'Champs vides = textes société.')}
             ${isAdminUser ? `<button type="button" onclick="saveAgencyAffretementSettings(${Number(a.id)})" class="mt-3 px-3 py-2 bg-teal-700 text-white rounded text-sm font-semibold">Enregistrer cette agence</button>` : ''}
@@ -6013,9 +6014,9 @@ function renderAffretementSettingsCard(isAdminUser) {
     const agencySwitcher = agencies.length ? `<div class="mt-5 pt-4 border-t border-gray-100">
             <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Surcharge par agence</p>
             <p class="text-xs text-gray-500 mb-3">La confirmation porte le nom de l'agence du transport. Cliquez une agence pour y adapter facturation, consignes ou RSE.</p>
-            <div class="flex flex-wrap gap-2">
+            ${companyWide ? `<div class="flex flex-wrap gap-2">
                 ${agencies.map((a) => `<button type="button" onclick="toggleAgencyAffretementEditor(${Number(a.id)})" class="text-xs px-3 py-1.5 rounded-lg border border-teal-200 text-teal-800 hover:bg-teal-50">${esc(a.code)} · ${esc(a.name)}</button>`).join('')}
-            </div>
+            </div>` : ''}
             ${agencyPanels}
         </div>` : '';
 
@@ -6023,13 +6024,14 @@ function renderAffretementSettingsCard(isAdminUser) {
         <h3 class="font-bold text-gray-700 mb-1 uppercase text-xs tracking-wider">Confirmation d'affrètement</h3>
         <p class="text-xs text-gray-500 mb-4">Chaque confirmation porte le nom de l'agence émettrice. Les textes société s'appliquent par défaut ; une agence peut les remplacer.</p>
         ${affCopyFieldsHtml('aff-co', data, 'Vide = nom de l\'agence émettrice de la confirmation.')}
-        ${isAdminUser ? `<button type="button" onclick="saveCompanyAffretementSettings()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700">Enregistrer les textes société</button>` : ''}
+        ${companyWide ? `<button type="button" onclick="saveCompanyAffretementSettings()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700">Enregistrer les textes société</button>` : '<p class="text-xs text-gray-400 mt-3">Les textes société sont gérés par l\'administrateur siège.</p>'}
         ${agencySwitcher}
     </div>`;
 }
 
 function renderAdmin(bankSettings = null) {
     const isAdminUser = typeof canManageUsers === 'function' && canManageUsers();
+    const companyWide = typeof isCompanyWideAdmin === 'function' && isCompanyWideAdmin();
     const emailEnabled = currentUser?.company_notifications === 1;
     const logoSrc = resolveCompanyLogoUrl(currentUser?.company_logo);
     const bank = bankSettings || window.cachedBankSettings || null;
@@ -6041,11 +6043,12 @@ function renderAdmin(bankSettings = null) {
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Utilisateurs Plateforme</h3>
                 <table class="w-full text-sm text-left">
-                    <thead class="border-b"><tr><th class="pb-2">Nom</th><th class="pb-2">Rôle</th><th class="pb-2">Action</th></tr></thead>
+                    <thead class="border-b"><tr><th class="pb-2">Nom</th><th class="pb-2">Rôle</th><th class="pb-2">Agence</th><th class="pb-2">Action</th></tr></thead>
                     <tbody>
                         ${db.users.map(u => `<tr class="border-b last:border-0">
                             <td class="py-2">${esc(u.name)}</td>
-                            <td class="py-2"><span class="${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'} px-2 rounded text-[10px] font-bold uppercase">${esc(u.role)}</span></td>
+                            <td class="py-2"><span class="${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'} px-2 rounded text-[10px] font-bold uppercase">${esc(u.role)}${u.role === 'admin' && u.agency_id ? ' agence' : ''}</span></td>
+                            <td class="py-2 text-xs text-gray-500">${esc(formatUserAgencyLabel(u))}</td>
                             <td class="py-2"><button type="button" onclick="openEditUserModal(${Number(u.id)})" class="text-blue-600 text-xs">Modifier</button></td>
                         </tr>`).join('')}
                     </tbody>
@@ -6055,7 +6058,7 @@ function renderAdmin(bankSettings = null) {
 
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Agences / Dépôts</h3>
-                <p class="text-xs text-gray-500 mb-4">Multi-agences : chaque exploitant ne voit que les transports de son agence. L'administrateur voit tout.</p>
+                <p class="text-xs text-gray-500 mb-4">Multi-agences : un exploitant ou un admin d'agence ne voit que les transports de son agence. L'administrateur siège voit tout.</p>
                 <table class="w-full text-sm text-left mb-4">
                     <thead class="border-b"><tr><th class="pb-2">Code</th><th class="pb-2">Nom</th><th class="pb-2">Adresse</th>${isAdminUser ? '<th class="pb-2"></th>' : ''}</tr></thead>
                     <tbody>
@@ -6067,18 +6070,18 @@ function renderAdmin(bankSettings = null) {
                         </tr>`).join('') || `<tr><td colspan="${isAdminUser ? 4 : 3}" class="py-4 text-gray-400 italic">Aucune agence</td></tr>`}
                     </tbody>
                 </table>
-                ${isAdminUser ? `<form onsubmit="event.preventDefault(); createAgencyFromAdmin(); return false;" class="grid grid-cols-2 gap-2">
+                ${companyWide ? `<form onsubmit="event.preventDefault(); createAgencyFromAdmin(); return false;" class="grid grid-cols-2 gap-2">
                     <input type="text" id="admin-agency-code" class="border rounded p-2 text-sm uppercase" placeholder="Code" required>
                     <input type="text" id="admin-agency-name" class="border rounded p-2 text-sm" placeholder="Nom agence" required>
                     <input type="text" id="admin-agency-city" class="border rounded p-2 text-sm" placeholder="Ville">
                     <input type="text" id="admin-agency-address" class="border rounded p-2 text-sm" placeholder="Adresse">
                     <button type="submit" class="col-span-2 py-2 bg-teal-600 text-white rounded text-sm font-bold hover:bg-teal-700">+ Créer une agence</button>
-                </form>` : '<p class="text-xs text-gray-400">Seul un administrateur peut gérer les agences.</p>'}
+                </form>` : (isAdminUser ? '<p class="text-xs text-gray-400">La création d\'agences est réservée à l\'administrateur siège.</p>' : '<p class="text-xs text-gray-400">Seul un administrateur peut gérer les agences.</p>')}
             </div>
 
             ${renderAffretementSettingsCard(isAdminUser)}
 
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6 md:col-span-2">
                 <div>
                     <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Identité Légale de la Compagnie</h3>
                     <form onsubmit="event.preventDefault(); updateCompanyInfo(); return false;" class="space-y-4">
@@ -6102,58 +6105,60 @@ function renderAdmin(bankSettings = null) {
                     </form>
                 </div>
 
-                <div class="pt-6 border-t">
-                    <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Coordonnées bancaires</h3>
-                    <p class="text-xs text-gray-500 mb-4">Ces informations apparaissent sur vos factures clients et documents de paiement.</p>
-                    <form onsubmit="event.preventDefault(); saveAdminBankSettings(); return false;" class="space-y-4">
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mode de règlement</label>
-                            <input type="text" id="admin-bank-method" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.method || 'Virement Bancaire')}" placeholder="Virement Bancaire">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">IBAN</label>
-                            <input type="text" id="admin-bank-iban" class="w-full border p-2 rounded text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.iban || '')}" placeholder="FR76 3000 6000 0001 2345 6789 X01">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
+                    <div>
+                        <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Coordonnées bancaires</h3>
+                        <p class="text-xs text-gray-500 mb-4">Ces informations apparaissent sur vos factures clients et documents de paiement.</p>
+                        <form onsubmit="event.preventDefault(); saveAdminBankSettings(); return false;" class="space-y-4">
                             <div>
-                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Code BIC / SWIFT</label>
-                                <input type="text" id="admin-bank-bic" class="w-full border p-2 rounded text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.bic || '')}" placeholder="BNPAFRPP">
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mode de règlement</label>
+                                <input type="text" id="admin-bank-method" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.method || 'Virement Bancaire')}" placeholder="Virement Bancaire">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nom de la banque</label>
-                                <input type="text" id="admin-bank-name" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.bank_name || '')}" placeholder="BNP PARIBAS">
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">IBAN</label>
+                                <input type="text" id="admin-bank-iban" class="w-full border p-2 rounded text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.iban || '')}" placeholder="FR76 3000 6000 0001 2345 6789 X01">
                             </div>
-                        </div>
-                        ${bankUpdatedLabel ? `<p class="text-[10px] text-gray-400">Dernière mise à jour : ${escapeHtml(bankUpdatedLabel)}</p>` : ''}
-                        <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 transition shadow-sm">
-                            <i class="fa-solid fa-building-columns mr-2"></i>Sauvegarder les coordonnées bancaires
-                        </button>
-                    </form>
-                </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Code BIC / SWIFT</label>
+                                    <input type="text" id="admin-bank-bic" class="w-full border p-2 rounded text-sm font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.bic || '')}" placeholder="BNPAFRPP">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nom de la banque</label>
+                                    <input type="text" id="admin-bank-name" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" value="${escapeHtml(bank?.bank_name || '')}" placeholder="BNP PARIBAS">
+                                </div>
+                            </div>
+                            ${bankUpdatedLabel ? `<p class="text-[10px] text-gray-400">Dernière mise à jour : ${escapeHtml(bankUpdatedLabel)}</p>` : ''}
+                            <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 transition shadow-sm">
+                                <i class="fa-solid fa-building-columns mr-2"></i>Sauvegarder les coordonnées bancaires
+                            </button>
+                        </form>
+                    </div>
 
-                <div class="pt-6 border-t">
-                    <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Logo de l'entreprise</h3>
-                    <p class="text-xs text-gray-500 mb-4">Ce logo apparaît sur vos factures clients, brouillons et documents PDF.</p>
-                    <div class="flex flex-col sm:flex-row items-start gap-4">
-                        <div class="w-28 h-28 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
-                            <img id="admin-company-logo-preview" src="${logoSrc}" alt="Logo entreprise"
-                                 class="max-w-full max-h-full object-contain p-2"
-                                 onerror="this.src='assets/flenova_icon_512.jpg'">
-                        </div>
-                        <div class="flex-1 space-y-3">
-                            <input type="file" id="admin-company-logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                   class="hidden" onchange="previewCompanyLogo(this)">
-                            <div class="flex flex-wrap gap-2">
-                                <button type="button" onclick="document.getElementById('admin-company-logo-input').click()"
-                                        class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition">
-                                    <i class="fa-solid fa-image mr-2"></i>Choisir une image
-                                </button>
-                                <button type="button" onclick="uploadCompanyLogo()"
-                                        class="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
-                                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i>Enregistrer le logo
-                                </button>
+                    <div>
+                        <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Logo de l'entreprise</h3>
+                        <p class="text-xs text-gray-500 mb-4">Ce logo apparaît sur vos factures clients, brouillons et documents PDF.</p>
+                        <div class="flex flex-col sm:flex-row items-start gap-4">
+                            <div class="w-28 h-28 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
+                                <img id="admin-company-logo-preview" src="${logoSrc}" alt="Logo entreprise"
+                                     class="max-w-full max-h-full object-contain p-2"
+                                     onerror="this.src='assets/flenova_icon_512.jpg'">
                             </div>
-                            <p class="text-[10px] text-gray-400">PNG, JPG, WEBP ou SVG — 2 Mo max. Fond transparent recommandé.</p>
+                            <div class="flex-1 space-y-3">
+                                <input type="file" id="admin-company-logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                       class="hidden" onchange="previewCompanyLogo(this)">
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" onclick="document.getElementById('admin-company-logo-input').click()"
+                                            class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition">
+                                        <i class="fa-solid fa-image mr-2"></i>Choisir une image
+                                    </button>
+                                    <button type="button" onclick="uploadCompanyLogo()"
+                                            class="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
+                                        <i class="fa-solid fa-cloud-arrow-up mr-2"></i>Enregistrer le logo
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-gray-400">PNG, JPG, WEBP ou SVG — 2 Mo max. Fond transparent recommandé.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -9533,6 +9538,64 @@ function setUserModalMode(mode) {
     if (emailInput) emailInput.disabled = mode === 'edit';
 }
 
+function ensureAddUserAgencyField() {
+    let wrap = document.getElementById('add-user-agency-wrap');
+    let select = document.getElementById('add-user-agency');
+    if (!select) {
+        wrap = document.createElement('div');
+        wrap.id = 'add-user-agency-wrap';
+        wrap.innerHTML = `<label for="add-user-agency" class="block text-sm font-medium text-gray-700 mb-1">Agence de rattachement</label>
+            <select id="add-user-agency" class="w-full border border-gray-300 rounded-md p-2">
+                <option value="">Siège — toutes les agences</option>
+            </select>
+            <p class="text-[11px] text-gray-400 mt-1">Chaque agence peut avoir son propre administrateur. Sans agence = siège (toutes les agences).</p>`;
+        const roleBlock = document.getElementById('add-user-role')?.parentElement;
+        if (roleBlock?.parentNode) roleBlock.after(wrap);
+        else document.querySelector('#add-user-modal .p-6')?.appendChild(wrap);
+        select = document.getElementById('add-user-agency');
+    }
+    if (wrap) wrap.classList.remove('hidden');
+    return select;
+}
+
+async function populateAddUserAgencyField(selectedId) {
+    const select = ensureAddUserAgencyField();
+    if (!select) return;
+    if (!(db.agencies || []).length) {
+        try {
+            const res = await apiFetch('agencies');
+            if (res.ok) {
+                const data = await res.json();
+                db.agencies = Array.isArray(data) ? data : (data.data || []);
+            }
+        } catch (e) { /* liste éventuellement vide */ }
+    }
+    const agencies = db.agencies || [];
+    const companyWide = typeof isCompanyWideAdmin === 'function' && isCompanyWideAdmin();
+    const lockedAgencyId = !companyWide && currentUser?.agency_id ? Number(currentUser.agency_id) : null;
+    const currentVal = selectedId ? String(selectedId) : '';
+    if (lockedAgencyId) {
+        const mine = agencies.filter((a) => Number(a.id) === lockedAgencyId);
+        const rows = mine.length ? mine : [{ id: lockedAgencyId, code: '', name: 'Mon agence' }];
+        select.innerHTML = rows.map((a) => optionHtml(a.id, `${a.code ? `${a.code} — ` : ''}${a.name}`)).join('');
+        select.value = String(lockedAgencyId);
+        select.disabled = true;
+        return;
+    }
+    select.disabled = false;
+    const hasSelected = currentVal && agencies.some((a) => String(a.id) === currentVal);
+    select.innerHTML = '<option value="">Siège — toutes les agences</option>' +
+        agencies.map((a) => optionHtml(a.id, `${a.code} — ${a.name}`)).join('');
+    if (hasSelected) select.value = currentVal;
+}
+
+function formatUserAgencyLabel(user) {
+    if (user?.agency_name) {
+        return user.agency_code ? `${user.agency_code} · ${user.agency_name}` : user.agency_name;
+    }
+    return 'Siège';
+}
+
 function openAddUserModal() {
     hideAllModals();
     const idEl = document.getElementById('edit-user-id');
@@ -9543,15 +9606,18 @@ function openAddUserModal() {
     document.getElementById('add-user-password').value = '';
     setUserModalMode('create');
     toggleAddUserDriverField();
-    document.getElementById('add-user-modal').classList.remove('hidden');
+    if (typeof showAppModal === 'function') showAppModal('add-user-modal');
+    else document.getElementById('add-user-modal')?.classList.remove('hidden');
+    populateAddUserAgencyField(currentUser?.agency_id || '');
 }
+window.openAddUserModal = openAddUserModal;
 
-function openEditUserModal(userId) {
+async function openEditUserModal(userId) {
     if (typeof canManageUsers === 'function' && !canManageUsers()) {
         showToast("Vous n'avez pas l'autorisation de modifier un utilisateur.", 'error');
         return;
     }
-    const user = (db.users || []).find((u) => Number(u.id) === Number(userId));
+    let user = (db.users || []).find((u) => Number(u.id) === Number(userId));
     if (!user) {
         showToast('Utilisateur introuvable', 'error');
         return;
@@ -9567,7 +9633,9 @@ function openEditUserModal(userId) {
     toggleAddUserDriverField();
     const driverSelect = document.getElementById('add-user-driver');
     if (driverSelect && user.driver_id) driverSelect.value = String(user.driver_id);
-    document.getElementById('add-user-modal').classList.remove('hidden');
+    if (typeof showAppModal === 'function') showAppModal('add-user-modal');
+    else document.getElementById('add-user-modal')?.classList.remove('hidden');
+    await populateAddUserAgencyField(user.agency_id || '');
 }
 window.openEditUserModal = openEditUserModal;
 
@@ -9594,6 +9662,10 @@ async function submitAddUser() {
     const role = document.getElementById('add-user-role').value;
     const password = document.getElementById('add-user-password').value;
     const driverId = document.getElementById('add-user-driver')?.value;
+    const agencySelect = document.getElementById('add-user-agency');
+    const agencyVal = agencySelect?.disabled
+        ? (currentUser?.agency_id || agencySelect.value)
+        : agencySelect?.value;
 
     if (!name || !email || (!editId && !password)) {
         showToast(editId ? 'Nom et email requis' : 'Veuillez remplir tous les champs', 'error');
@@ -9612,6 +9684,7 @@ async function submitAddUser() {
     }
     if (role === 'chauffeur') payload.driver_id = parseInt(driverId, 10);
     else if (editId) payload.driver_id = null;
+    payload.agency_id = agencyVal ? parseInt(agencyVal, 10) : null;
 
     try {
         const res = await apiFetch(editId ? `users/${editId}` : 'users', {
@@ -10878,7 +10951,7 @@ function openAddOrderModal(prefill = {}) {
         if (currentUser?.agency_id) agencySelect.value = String(currentUser.agency_id);
     }
     const agencyWrap = document.getElementById('add-order-agency-wrap');
-    if (agencyWrap && typeof canManageUsers === 'function' && !canManageUsers()) {
+    if (agencyWrap && typeof isCompanyWideAdmin === 'function' && !isCompanyWideAdmin()) {
         agencyWrap.classList.add('hidden');
     } else if (agencyWrap) {
         agencyWrap.classList.remove('hidden');

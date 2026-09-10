@@ -1817,7 +1817,7 @@
                 <h3 id="add-user-modal-title" class="font-bold text-lg text-gray-800">Ajouter un Nouvel Utilisateur</h3>
                 <button type="button" onclick="closeAddUserModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer"><i class="fa-solid fa-times text-xl" aria-hidden="true"></i></button>
             </div>
-            <div class="p-6 space-y-4">
+            <div class="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
                 <input type="hidden" id="edit-user-id" value="">
                 <div>
                     <label for="add-user-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
@@ -1836,6 +1836,14 @@
                         <option value="comptabilite">Comptabilité</option>
                         <option value="lecture">Lecture seule</option>
                     </select>
+                    <p class="text-[11px] text-gray-400 mt-1">Un administrateur rattaché à une agence ne gère que cette agence.</p>
+                </div>
+                <div id="add-user-agency-wrap">
+                    <label for="add-user-agency" class="block text-sm font-medium text-gray-700 mb-1">Agence de rattachement</label>
+                    <select id="add-user-agency" class="w-full border border-gray-300 rounded-md p-2">
+                        <option value="">Siège — toutes les agences</option>
+                    </select>
+                    <p class="text-[11px] text-gray-400 mt-1">Chaque agence peut avoir son propre administrateur. Sans agence = siège (toutes les agences).</p>
                 </div>
                 <div id="add-user-driver-wrap" class="hidden">
                     <label for="add-user-driver" class="block text-sm font-medium text-gray-700 mb-1">Conducteur associé</label>

@@ -27,14 +27,19 @@ function sanitizeUrlForDisplay(url) {
 /** Ne conserve que les champs UI non sensibles en localStorage. */
 function sanitizeUserForStorage(user) {
     if (!user || typeof user !== 'object') return null;
+    const role = typeof normalizeRole === 'function'
+        ? normalizeRole(user.role)
+        : user.role;
     return {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role,
         driver_id: user.driver_id ?? null,
+        agency_id: user.agency_id ?? null,
         company_id: user.company_id,
-        company_name: user.company_name || null
+        company_name: user.company_name || null,
+        isPlatformAdmin: !!user.isPlatformAdmin
     };
 }
 
