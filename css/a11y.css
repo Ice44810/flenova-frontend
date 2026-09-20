@@ -38,22 +38,23 @@
     border: 0;
 }
 
-/* Sidebar — contraste sur fond slate-900 */
-aside.bg-slate-900 .sidebar-section-label {
-    color: #94a3b8;
+/* Sidebar — contraste sur fond bleu dégradé */
+#app-sidebar .sidebar-section-label {
+    color: #bae6fd;
+    text-shadow: 0 1px 8px rgba(56, 189, 248, 0.18);
 }
 
-aside.bg-slate-900 .nav-item:not(.active) {
-    color: #cbd5e1;
+#app-sidebar .nav-item:not(.active) {
+    color: #d8f1ff;
 }
 
-aside.bg-slate-900 .nav-item-sub.nav-item-muted {
-    color: #94a3b8;
+#app-sidebar .nav-item-sub.nav-item-muted {
+    color: #bae6fd;
     opacity: 1;
 }
 
-aside.bg-slate-900 .sidebar-group-toggle {
-    color: #cbd5e1;
+#app-sidebar .sidebar-group-toggle {
+    color: #d8f1ff;
 }
 
 /* Onglets dashboard inactifs */
