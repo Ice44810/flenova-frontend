@@ -528,7 +528,7 @@
             steps: [
                 { sel: '[data-tour="nav_prefacture"], [onclick*="preinvoicing"], [data-nav-route="preinvoicing"]', text: 'Allez dans « À préfacturer » pour les livraisons non facturées.' },
                 { sel: '[data-tour="prefacture_bulk"], #prefacture-bulk-btn, #prefacture-select-all, [onclick*="bulkCreateInvoiceDrafts"]', text: 'Filtrez par client/période, cochez plusieurs OT et validez en masse.' },
-                { sel: '[data-tour="nav_accounting"], [data-nav-route="accounting_export"], [onclick*="accounting_export"]', text: 'Exportez ensuite vers Pennylane, Quadra ou Sage — ou connectez Pennylane en OAuth.' }
+                { sel: '[data-tour="nav_accounting"], [data-nav-route="accounting_export"], [onclick*="accounting_export"]', text: 'Exportez ensuite le CSV comptable pour l’importer dans votre logiciel de comptabilité.' }
             ]
         }
     };

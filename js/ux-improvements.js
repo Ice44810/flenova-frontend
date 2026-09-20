@@ -517,7 +517,7 @@
             info: 'border-l-blue-500 bg-blue-50'
         };
         panel.innerHTML = `
-            <div class="p-3 border-b flex justify-between items-center gap-2">
+            <div class="notif-panel-header p-3 border-b flex justify-between items-center gap-2">
                 <span class="text-sm font-bold text-gray-800">Notifications</span>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="enableWebPushNotifications()" class="text-[10px] font-semibold text-indigo-700 hover:underline" title="Activer les notifications navigateur">
@@ -548,19 +548,22 @@
         });
         panel.classList.remove('hidden');
         placeFixedPanelNear(btn, panel, { preferRight: true });
-        const badge = document.getElementById('notification-badge');
-        if (badge) {
-            badge.textContent = String(items.length);
-            badge.classList.toggle('hidden', items.length === 0);
-        }
+        syncNotificationBadge(items.length);
     };
 
-    window.refreshNotificationBadge = function () {
+    function syncNotificationBadge(count) {
+        const n = Number(count) || 0;
         const badge = document.getElementById('notification-badge');
-        if (!badge) return;
-        const n = buildNotifications().length;
-        badge.textContent = String(n);
-        badge.classList.toggle('hidden', n === 0);
+        const btn = document.getElementById('notification-center-btn');
+        if (badge) {
+            badge.textContent = String(n);
+            badge.classList.toggle('hidden', n === 0);
+        }
+        btn?.classList.toggle('has-notifications', n > 0);
+    }
+
+    window.refreshNotificationBadge = function () {
+        syncNotificationBadge(buildNotifications().length);
     };
 
     // ── Onboarding checklist ────────────────────────────────────────

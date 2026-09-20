@@ -3778,17 +3778,6 @@ function renderCmrPreviewShell() {
                 <p class="text-xs text-gray-500" id="cmr-page-subtitle">Chargement…</p>
                 <p class="text-xs mt-1 hidden" id="cmr-completeness"></p>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <a id="cmr-pod-link" href="#" target="_blank" class="hidden px-3 py-2 border border-teal-600 text-teal-700 rounded text-sm hover:bg-teal-50">
-                    <i class="fa-solid fa-clipboard-check mr-1"></i>Voir le POD
-                </a>
-                <a id="cmr-pdf-link" href="#" target="_blank" class="hidden px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">
-                    <i class="fa-solid fa-file-pdf mr-1 text-red-500"></i>Télécharger PDF
-                </a>
-                <button id="cmr-generate-btn" onclick="generateTransportCmr()" class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                    <i class="fa-solid fa-file-circle-plus mr-1"></i>Générer / Régénérer PDF
-                </button>
-            </div>
         </div>
         <div class="flex-1 overflow-auto bg-slate-100 rounded-xl border border-gray-200 p-4">
             <div id="cmr-preview" class="bg-white rounded-xl shadow-sm mx-auto max-w-5xl">
@@ -3803,9 +3792,6 @@ async function loadCmrPreviewPage() {
     const preview = document.getElementById('cmr-preview');
     const subtitle = document.getElementById('cmr-page-subtitle');
     const completenessEl = document.getElementById('cmr-completeness');
-    const pdfLink = document.getElementById('cmr-pdf-link');
-    const podLink = document.getElementById('cmr-pod-link');
-    const generateBtn = document.getElementById('cmr-generate-btn');
 
     if (!orderId) {
         if (preview) preview.innerHTML = '<p class="p-8 text-center text-red-500">Aucun transport sélectionné.</p>';
@@ -3834,22 +3820,6 @@ async function loadCmrPreviewPage() {
             completenessEl.className = `text-xs mt-1 ${completeness.loading && completeness.delivery ? 'text-emerald-700' : 'text-amber-700'}`;
         }
         renderSecureHtmlPreview(preview, data.html, 'Aucun contenu');
-
-        if (pdfLink && data.pdfUrl) {
-            pdfLink.href = normalizeUploadUrl(data.pdfUrl);
-            pdfLink.classList.remove('hidden');
-        } else if (pdfLink) {
-            pdfLink.classList.add('hidden');
-        }
-
-        if (podLink && completeness.podUrl) {
-            podLink.href = normalizeUploadUrl(completeness.podUrl);
-            podLink.classList.remove('hidden');
-        } else if (podLink) {
-            podLink.classList.add('hidden');
-        }
-
-        if (generateBtn) generateBtn.disabled = false;
     } catch (e) {
         if (preview) preview.innerHTML = `<p class="p-8 text-center text-red-500">${esc(e.message)}</p>`;
         showToast(e.message, 'error');
@@ -3861,33 +3831,7 @@ function openTransportCmr(orderId) {
     router('cmr_preview');
 }
 
-async function generateTransportCmr() {
-    const orderId = cmrPreviewOrderId;
-    if (!orderId) return;
-
-    const generateBtn = document.getElementById('cmr-generate-btn');
-    if (generateBtn) generateBtn.disabled = true;
-
-    try {
-        const res = await apiFetch(`transport-orders/${orderId}/cmr`, { method: 'POST' });
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            const missing = Array.isArray(payload.missing) && payload.missing.length
-                ? ` (${payload.missing.join(', ')})`
-                : '';
-            throw new Error((payload.error || 'Génération impossible') + missing);
-        }
-        showToast(payload.snapshot ? 'PDF snapshot enregistré' : 'Lettre de voiture générée', 'success');
-        await loadCmrPreviewPage();
-    } catch (e) {
-        showToast(e.message, 'error');
-    } finally {
-        if (generateBtn) generateBtn.disabled = false;
-    }
-}
-
 window.openTransportCmr = openTransportCmr;
-window.generateTransportCmr = generateTransportCmr;
 
 // --- RENDER: Flotte ---
 function renderDrivers() {
@@ -7398,7 +7342,6 @@ async function router(route) {
                 toggleAccountingCustomPeriod();
                 loadAccountingSettingsForm();
                 loadAccountingExportHistory();
-                if (typeof refreshPennylaneStatus === 'function') refreshPennylaneStatus();
             }, 0);
             break;
         case 'invoice_settings':
@@ -10128,7 +10071,7 @@ function renderAccountingExport() {
     return `<div class="max-w-6xl mx-auto space-y-6 fade-in pb-8">
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-1"><i class="fa-solid fa-file-csv text-emerald-600 mr-2"></i>Export comptable</h3>
-            <p class="text-sm text-gray-500 mb-6">Extrayez les factures ventes et achats au format CSV comptable pour vos déclarations de TVA et votre expert-comptable.</p>
+            <p class="text-sm text-gray-500 mb-6">Extrayez les factures ventes et achats en CSV comptable (UTF-8, séparateur «&nbsp;;&nbsp;», décimales «&nbsp;,&nbsp;») pour les importer dans n’importe quel logiciel de comptabilité.</p>
 
             <div class="grid md:grid-cols-2 gap-6">
                 <div class="space-y-4">
@@ -10180,39 +10123,6 @@ function renderAccountingExport() {
                             <label class="flex items-center gap-1"><input type="checkbox" class="acc-vat-rate" value="0" checked> Exonéré</label>
                         </div>
                     </div>
-                    <div>
-                        <p class="text-xs text-gray-500 mb-2">Format / connecteur</p>
-                        <select id="acc-export-format" class="w-full border rounded-lg px-3 py-2 text-sm">
-                            <option value="standard">CSV comptable standard (TVA détaillée)</option>
-                            <option value="pennylane">Pennylane (import écritures)</option>
-                            <option value="quadra">Quadra / Cegid (écritures)</option>
-                            <option value="sage">Sage (écritures comptables)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid sm:grid-cols-3 gap-3 mt-6">
-                <div class="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-emerald-900" id="pennylane-connect-card">
-                    <p class="font-bold mb-1"><i class="fa-solid fa-plug mr-1"></i>Pennylane</p>
-                    <p class="mb-2">Export CSV → Imports → Écritures, ou connexion OAuth partenaire.</p>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" onclick="connectPennylaneOAuth()" class="px-2 py-1 rounded bg-emerald-700 text-white text-[11px] font-semibold hover:bg-emerald-800">
-                            Connecter OAuth
-                        </button>
-                        <button type="button" onclick="disconnectPennylaneOAuth()" class="px-2 py-1 rounded border border-emerald-300 text-emerald-900 text-[11px] hover:bg-white">
-                            Déconnecter
-                        </button>
-                    </div>
-                    <p id="pennylane-status-label" class="mt-2 text-[11px] text-emerald-800/80">Statut : …</p>
-                </div>
-                <div class="rounded-lg border border-sky-100 bg-sky-50/50 p-3 text-xs text-sky-900">
-                    <p class="font-bold mb-1"><i class="fa-solid fa-plug mr-1"></i>Quadra</p>
-                    Import ASCII/CSV séparateur « ; » — Journal, Date, Compte, Libellé, Débit, Crédit.
-                </div>
-                <div class="rounded-lg border border-violet-100 bg-violet-50/50 p-3 text-xs text-violet-900">
-                    <p class="font-bold mb-1"><i class="fa-solid fa-plug mr-1"></i>Sage</p>
-                    Format FEC-like (écritures) déjà supporté — prêt pour Sage 50 / 100.
                 </div>
             </div>
 
@@ -10325,7 +10235,7 @@ function getAccountingExportOptions() {
         includePurchases: document.getElementById('acc-export-purchases')?.checked !== false,
         detailLevel,
         vatRates: vatRates.length ? vatRates : null,
-        format: document.getElementById('acc-export-format')?.value || 'standard'
+        format: 'standard'
     };
 }
 
@@ -10530,59 +10440,6 @@ window.generateAccountingExport = async function () {
 function exportAccounting(type) {
     router('accounting_export');
 }
-
-window.refreshPennylaneStatus = async function () {
-    const label = document.getElementById('pennylane-status-label');
-    if (!label) return;
-    try {
-        const res = await apiFetch('integrations/pennylane/status');
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            label.textContent = 'Statut : indisponible';
-            return;
-        }
-        const d = payload.data || {};
-        if (!d.configured) {
-            label.textContent = 'OAuth non configuré (PENNYLANE_CLIENT_ID) — CSV toujours dispo';
-            return;
-        }
-        label.textContent = d.connected
-            ? `Connecté${d.connectedAt ? ` depuis ${String(d.connectedAt).slice(0, 10)}` : ''}`
-            : 'Non connecté — CSV import écritures disponible';
-    } catch {
-        label.textContent = 'Statut : hors ligne';
-    }
-};
-
-window.connectPennylaneOAuth = async function () {
-    try {
-        const res = await apiFetch('integrations/pennylane/connect?redirect=0');
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(payload.error || payload.message || 'Connexion impossible');
-        if (payload.data?.url) {
-            window.location.href = payload.data.url;
-            return;
-        }
-        showToast('URL OAuth manquante', 'error');
-    } catch (e) {
-        showToast(e.message || 'Pennylane OAuth indisponible', 'error');
-    }
-};
-
-window.disconnectPennylaneOAuth = async function () {
-    if (!confirm('Déconnecter Pennylane pour cette entreprise ?')) return;
-    try {
-        const res = await apiFetch('integrations/pennylane', { method: 'DELETE' });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Déconnexion impossible');
-        }
-        showToast('Pennylane déconnecté', 'success');
-        refreshPennylaneStatus();
-    } catch (e) {
-        showToast(e.message || 'Erreur', 'error');
-    }
-};
 
 // --- ORDER FUNCTIONS ---
 

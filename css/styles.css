@@ -29,6 +29,23 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
+/* Cloche : fond coloré dès qu’il y a des notifications */
+#notification-center-btn.has-notifications {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+#notification-center-btn.has-notifications:hover {
+    background-color: #fee2e2;
+}
+#notification-center-panel {
+    background-color: #fff7ed;
+    border-color: #fdba74;
+}
+#notification-center-panel .notif-panel-header {
+    background-color: #ffedd5;
+    border-bottom-color: #fdba74;
+}
+
 /* Login Background */
 .login-bg {
     background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
