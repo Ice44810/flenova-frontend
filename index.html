@@ -96,7 +96,6 @@
                 </div>
 
                 <div id="tenant-app-nav">
-                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Général</p>
                 <ul class="space-y-1 mb-4">
                     <li data-nav-route="dashboard"><button type="button" onclick="router('dashboard')"
                             class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
@@ -106,61 +105,29 @@
                     </li>
                 </ul>
 
-                <div class="sidebar-group is-open mb-4" data-sidebar-group="transports">
-                    <button type="button" class="sidebar-group-toggle" onclick="toggleSidebarGroup('transports')" aria-expanded="true" aria-controls="sidebar-group-transports">
-                        <i class="fa-solid fa-truck-fast w-6" aria-hidden="true"></i>
-                        <span>Transports</span>
-                        <i class="fa-solid fa-chevron-down sidebar-group-chevron ml-auto text-xs" aria-hidden="true"></i>
-                    </button>
-                    <ul id="sidebar-group-transports" class="sidebar-group-items space-y-0.5 mt-1">
-                        <li data-nav-route="transports"><button type="button" onclick="router('transports')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-list w-6" aria-hidden="true"></i>
-                                <span>Tous les transports</span>
-                            </button>
-                        </li>
+                <div class="sidebar-section mb-4">
+                    <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Exploitation</p>
+                    <ul class="space-y-1">
                         <li data-nav-route="planning"><button type="button" onclick="router('planning')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                                 <i class="fa-solid fa-calendar-days w-6" aria-hidden="true"></i>
                                 <span>Planning</span>
                             </button>
                         </li>
-                        <li data-nav-route="inprogress_transports"><button type="button" onclick="router('inprogress_transports')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-truck-moving w-6" aria-hidden="true"></i>
-                                <span>Transports En cours</span>
+                        <li data-nav-route="transports"><button type="button" onclick="router('transports')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-truck-fast w-6" aria-hidden="true"></i>
+                                <span>Transports</span>
                             </button>
                         </li>
-
-                        <li data-nav-route="closed_transports"><button type="button" onclick="router('closed_transports')"
-                            class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-lock w-6" aria-hidden="true"></i>
-                            <span>Transports clôturés</span>
-                            </button>
-                        </li>
-
-                        <li data-nav-route="cancelled_transports"><button type="button" onclick="router('cancelled_transports')"
-                            class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-xmark w-6" aria-hidden="true"></i>
-                            <span>Transports Annulés</span>
-                            </button>
-                        </li>
-
                         <li data-nav-route="chartered_transports" data-tour="nav_affretement"><button type="button" onclick="router('chartered_transports')"
-                            class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-cube w-6" aria-hidden="true"></i>
-                            <span>Transports affrétés</span>
-                            </button>
-                        </li>
-
-                        <li data-nav-route="completed_transports"><button type="button" onclick="router('completed_transports')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-circle-check w-6" aria-hidden="true"></i>
-                                <span>Transports Réalisés</span>
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-handshake w-6" aria-hidden="true"></i>
+                                <span>Affrètement</span>
                             </button>
                         </li>
                         <li data-nav-route="disputes"><button type="button" onclick="router('disputes')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
                                 <i class="fa-solid fa-scale-balanced w-6" aria-hidden="true"></i>
                                 <span>Litiges</span>
                             </button>
@@ -168,199 +135,155 @@
                     </ul>
                 </div>
 
-<p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Ressources</p>
-                <ul class="space-y-1 mb-4">
-                    <li data-nav-route="drivers"><button type="button" onclick="router('drivers')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-id-card w-6" aria-hidden="true"></i>
-                            <span>Chauffeurs</span>
-                        </button>
-                    </li>
-                    <li data-nav-route="fleet"><button type="button" onclick="router('fleet')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-truck w-6" aria-hidden="true"></i>
-                            <span>Flotte</span>
-                        </button>
-                    </li>
-                    <li data-nav-route="subcontractors"><button type="button" onclick="router('subcontractors')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-handshake w-6" aria-hidden="true"></i>
-                            <span>Sous-traitants</span>
-                        </button>
-                    </li>
-                </ul>
-
-                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Clients</p>
-                <ul class="space-y-1 mb-4">
-                    <li data-nav-route="clients"><button type="button" onclick="router('clients')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-building-user w-6" aria-hidden="true"></i>
-                            <span>Clients</span>
-                        </button>
-                    </li>
-                </ul>
-
-                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Finances</p>
-                <ul class="space-y-1 mb-4">
-                    <li data-nav-route="preinvoicing" data-tour="nav_prefacture">
-                        <button type="button" onclick="router('preinvoicing')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-file-circle-check w-6" aria-hidden="true"></i>
-                            <span>Préfacturation</span>
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="sidebar-group mb-4" data-sidebar-group="sales_invoices">
-                    <button type="button" class="sidebar-group-toggle" onclick="toggleSidebarGroup('sales_invoices')" aria-expanded="false" aria-controls="sidebar-group-sales-invoices">
-                        <i class="fa-solid fa-file-invoice-dollar w-6" aria-hidden="true"></i>
-                        <span>Factures Ventes</span>
-                        <i class="fa-solid fa-chevron-down sidebar-group-chevron ml-auto text-xs" aria-hidden="true"></i>
-                    </button>
-                    <ul id="sidebar-group-sales-invoices" class="sidebar-group-items space-y-0.5 mt-1">
-                        <li data-nav-route="sales_invoices_validated"><button type="button" onclick="router('sales_invoices_validated')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-circle-check w-6" aria-hidden="true"></i>
-                                <span>Factures validées</span>
+                <div class="sidebar-section mb-4">
+                    <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Ressources</p>
+                    <ul class="space-y-1">
+                        <li data-nav-route="drivers"><button type="button" onclick="router('drivers')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-id-card w-6" aria-hidden="true"></i>
+                                <span>Chauffeurs</span>
                             </button>
                         </li>
-                        <li data-nav-route="sales_invoices_draft"><button type="button" onclick="router('sales_invoices_draft')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-file-pen w-6" aria-hidden="true"></i>
-                                <span>Brouillon</span>
+                        <li data-nav-route="fleet"><button type="button" onclick="router('fleet')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-truck w-6" aria-hidden="true"></i>
+                                <span>Flotte</span>
+                            </button>
+                        </li>
+                        <li data-nav-route="subcontractors"><button type="button" onclick="router('subcontractors')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-truck-ramp-box w-6" aria-hidden="true"></i>
+                                <span>Sous-traitants</span>
+                            </button>
+                        </li>
+                        <li data-nav-route="clients"><button type="button" onclick="router('clients')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-building-user w-6" aria-hidden="true"></i>
+                                <span>Clients</span>
                             </button>
                         </li>
                     </ul>
                 </div>
 
-                <ul class="space-y-1 mb-4">
-                    <li data-nav-route="purchase_invoices">
-                        <button type="button" onclick="router('purchase_invoices')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-file-invoice w-6" aria-hidden="true"></i>
-                            <span>Factures Achats</span>
+                <div class="sidebar-section mb-4">
+                    <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Facturation</p>
+                    <ul class="space-y-1">
+                        <li data-nav-route="preinvoicing" data-tour="nav_prefacture">
+                            <button type="button" onclick="router('preinvoicing')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-file-circle-check w-6" aria-hidden="true"></i>
+                                <span>Préfacturer</span>
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="sidebar-group is-open" data-sidebar-group="sales_invoices">
+                        <button type="button" class="sidebar-group-toggle" onclick="toggleSidebarGroup('sales_invoices')" aria-expanded="true" aria-controls="sidebar-group-sales-invoices">
+                            <i class="fa-solid fa-file-invoice-dollar w-6" aria-hidden="true"></i>
+                            <span>Factures ventes</span>
+                            <i class="fa-solid fa-chevron-down sidebar-group-chevron ml-auto text-xs" aria-hidden="true"></i>
                         </button>
-                    </li>
-                </ul>
+                        <ul id="sidebar-group-sales-invoices" class="sidebar-group-items space-y-0.5 mt-1">
+                            <li data-nav-route="sales_invoices_validated"><button type="button" onclick="router('sales_invoices_validated')"
+                                    class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                    <i class="fa-solid fa-circle-check w-6" aria-hidden="true"></i>
+                                    <span>Validées</span>
+                                </button>
+                            </li>
+                            <li data-nav-route="sales_invoices_draft"><button type="button" onclick="router('sales_invoices_draft')"
+                                    class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                    <i class="fa-solid fa-file-pen w-6" aria-hidden="true"></i>
+                                    <span>Brouillons</span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <ul class="space-y-1 mt-1">
+                        <li data-nav-route="purchase_invoices">
+                            <button type="button" onclick="router('purchase_invoices')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-file-invoice w-6" aria-hidden="true"></i>
+                                <span>Factures achats</span>
+                            </button>
+                        </li>
+                        <li data-nav-route="accounting_export" data-tour="nav_accounting">
+                            <button type="button" onclick="router('accounting_export')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-file-csv w-6" aria-hidden="true"></i>
+                                <span>Export comptable</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
 
-                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Comptabilité</p>
-                <ul class="space-y-1 mb-4">
-                    <li data-nav-route="accounting_export" data-tour="nav_accounting">
-                        <button type="button" onclick="router('accounting_export')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-file-csv w-6" aria-hidden="true"></i>
-                            <span>Export comptable</span>
-                        </button>
-                    </li>
-                </ul>
+                <div class="sidebar-section mb-4">
+                    <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Pilotage</p>
+                    <ul class="space-y-1">
+                        <li data-nav-route="margin_dashboard"><button type="button" onclick="router('margin_dashboard')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-chart-line w-6" aria-hidden="true"></i>
+                                <span>Marge</span>
+                            </button>
+                        </li>
+                        <li data-nav-route="quotation"><button type="button" onclick="router('quotation')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-calculator w-6" aria-hidden="true"></i>
+                                <span>Calculateur</span>
+                            </button>
+                        </li>
+                        <li data-nav-route="sustainability">
+                            <button type="button" onclick="router('sustainability')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-leaf w-6" aria-hidden="true"></i>
+                                <span>Durabilité</span>
+                            </button>
+                        </li>
+                        <li data-nav-route="rse_compliance">
+                            <button type="button" onclick="router('rse_compliance')"
+                                class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-seedling w-6" aria-hidden="true"></i>
+                                <span>Conformité RSE</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
 
-                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Analyse</p>
-                <ul class="space-y-1 mb-4">
-                    <li data-nav-route="margin_dashboard"><button type="button" onclick="router('margin_dashboard')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-chart-line w-6" aria-hidden="true"></i>
-                            <span>Marge</span>
-                        </button>
-                    </li>
-                    <li data-nav-route="quotation"><button type="button" onclick="router('quotation')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-calculator w-6" aria-hidden="true"></i>
-                            <span>Calculateur</span>
-                        </button>
-                    </li>
-                </ul>
-
-                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Administration</p>
-                <ul class="space-y-1 mb-4">
-                    <li data-nav-route="pricing" data-role="admin">
-                        <button type="button" onclick="router('pricing')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-credit-card w-6" aria-hidden="true"></i>
-                            <span>Mon abonnement</span>
-                        </button>
-                    </li>
-                    <li data-nav-route="admin">
-                        <button type="button" onclick="router('admin')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-gear w-6" aria-hidden="true"></i>
-                            <span>Administration</span>
-                        </button>
-                    </li>
-                </ul>
-
-                <p class="px-6 text-xs font-semibold sidebar-section-label uppercase tracking-wider mb-2">Durabilité &amp; RSE</p>
-                <ul class="space-y-1 mb-4">
-                    <li data-nav-route="sustainability">
-                        <button type="button" onclick="router('sustainability')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-leaf w-6" aria-hidden="true"></i>
-                            <span>Durabilité</span>
-                        </button>
-                    </li>
-                    <li data-nav-route="rse_compliance">
-                        <button type="button" onclick="router('rse_compliance')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-scale-balanced w-6" aria-hidden="true"></i>
-                            <span>Conformité RSE</span>
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="sidebar-group is-open mb-4" data-sidebar-group="support">
-                    <button type="button" class="sidebar-group-toggle" onclick="toggleSidebarGroup('support')" aria-expanded="true" aria-controls="sidebar-group-support">
-                        <i class="fa-solid fa-life-ring w-6" aria-hidden="true"></i>
-                        <span>Support</span>
+                <div class="sidebar-group mb-2 mt-2 pt-2 border-t border-slate-800" data-sidebar-group="compte">
+                    <button type="button" class="sidebar-group-toggle" onclick="toggleSidebarGroup('compte')" aria-expanded="false" aria-controls="sidebar-group-compte">
+                        <i class="fa-solid fa-user-gear w-6" aria-hidden="true"></i>
+                        <span>Compte</span>
                         <i class="fa-solid fa-chevron-down sidebar-group-chevron ml-auto text-xs" aria-hidden="true"></i>
                     </button>
-                    <ul id="sidebar-group-support" class="sidebar-group-items space-y-0.5 mt-1">
+                    <ul id="sidebar-group-compte" class="sidebar-group-items space-y-0.5 mt-1">
+                        <li data-nav-route="admin">
+                            <button type="button" onclick="router('admin')"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-gear w-6" aria-hidden="true"></i>
+                                <span>Administration</span>
+                            </button>
+                        </li>
+                        <li data-nav-route="pricing" data-role="admin">
+                            <button type="button" onclick="router('pricing')"
+                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
+                                <i class="fa-solid fa-credit-card w-6" aria-hidden="true"></i>
+                                <span>Abonnement</span>
+                            </button>
+                        </li>
                         <li data-nav-route="onboarding">
                             <button type="button" onclick="router('onboarding')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-rocket w-6" aria-hidden="true"></i>
-                                <span>Prise en main</span>
+                                <i class="fa-solid fa-life-ring w-6" aria-hidden="true"></i>
+                                <span>Aide</span>
                             </button>
                         </li>
-                        <li data-nav-route="feedback">
-                            <button type="button" onclick="router('feedback')"
+                        <li data-nav-route="privacy">
+                            <button type="button" onclick="router('privacy')"
                                 class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-comment-dots w-6" aria-hidden="true"></i>
-                                <span>Vos retours</span>
-                            </button>
-                        </li>
-                        <li data-nav-route="solutions">
-                            <button type="button" onclick="router('solutions')"
-                                class="nav-item nav-item-sub nav-item-muted flex items-center py-2.5 transition-colors text-gray-500 opacity-60 border-r-4 border-transparent cursor-pointer"
-                                title="Présentation marketing — même contenu que le site public">
-                                <i class="fa-solid fa-lightbulb w-6" aria-hidden="true"></i>
-                                <span>Nos Solutions</span>
-                            </button>
-                        </li>
-                        <li data-nav-route="contact">
-                            <button type="button" onclick="router('contact')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-headset w-6" aria-hidden="true"></i>
-                                <span>Contact & Aide</span>
-                            </button>
-                        </li>
-                        <li data-nav-route="about">
-                            <button type="button" onclick="router('about')"
-                                class="nav-item nav-item-sub flex items-center py-2.5 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                                <i class="fa-solid fa-info-circle w-6" aria-hidden="true"></i>
-                                <span>À propos</span>
+                                <i class="fa-solid fa-shield-halved w-6" aria-hidden="true"></i>
+                                <span>Mes données</span>
                             </button>
                         </li>
                     </ul>
                 </div>
-
-                <ul class="space-y-1">
-                    <li data-nav-route="privacy">
-                        <button type="button" onclick="router('privacy')"
-                            class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 transition-colors text-gray-400 border-r-4 border-transparent">
-                            <i class="fa-solid fa-shield-halved w-6" aria-hidden="true"></i>
-                            <span>Mes données</span>
-                        </button>
-                    </li>
-                </ul>
                 </div>
             </nav>
         </aside>

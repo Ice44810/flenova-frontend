@@ -1066,16 +1066,32 @@ function updateAppCompanyHeader(user) {
 window.updateAppCompanyHeader = updateAppCompanyHeader;
 
 const SIDEBAR_GROUP_ROUTES = {
-    transports: new Set([
-        'transports', 'planning', 'inprogress_transports', 'closed_transports',
-        'cancelled_transports', 'chartered_transports', 'completed_transports',
-        'disputes', 'create_order',
-    ]),
     sales_invoices: new Set([
         'sales_invoices', 'sales_invoices_validated', 'sales_invoices_draft',
         'create_invoice', 'invoice_settings',
     ]),
-    support: new Set(['onboarding', 'feedback', 'solutions', 'contact', 'about']),
+    compte: new Set(['admin', 'pricing', 'onboarding', 'privacy', 'contact']),
+};
+const SIDEBAR_GROUP_DEFAULT_OPEN = {
+    sales_invoices: true,
+    compte: false,
+};
+const TRANSPORT_LIST_ROUTES = new Set([
+    'transports', 'inprogress_transports', 'completed_transports',
+    'closed_transports', 'cancelled_transports',
+]);
+const TRANSPORT_ROUTE_BUCKET = {
+    inprogress_transports: 'en_cours',
+    completed_transports: 'realises',
+    closed_transports: 'clotures',
+    cancelled_transports: 'annules',
+};
+const TRANSPORT_BUCKET_TITLES = {
+    tous: 'Transports',
+    en_cours: 'Transports en cours',
+    realises: 'Transports réalisés',
+    clotures: 'Transports clôturés',
+    annules: 'Transports annulés',
 };
 
 function setSidebarGroupOpen(groupId, open) {
@@ -1109,10 +1125,11 @@ window.syncSidebarGroups = function (route) {
 
 function initSidebarGroups() {
     Object.keys(SIDEBAR_GROUP_ROUTES).forEach((groupId) => {
-        let open = true;
+        let open = SIDEBAR_GROUP_DEFAULT_OPEN[groupId] !== false;
         try {
             const stored = localStorage.getItem(`sidebar-group-${groupId}`);
             if (stored === '0') open = false;
+            if (stored === '1') open = true;
         } catch (_) { /* ignore */ }
         setSidebarGroupOpen(groupId, open);
     });
@@ -7244,13 +7261,14 @@ async function router(route) {
         }
     } catch (_) { /* ignore */ }
 
-    // Active nav — correspondance exacte (évite transports / inprogress_transports / completed_transports)
+    // Transports reste actif pour les anciens filtres de statut (en cours, réalisés…).
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
         const navRoute = item.closest('[data-nav-route]')?.dataset?.navRoute;
         const onclickMatch = item.getAttribute('onclick')?.match(/router\('([^']+)'\)/);
         const itemRoute = navRoute || onclickMatch?.[1];
-        if (itemRoute === route) item.classList.add('active');
+        const isTransportList = itemRoute === 'transports' && TRANSPORT_LIST_ROUTES.has(route);
+        if (itemRoute === route || isTransportList) item.classList.add('active');
     });
     if (typeof syncSidebarGroups === 'function') syncSidebarGroups(route);
 
@@ -7263,12 +7281,26 @@ async function router(route) {
             await refreshDashboardView();
             break;
         case 'transports':
-            title = transportFilters.view === 'trash' ? 'Corbeille transports' : 'Transports';
-            if (transportFilters.view === 'trash' && typeof loadDeletedTransports === 'function') {
-                await loadDeletedTransports();
+        case 'inprogress_transports':
+        case 'completed_transports':
+        case 'closed_transports':
+        case 'cancelled_transports': {
+            const isTrash = route === 'transports'
+                && typeof transportFilters !== 'undefined'
+                && transportFilters.view === 'trash';
+            if (isTrash) {
+                title = 'Corbeille transports';
+                if (typeof loadDeletedTransports === 'function') await loadDeletedTransports();
+            } else if (typeof transportFilters !== 'undefined') {
+                transportFilters.view = 'active';
+                transportFilters.bucket = TRANSPORT_ROUTE_BUCKET[route] || 'tous';
+                title = TRANSPORT_BUCKET_TITLES[transportFilters.bucket] || 'Transports';
+            } else {
+                title = 'Transports';
             }
             content = renderTransportList();
             break;
+        }
         case 'preinvoicing':
             title = 'Préfacturation';
             content = renderPreInvoicing();
@@ -7280,22 +7312,6 @@ async function router(route) {
         case 'create_order':
             title = 'Créer une Commande';
             content = '<div class="fade-in"><button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Nouvelle Commande</button></div>';
-            break;
-        case 'completed_transports':
-            title = 'Transports Réalisés';
-            content = typeof renderOrdersCompleted === 'function' ? renderOrdersCompleted() : renderCompletedTransports();
-            break;
-        case 'inprogress_transports':
-            title = 'Transports En cours';
-            content = typeof renderOrdersInProgress === 'function' ? renderOrdersInProgress() : renderInProgressTransports();
-            break;
-        case 'closed_transports':
-            title = 'Transports clôturés';
-            content = typeof renderOrdersClosed === 'function' ? renderOrdersClosed() : renderTransportList();
-            break;
-        case 'cancelled_transports':
-            title = 'Transports annulés';
-            content = typeof renderOrdersCancelled === 'function' ? renderOrdersCancelled() : renderTransportList();
             break;
         case 'chartered_transports':
             title = 'Transports affrétés';

@@ -53,7 +53,7 @@ function getStatusBorderClass(status) {
     return map[status] || 'border-l-4 border-gray-300';
 }
 
-let transportFilters = { status: '', search: '', view: 'active' };
+let transportFilters = { status: '', search: '', view: 'active', bucket: 'tous' };
 let currentTransportDetail = null;
 let completedTransportSelection = new Set();
 let transportSelection = new Set();
@@ -75,6 +75,93 @@ function transportIsSelectable(order) {
 
 function getTransportListSource() {
     return transportFilters.view === 'trash' ? deletedTransportOrders : (db.orders || []);
+}
+
+const TRANSPORT_BUCKETS = [
+    { id: 'tous', label: 'Tous', route: 'transports' },
+    { id: 'en_cours', label: 'En cours', route: 'inprogress_transports' },
+    { id: 'realises', label: 'Réalisés', route: 'completed_transports' },
+    { id: 'clotures', label: 'Clôturés', route: 'closed_transports' },
+    { id: 'annules', label: 'Annulés', route: 'cancelled_transports' },
+];
+
+const TRANSPORT_BUCKET_HEADINGS = {
+    tous: { title: 'Transports', subtitle: 'Cycle : créer → affecter → exécuter → valider → préfacturer' },
+    en_cours: { title: 'Transports en cours', subtitle: 'Pris en charge, en cours ou planifiés' },
+    realises: { title: 'Transports réalisés', subtitle: 'Livrés et validés — prêts à préfacturer' },
+    clotures: { title: 'Transports clôturés', subtitle: 'Transports clôturés' },
+    annules: { title: 'Transports annulés', subtitle: 'Transports annulés' },
+};
+
+function matchesTransportSearch(order, query) {
+    if (!query) return true;
+    const q = String(query).toLowerCase();
+    return (order.ref || '').toLowerCase().includes(q)
+        || (order.origin || '').toLowerCase().includes(q)
+        || (order.dest || '').toLowerCase().includes(q)
+        || (order.client_name || '').toLowerCase().includes(q);
+}
+
+function orderMatchesTransportBucket(order, bucket) {
+    const b = bucket || 'tous';
+    if (b === 'tous') return true;
+    if (b === 'en_cours') {
+        return ['Pris en charge', 'En cours', 'Planifié'].includes(order.status)
+            && order.assignment_type !== 'SUBCONTRACTED';
+    }
+    if (b === 'realises') return ['Livré', 'Validé', 'Terminé'].includes(order.status);
+    if (b === 'clotures') return order.status === 'Clôturé';
+    if (b === 'annules') return order.status === 'Annulé';
+    return true;
+}
+
+function getFilteredTransportOrders() {
+    let orders = [...getTransportListSource()];
+    if (transportFilters.view !== 'trash') {
+        orders = orders.filter((o) => orderMatchesTransportBucket(o, transportFilters.bucket));
+    }
+    if (transportFilters.status) orders = orders.filter((o) => o.status === transportFilters.status);
+    if (transportFilters.search) orders = orders.filter((o) => matchesTransportSearch(o, transportFilters.search));
+    return orders;
+}
+
+function countOrdersForTransportBucket(bucket) {
+    return getTransportListSource().filter((o) =>
+        matchesTransportSearch(o, transportFilters.search) && orderMatchesTransportBucket(o, bucket)
+    ).length;
+}
+
+window.reloadTransportList = function () {
+    const aliases = new Set(TRANSPORT_BUCKETS.map((b) => b.route));
+    const route = aliases.has(window.currentAppRoute) ? window.currentAppRoute : 'transports';
+    router(route);
+};
+
+window.setTransportBucket = function (bucket) {
+    const found = TRANSPORT_BUCKETS.find((b) => b.id === bucket) || TRANSPORT_BUCKETS[0];
+    transportFilters.bucket = found.id;
+    transportFilters.view = 'active';
+    transportSelection.clear();
+    router(found.route);
+};
+
+function renderTransportBucketChips() {
+    const current = transportFilters.bucket || 'tous';
+    return `<nav class="flex flex-wrap gap-1.5 mb-4" aria-label="Filtrer les transports">
+        ${TRANSPORT_BUCKETS.map((b) => {
+            const active = current === b.id;
+            const count = countOrdersForTransportBucket(b.id);
+            const cls = active
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+            const countCls = active ? 'text-blue-100' : 'text-gray-400';
+            return `<button type="button" onclick="setTransportBucket('${b.id}')"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${cls}"
+                ${active ? 'aria-current="true"' : ''}>
+                ${b.label}<span class="${countCls}">${count}</span>
+            </button>`;
+        }).join('')}
+    </nav>`;
 }
 
 const MVP_CYCLE_STEPS = [
@@ -210,17 +297,7 @@ function countSelectedTransportsForDelete() {
 }
 
 function renderTransportList() {
-    let orders = [...getTransportListSource()];
-    if (transportFilters.status) orders = orders.filter(o => o.status === transportFilters.status);
-    if (transportFilters.search) {
-        const q = transportFilters.search.toLowerCase();
-        orders = orders.filter(o =>
-            (o.ref || '').toLowerCase().includes(q) ||
-            (o.origin || '').toLowerCase().includes(q) ||
-            (o.dest || '').toLowerCase().includes(q) ||
-            (o.client_name || '').toLowerCase().includes(q)
-        );
-    }
+    let orders = getFilteredTransportOrders();
 
     const statusOptions = ['<option value="">Tous statuts</option>']
         .concat(MVP_STATUSES.map(s => `<option value="${s}" ${transportFilters.status === s ? 'selected' : ''}>${s}</option>`))
@@ -238,12 +315,15 @@ function renderTransportList() {
     const restoreCount = transportFilters.view === 'trash' ? selectedCount : 0;
     const inTrash = transportFilters.view === 'trash';
     const canDelete = typeof canDeleteTransport === 'function' && canDeleteTransport();
+    const heading = inTrash
+        ? { title: 'Corbeille — Transports supprimés', subtitle: 'Restaurez les transports supprimés ou videz la sélection' }
+        : (TRANSPORT_BUCKET_HEADINGS[transportFilters.bucket || 'tous'] || TRANSPORT_BUCKET_HEADINGS.tous);
 
     return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 fade-in">
         <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
             <div>
-                <h3 class="font-bold text-lg text-gray-800">${inTrash ? 'Corbeille — Transports supprimés' : 'Transports'}</h3>
-                <p class="text-xs text-gray-500">${inTrash ? 'Restaurez les transports supprimés ou videz la sélection' : 'Cycle MVP : créer → affecter → exécuter → valider → préfacturer'}</p>
+                <h3 class="font-bold text-lg text-gray-800">${heading.title}</h3>
+                <p class="text-xs text-gray-500">${heading.subtitle}</p>
             </div>
             <div class="flex flex-wrap gap-2 items-center">
                 <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm">
@@ -253,13 +333,14 @@ function renderTransportList() {
                         class="px-3 py-1.5 ${inTrash ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}"><i class="fa-solid fa-trash-can mr-1"></i>Corbeille</button>` : ''}
                 </div>
                 <input type="text" id="transport-search" placeholder="Rechercher ref, client, trajet…" value="${transportFilters.search || ''}"
-                    oninput="transportFilters.search=this.value; router('transports')"
+                    oninput="transportFilters.search=this.value; reloadTransportList()"
                     class="border rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                <select id="transport-status-filter" onchange="transportFilters.status=this.value; router('transports')"
+                <select id="transport-status-filter" onchange="transportFilters.status=this.value; reloadTransportList()"
                     class="border rounded px-3 py-2 text-sm">${statusOptions}</select>
                 ${!inTrash && canWriteTransport() ? `<button onclick="openAddOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Créer un transport</button>` : ''}
             </div>
         </div>
+        ${inTrash ? '' : renderTransportBucketChips()}
         ${selectableOrders.length ? `
         <div class="flex flex-wrap items-center gap-2 mb-4 p-3 bg-slate-50 border border-slate-100 rounded-lg">
             <span class="text-xs text-gray-500 mr-1"><i class="fa-solid fa-check-double mr-1"></i>Sélection : <strong>${selectedCount}</strong></span>
@@ -1166,25 +1247,14 @@ window.runTransportBillingAction = async function (action, orderId) {
 window.toggleTransportSelect = function (orderId, checked) {
     if (checked) transportSelection.add(orderId);
     else transportSelection.delete(orderId);
-    router('transports');
+    reloadTransportList();
 };
 
 window.toggleSelectAllTransports = function (checked) {
-    let orders = [...getTransportListSource()];
-    if (transportFilters.status) orders = orders.filter(o => o.status === transportFilters.status);
-    if (transportFilters.search) {
-        const q = transportFilters.search.toLowerCase();
-        orders = orders.filter(o =>
-            (o.ref || '').toLowerCase().includes(q) ||
-            (o.origin || '').toLowerCase().includes(q) ||
-            (o.dest || '').toLowerCase().includes(q) ||
-            (o.client_name || '').toLowerCase().includes(q)
-        );
-    }
-    const selectable = orders.filter(transportIsSelectable);
+    const selectable = getFilteredTransportOrders().filter(transportIsSelectable);
     if (checked) selectable.forEach(o => transportSelection.add(o.id));
     else selectable.forEach(o => transportSelection.delete(o.id));
-    router('transports');
+    reloadTransportList();
 };
 
 window.setTransportListView = async function (view) {
@@ -1192,8 +1262,10 @@ window.setTransportListView = async function (view) {
     transportSelection.clear();
     if (transportFilters.view === 'trash') {
         await loadDeletedTransports();
+        router('transports');
+        return;
     }
-    router('transports');
+    reloadTransportList();
 };
 
 window.loadDeletedTransports = async function () {
@@ -1235,7 +1307,7 @@ window.bulkDeleteTransports = async function () {
         ids.forEach(id => transportSelection.delete(id));
         showToast(`${deleted} transport(s) supprimé(s)${skipped ? ` — ${skipped} ignoré(s)` : ''}`, skipped ? 'info' : 'success');
         if (typeof fetchAllData === 'function') await fetchAllData();
-        router('transports');
+        reloadTransportList();
     } catch (e) {
         showToast('Erreur serveur', 'error');
     }
@@ -1318,7 +1390,7 @@ window.bulkMarkDeliveredTransports = async function () {
     else showToast('Échec du changement de statut', 'error');
 
     if (typeof fetchAllData === 'function') await fetchAllData();
-    router('transports');
+    reloadTransportList();
 };
 
 window.bulkValidateTransports = async function () {
@@ -1352,7 +1424,7 @@ window.bulkValidateTransports = async function () {
     else showToast('Échec de la validation', 'error');
 
     if (typeof fetchAllData === 'function') await fetchAllData();
-    router('transports');
+    reloadTransportList();
 };
 
 window.bulkPreinvoiceTransports = async function () {
@@ -1386,7 +1458,8 @@ window.bulkPreinvoiceTransports = async function () {
     else showToast('Échec de la préfacturation', 'error');
 
     if (typeof fetchAllData === 'function') await fetchAllData();
-    router(ok ? 'sales_invoices_draft' : 'transports');
+    if (ok) router('sales_invoices_draft');
+    else reloadTransportList();
 };
 
 window.bulkInvoiceTransports = async function () {

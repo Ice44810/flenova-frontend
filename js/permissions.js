@@ -253,12 +253,9 @@ function hideEmptySidebarSections() {
         group.style.display = anyVisible ? '' : 'none';
     });
 
-    nav.querySelectorAll('p.sidebar-section-label').forEach((label) => {
-        const ul = label.nextElementSibling;
-        if (!ul || ul.tagName !== 'UL') return;
-        const anyVisible = [...ul.querySelectorAll('[data-nav-route]')].some(isNavItemVisible);
-        label.style.display = anyVisible ? '' : 'none';
-        ul.style.display = anyVisible ? '' : 'none';
+    nav.querySelectorAll('.sidebar-section').forEach((section) => {
+        const anyVisible = [...section.querySelectorAll('[data-nav-route]')].some(isNavItemVisible);
+        section.style.display = anyVisible ? '' : 'none';
     });
 }
 

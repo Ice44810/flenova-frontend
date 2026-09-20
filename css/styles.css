@@ -790,17 +790,18 @@ button.nav-item.active {
     width: 1.5rem;
 }
 
-/* Sidebar — groupe repliable (Transports) */
+/* Sidebar — groupe repliable (Factures ventes, Compte) */
 .sidebar-group-toggle {
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 0.65rem 1.5rem;
-    color: #94a3b8;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    padding: 0.75rem 1.5rem;
+    color: #9ca3af;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+    border-right: 4px solid transparent;
     transition: color 0.2s, background-color 0.2s;
 }
 .sidebar-group-toggle:hover {
