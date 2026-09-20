@@ -819,10 +819,6 @@ function renderTransportDetailModal(t) {
         actionsHtml += `<button onclick="closeTransportDetail(); openAffretementConfirmation(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-file-contract mr-1"></i>Confirmation</button>`;
     }
     actionsHtml += `<button onclick="closeTransportDetail(); openTransportCmr(${t.id})" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 mr-2"><i class="fa-solid fa-truck-ramp-box mr-1"></i>CMR</button>`;
-    if (t.transport_mode === 'GROUPAGE' || t.transport_mode === 'LTL') {
-        actionsHtml += `<button type="button" onclick="openTransportBordereau(${t.id}, 'pickup')" class="px-3 py-1 bg-amber-600 text-white rounded text-xs hover:bg-amber-700 mr-2"><i class="fa-solid fa-file-lines mr-1"></i>Bordereau enlèvement</button>`;
-        actionsHtml += `<button type="button" onclick="openTransportBordereau(${t.id}, 'delivery')" class="px-3 py-1 bg-amber-700 text-white rounded text-xs hover:bg-amber-800 mr-2"><i class="fa-solid fa-file-lines mr-1"></i>Bordereau livraison</button>`;
-    }
     if (typeof canValidateTransport === 'function' && canValidateTransport() && t.status === 'Livré') {
         actionsHtml += `<button onclick="validateTransportFromDetail(${t.id})" class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 mr-2">Valider transport</button>`;
     }
@@ -881,32 +877,6 @@ window.getNextStatuses = getNextStatuses;
 window.closeTransportDetail = function() {
     document.getElementById('transport-detail-modal').classList.add('hidden');
     currentTransportDetail = null;
-};
-
-window.openTransportBordereau = async function (orderId, type) {
-    try {
-        const res = await apiFetch(`transport-orders/${orderId}/bordereau?type=${type === 'pickup' ? 'pickup' : 'delivery'}`);
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Génération impossible');
-        }
-        const html = await res.text();
-        const w = window.open('', '_blank', 'noopener,noreferrer');
-        if (w) {
-            w.document.title = type === 'pickup' ? 'Bordereau enlèvement' : 'Bordereau livraison';
-            w.document.body.style.margin = '0';
-            const iframe = w.document.createElement('iframe');
-            iframe.setAttribute('sandbox', 'allow-same-origin');
-            iframe.setAttribute('title', 'Bordereau');
-            iframe.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
-            iframe.srcdoc = html;
-            w.document.body.appendChild(iframe);
-        } else {
-            showToast('Autorisez les pop-ups pour afficher le bordereau', 'error');
-        }
-    } catch (e) {
-        showToast(e.message || 'Erreur bordereau', 'error');
-    }
 };
 
 window.changeTransportStatus = async function (orderId, status, options = {}) {

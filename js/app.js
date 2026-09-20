@@ -6016,6 +6016,21 @@ function affCopyFieldsHtml(prefix, data = {}, recipientHint = '') {
     </div>`;
 }
 
+function formatAgencyAddressLine(agency) {
+    const address = String(agency?.address || '')
+        .replace(/\s+,/g, ',')
+        .replace(/,+/g, ',')
+        .replace(/^,\s*|\s*,\s*$/g, '')
+        .trim();
+    const city = String(agency?.city || '').trim();
+    if (!address && !city) return '—';
+    if (!city) return address;
+    if (!address) return city;
+    const fold = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (fold(address).includes(fold(city))) return address;
+    return `${address}, ${city}`;
+}
+
 function readAffCopyFields(prefix) {
     return {
         payment_terms: document.getElementById(`${prefix}-payment-terms`)?.value || '',
@@ -6092,14 +6107,13 @@ function renderAdmin(bankSettings = null) {
 
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-wider">Agences / Dépôts</h3>
-                <p class="text-xs text-gray-500 mb-4">Multi-agences : un exploitant ou un admin d'agence ne voit que les transports de son agence. L'administrateur siège voit tout.</p>
                 <table class="w-full text-sm text-left mb-4">
                     <thead class="border-b"><tr><th class="pb-2">Code</th><th class="pb-2">Nom</th><th class="pb-2">Adresse</th>${isAdminUser ? '<th class="pb-2"></th>' : ''}</tr></thead>
                     <tbody>
                         ${(db.agencies || []).map(a => `<tr class="border-b last:border-0">
                             <td class="py-2 font-mono text-xs">${esc(a.code)}</td>
                             <td class="py-2">${esc(a.name)}</td>
-                            <td class="py-2 text-gray-500">${[a.address, a.city].filter(Boolean).join(', ') || '—'}</td>
+                            <td class="py-2 text-gray-500">${esc(formatAgencyAddressLine(a))}</td>
                             ${isAdminUser ? `<td class="py-2 text-right"><button type="button" onclick="toggleAgencyAffretementEditor(${Number(a.id)})" class="text-blue-600 text-xs">Confirmation</button></td>` : ''}
                         </tr>`).join('') || `<tr><td colspan="${isAdminUser ? 4 : 3}" class="py-4 text-gray-400 italic">Aucune agence</td></tr>`}
                     </tbody>
@@ -10646,17 +10660,17 @@ function getOrderAssignmentPayload(prefix) {
             trailer_id: null
         };
     }
-    const driverVal = document.getElementById(`${prefix}-driver`)?.value;
-    const vehicleVal = document.getElementById(`${prefix}-vehicle`)?.value;
-    const trailerVal = document.getElementById(`${prefix}-trailer`)?.value;
+    const driverId = parseInt(document.getElementById(`${prefix}-driver`)?.value, 10);
+    const vehicleId = parseInt(document.getElementById(`${prefix}-vehicle`)?.value, 10);
+    const trailerId = parseInt(document.getElementById(`${prefix}-trailer`)?.value, 10);
     return {
         assignment_type: 'INTERNAL',
         subcontractor_id: null,
         purchase_price: 0,
         margin: 0,
-        driver_id: driverVal ? parseInt(driverVal, 10) : null,
-        vehicle_id: vehicleVal ? parseInt(vehicleVal, 10) : null,
-        trailer_id: trailerVal ? parseInt(trailerVal, 10) : null
+        driver_id: Number.isFinite(driverId) && driverId > 0 ? driverId : null,
+        vehicle_id: Number.isFinite(vehicleId) && vehicleId > 0 ? vehicleId : null,
+        trailer_id: Number.isFinite(trailerId) && trailerId > 0 ? trailerId : null
     };
 }
 
@@ -11131,10 +11145,44 @@ async function submitAddOrder() {
                 const refInput = document.getElementById('add-order-ref');
                 if (refInput) refInput.value = created.ref;
             }
-            if (trackingCode) {
-                showToast(`Commande créée — Code suivi : ${trackingCode}`, 'success');
-            } else {
-                showToast('Commande créée avec succès !', 'success');
+            const driverName = assignment.driver_id
+                ? (db.drivers || []).find((d) => Number(d.id) === Number(assignment.driver_id))?.name
+                : '';
+            let missionSent = !assignment.driver_id;
+            if (orderId && assignment.driver_id) {
+                try {
+                    const assignRes = await apiFetch(`transport-orders/${orderId}/assign`, {
+                        method: 'POST',
+                        body: {
+                            driver_id: assignment.driver_id,
+                            vehicle_id: assignment.vehicle_id,
+                            trailer_id: assignment.trailer_id,
+                            assignment_type: 'INTERNAL'
+                        }
+                    });
+                    missionSent = assignRes.ok;
+                    if (!assignRes.ok) {
+                        const err = await assignRes.json().catch(() => ({}));
+                        showToast(err.error || 'Commande créée mais mission non transmise au chauffeur', 'error');
+                    }
+                } catch {
+                    missionSent = false;
+                    showToast('Commande créée mais mission non transmise au chauffeur', 'error');
+                }
+            }
+            if (assignment.driver_id && missionSent) {
+                showToast(
+                    trackingCode
+                        ? `Mission transmise à ${driverName || 'chauffeur'} — suivi ${trackingCode}`
+                        : `Mission transmise à ${driverName || 'chauffeur'}`,
+                    'success'
+                );
+            } else if (!assignment.driver_id) {
+                if (trackingCode) {
+                    showToast(`Commande créée — Code suivi : ${trackingCode}`, 'success');
+                } else {
+                    showToast('Commande créée avec succès !', 'success');
+                }
             }
             saveOrderQuickPrefs({
                 lastClientId: newOrder.client_id,
@@ -11142,7 +11190,13 @@ async function submitAddOrder() {
             });
             closeAddOrderModal();
             if (typeof refreshAfterMvpStep === 'function') {
-                await refreshAfterMvpStep({ orderId, step: 'create', route: 'planning', reopenDetail: false });
+                await refreshAfterMvpStep({
+                    orderId,
+                    step: assignment.driver_id ? 'assign' : 'create',
+                    status: assignment.driver_id ? 'Pris en charge' : 'Brouillon',
+                    route: 'planning',
+                    reopenDetail: false
+                });
             } else {
                 await fetchAllData();
                 router('planning');
