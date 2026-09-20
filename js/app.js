@@ -5523,14 +5523,41 @@ function previewInvoice() {
     `;
 }
 
+function findExistingSalesInvoiceId(number) {
+    const n = String(number || '').trim();
+    if (!n) return null;
+    const hit = (db.sales_invoices || []).find((inv) =>
+        String(inv.id) === n || String(inv.number || '') === n || String(inv.invoice_number || '') === n
+    );
+    if (!hit) return null;
+    if (typeof isSalesInvoiceDraft === 'function' && !isSalesInvoiceDraft(hit)) return null;
+    return String(hit.id);
+}
+
+function invoiceIdAlreadyTaken(number) {
+    const n = String(number || '').trim();
+    if (!n) return false;
+    return (db.sales_invoices || []).some((inv) =>
+        String(inv.id) === n || String(inv.number || '') === n || String(inv.invoice_number || '') === n
+    );
+}
+
 async function saveDraft() {
     const data = getInvoiceFormData('Brouillon');
     if (!data) return;
 
     try {
+        let existingId = editingInvoiceId || findExistingSalesInvoiceId(data.number);
+        if (existingId) {
+            const current = (db.sales_invoices || []).find((inv) => String(inv.id) === String(existingId));
+            if (current && typeof isSalesInvoiceDraft === 'function' && !isSalesInvoiceDraft(current)) {
+                existingId = null;
+            }
+        }
+
         let res;
-        if (editingInvoiceId) {
-            res = await apiFetch(`sales-invoices/${editingInvoiceId}`, {
+        if (existingId) {
+            res = await apiFetch(`sales-invoices/${existingId}`, {
                 method: 'PUT',
                 body: {
                     client_id: data.client_id,
@@ -5544,13 +5571,17 @@ async function saveDraft() {
                 }
             });
         } else {
-            res = await apiFetch('sales-invoices', { method: 'POST', body: data });
+            const body = { ...data };
+            if (invoiceIdAlreadyTaken(body.number) || /^PF-/i.test(String(body.number || ''))) {
+                delete body.number;
+            }
+            res = await apiFetch('sales-invoices', { method: 'POST', body });
         }
 
         if (res.ok) {
             const payload = await res.json().catch(() => ({}));
             await fetchAllData();
-            const invoiceId = editingInvoiceId || payload.id || data.number;
+            const invoiceId = existingId || payload.id || data.number;
             editingInvoiceId = null;
             openInvoiceModal(invoiceId);
             showToast("Brouillon sauvegardé avec succès", "success");

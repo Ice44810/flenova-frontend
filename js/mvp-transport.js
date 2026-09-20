@@ -156,9 +156,9 @@ function renderTransportBucketChips() {
                 : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
             const countCls = active ? 'text-blue-100' : 'text-gray-400';
             return `<button type="button" onclick="setTransportBucket('${b.id}')"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${cls}"
+                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${cls}"
                 ${active ? 'aria-current="true"' : ''}>
-                ${b.label}<span class="${countCls}">${count}</span>
+                <span>${b.label}</span><span class="${countCls}">${count}</span>
             </button>`;
         }).join('')}
     </nav>`;
