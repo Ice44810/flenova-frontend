@@ -323,3 +323,173 @@ body.ui-density-comfortable #app-content {
 .guided-tour-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.55)}
 .guided-tour-spotlight{position:fixed;border:2px solid #6366f1;border-radius:10px;box-shadow:0 0 0 9999px rgba(15,23,42,.45);pointer-events:none;z-index:10001}
 .guided-tour-card{position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);width:min(420px,calc(100vw - 2rem));background:#fff;border-radius:12px;padding:1rem 1.1rem;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:10002}
+
+/* ── Flotte — grille responsive ─────────────── */
+.fleet-vehicle-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 0.85rem;
+}
+
+@media (min-width: 480px) {
+    .fleet-vehicle-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 900px) {
+    .fleet-vehicle-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        padding: 1rem;
+    }
+}
+
+@media (min-width: 1280px) {
+    .fleet-vehicle-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.fleet-vehicle-card:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* ── Mobile app shell densifié (< lg) ───────── */
+@media (max-width: 1023.98px) {
+    #app-action-rail > div {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.5rem;
+        padding-bottom: 0.15rem;
+        scrollbar-width: thin;
+    }
+
+    #app-action-rail button {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    #app-action-rail button.ml-auto {
+        margin-left: 0 !important;
+    }
+
+    #app-content table {
+        min-width: 36rem;
+        font-size: 0.8125rem;
+    }
+
+    #app-content .dash-v2-filters-bar,
+    #app-content .dash-v2-filters-toolbar {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    #app-content .recent-doc-row {
+        padding: 0.4rem 0.55rem;
+    }
+
+    #app-content .recent-doc-row .doc-id,
+    #app-content .recent-doc-row .doc-amount {
+        font-size: 0.72rem;
+    }
+
+    #app-modals .fixed.inset-0 {
+        align-items: flex-end;
+        padding: 0 !important;
+    }
+
+    #app-modals .fixed.inset-0 > div {
+        width: 100%;
+        max-width: 100%;
+        max-height: min(94dvh, 94vh);
+        border-radius: 1rem 1rem 0 0;
+        margin: 0;
+    }
+
+    .header-toolbar {
+        gap: 0.35rem;
+    }
+
+    .header-toolbar-btn {
+        width: 2.35rem;
+        height: 2.35rem;
+        border-radius: 0.7rem;
+    }
+
+    #header-company-name {
+        display: none;
+    }
+}
+
+/* Très petit téléphone */
+@media (max-width: 479.98px) {
+    #app-content {
+        padding: 0.75rem !important;
+        padding-bottom: max(0.75rem, var(--safe-bottom)) !important;
+    }
+
+    .dash-v2-kpi-grid,
+    .dash-v2-kpi-grid--six,
+    .dash-v2-kpi-grid--primary,
+    .dash-v2-sensors {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.4rem !important;
+    }
+
+    .dash-v2-kpi {
+        padding: 0.45rem 0.5rem;
+        gap: 0.4rem;
+    }
+
+    .dash-v2-kpi-value {
+        font-size: 0.92rem;
+    }
+
+    .dash-v2-kpi-label,
+    .dash-v2-sensor-label {
+        font-size: 0.55rem;
+    }
+
+    .dash-v2-sensor {
+        padding: 0.35rem 0.45rem;
+        gap: 0.35rem;
+    }
+
+    .dash-v2-sensor strong {
+        font-size: 0.75rem;
+    }
+
+    .dash-v2-main-grid,
+    .dash-v2-mini-row,
+    .dash-v2-lower-grid,
+    .dash-v2-lower-grid--4,
+    .dash-v2-lower-grid--5 {
+        grid-template-columns: 1fr !important;
+    }
+
+    .fleet-vehicle-grid {
+        padding: 0.65rem;
+        gap: 0.55rem;
+    }
+
+    #app-action-rail {
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
+    }
+}
+
+/* Dark — panneau recherche mobile */
+body.theme-dark #global-search-wrap.mobile-search-open {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+body.theme-dark #global-search-wrap.mobile-search-open #global-search-input {
+    background: #0f172a;
+    border-color: #475569;
+    color: #f1f5f9;
+}

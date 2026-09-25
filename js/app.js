@@ -4264,13 +4264,13 @@ function renderFleet() {
             <button onclick="openAddVehicleModal()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm shadow hover:bg-blue-700"><i class="fa-solid fa-plus mr-2"></i>Ajouter un véhicule</button>
         </div>
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
-            ${list.length ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4">
+            ${list.length ? `<div class="fleet-vehicle-grid">
                 ${list.map(v => {
         const statusColor = v.status === 'Disponible' ? 'border-green-500' : (v.status === 'Garage' ? 'border-red-500' : 'border-blue-500');
         const isTrailer = (v.vehicle_type || 'TRUCK') === 'TRAILER';
         const typeBadge = isTrailer ? 'Remorque' : 'Camion';
-        return `<div onclick="openEditVehicleModal(${v.id})" class="fleet-vehicle-card border rounded-lg p-3 hover:shadow-md transition relative overflow-hidden cursor-pointer">
-                        <div class="absolute top-0 left-0 w-full h-0.5 ${statusColor}"></div>
+        return `<div role="button" tabindex="0" onclick="openEditVehicleModal(${v.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openEditVehicleModal(${v.id});}" class="fleet-vehicle-card border rounded-lg p-3 hover:shadow-md transition relative overflow-hidden cursor-pointer">
+                        <div class="absolute top-0 left-0 w-full h-0.5 ${statusColor.replace('border-', 'bg-')}"></div>
                         <div class="flex justify-between items-start gap-2 mb-2">
                             <div class="min-w-0">
                                 <h4 class="font-bold text-sm text-gray-800 truncate">${esc(v.plate)}</h4>
@@ -4279,7 +4279,7 @@ function renderFleet() {
                             <span class="shrink-0 bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase leading-tight">${esc(v.status)}</span>
                         </div>
                         <div class="space-y-1 text-xs">
-                            <div class="flex justify-between gap-2 border-b border-gray-100 pb-1"><span class="text-gray-500">Chauffeur</span><span class="font-medium truncate text-right">${v.driver_name || '<span class="text-gray-400">Aucun</span>'}</span></div>
+                            <div class="flex justify-between gap-2 border-b border-gray-100 pb-1"><span class="text-gray-500">Chauffeur</span><span class="font-medium truncate text-right">${v.driver_name ? esc(v.driver_name) : '<span class="text-gray-400">Aucun</span>'}</span></div>
                             <div class="flex justify-between gap-2 border-b border-gray-100 pb-1"><span class="text-gray-500">Type</span><span class="font-medium">${typeBadge}</span></div>
                             <div class="flex justify-between gap-2"><span class="text-gray-500">Maintenance</span><span class="font-medium">${formatDisplayDate(v.next_maintenance) || v.next_maintenance || '—'}</span></div>
                         </div>
