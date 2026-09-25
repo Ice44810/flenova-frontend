@@ -434,6 +434,114 @@ function renderAppPricingPage() {
 
 window._addonDraft = { extra_pc_users: 0, extra_mobile_drivers: 0 };
 
+let _subscriptionPollTimer = null;
+let _subscriptionPollTicks = 0;
+const SUBSCRIPTION_POLL_MS = 10000;
+const SUBSCRIPTION_POLL_MAX_TICKS = 36; // ~6 min
+
+function subscriptionNeedsRegularization(sub = window.cachedSubscription) {
+    if (!sub || sub.isDemo || sub.isTrial || sub.trialActive) return false;
+    return !!(sub.needsPayment || sub.gracePeriod || sub.accessSuspended || sub.status === 'past_due');
+}
+
+function stopSubscriptionStatusPolling() {
+    if (_subscriptionPollTimer) {
+        clearInterval(_subscriptionPollTimer);
+        _subscriptionPollTimer = null;
+    }
+    _subscriptionPollTicks = 0;
+}
+
+/**
+ * Relit le statut abonnement depuis la BDD (GET /subscription/status)
+ * et met à jour l'UI (bandeaux / écran suspendu / modale).
+ */
+window.refreshSubscriptionStatus = async function (opts = {}) {
+    try {
+        // Optionnellement resynchroniser via GoCardless (écrit en BDD) avant lecture locale
+        if (opts.syncRemote) {
+            try {
+                await apiFetch('gocardless/sync', { method: 'POST', body: {} });
+            } catch { /* lecture BDD suffit ensuite */ }
+        }
+        const res = await apiFetch('subscription/status');
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) return null;
+        const prev = window.cachedSubscription || {};
+        const next = payload.data;
+        if (!next) return null;
+
+        window.cachedSubscription = next;
+        window._addonDraft = {
+            extra_pc_users: next.addons?.extraPcUsers ?? 0,
+            extra_mobile_drivers: next.addons?.extraMobileDrivers ?? 0
+        };
+        // Met à jour l'UI sans relancer le polling (évite reset du timer)
+        if (typeof applyDemoBanner === 'function') applyDemoBanner();
+        if (typeof applyGraceBanner === 'function') applyGraceBanner();
+        if (typeof applyAccessSuspendedScreen === 'function') applyAccessSuspendedScreen();
+        if (typeof updateNavQuotaWidget === 'function') updateNavQuotaWidget();
+        if (typeof updateAppActionRail === 'function') {
+            updateAppActionRail(window.currentAppRoute || 'dashboard');
+        }
+
+        const wasProblem = subscriptionNeedsRegularization(prev);
+        const nowOk = next.status === 'active' && !next.accessSuspended && !next.needsPayment;
+        if (wasProblem && nowOk) {
+            stopSubscriptionStatusPolling();
+            if (typeof closeAppModal === 'function') closeAppModal('saas-overdue-modal');
+            else document.getElementById('saas-overdue-modal')?.classList.add('hidden');
+            try { sessionStorage.removeItem('overdue_dismissed'); } catch { /* ignore */ }
+            if (typeof showToast === 'function') {
+                showToast('Paiement enregistré — votre accès est rétabli.', 'success');
+            }
+            if (typeof router === 'function' && (window.currentAppRoute === 'pricing' || opts.reloadPricing)) {
+                router('pricing');
+            }
+        } else if (subscriptionNeedsRegularization(next)) {
+            startSubscriptionStatusPolling();
+        } else {
+            stopSubscriptionStatusPolling();
+        }
+        return next;
+    } catch (e) {
+        console.warn('[subscription] refreshStatus:', e.message);
+        return null;
+    }
+};
+
+/**
+ * Polling BDD tant que le compte est en grâce / impayé / suspendu,
+ * ou après retour GoCardless (paiement en cours de confirmation).
+ */
+window.startSubscriptionStatusPolling = function (opts = {}) {
+    const force = !!opts.force;
+    if (!force && !subscriptionNeedsRegularization()) {
+        stopSubscriptionStatusPolling();
+        return;
+    }
+    // Déjà en cours : ne pas réinitialiser le compteur (évite une boucle avec applySubscriptionAccessGate)
+    if (_subscriptionPollTimer && !force) return;
+
+    stopSubscriptionStatusPolling();
+
+    const tick = async () => {
+        _subscriptionPollTicks += 1;
+        const doSync = force && _subscriptionPollTicks <= 3;
+        const ctx = await refreshSubscriptionStatus({ syncRemote: doSync });
+        if (ctx && ctx.status === 'active' && !ctx.accessSuspended) {
+            stopSubscriptionStatusPolling();
+            return;
+        }
+        if (_subscriptionPollTicks >= SUBSCRIPTION_POLL_MAX_TICKS) {
+            stopSubscriptionStatusPolling();
+        }
+    };
+
+    void tick();
+    _subscriptionPollTimer = setInterval(tick, SUBSCRIPTION_POLL_MS);
+};
+
 async function completeGoCardlessReturn() {
     const params = new URLSearchParams(window.location.search);
     const gcFlag = params.get('gocardless');
@@ -445,17 +553,34 @@ async function completeGoCardlessReturn() {
             method: 'POST',
             body: { billing_request_id: billingRequestId }
         });
-        if (res?.data) window.cachedSubscription = res.data;
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || payload.message || 'Finalisation impossible');
+        if (payload?.data) {
+            window.cachedSubscription = payload.data;
+            if (typeof applySubscriptionAccessGate === 'function') applySubscriptionAccessGate();
+        }
         const clean = new URL(window.location.href);
         clean.searchParams.delete('gocardless');
         clean.searchParams.delete('billing_request_id');
         clean.searchParams.delete('billing_request_flow_id');
         window.history.replaceState({}, '', clean.pathname + clean.search + (window.location.hash || ''));
-        alert(res?.message || 'Abonnement activé via GoCardless.');
+        if (typeof showToast === 'function') {
+            showToast(payload?.message || 'Abonnement activé via GoCardless.', 'success');
+        } else {
+            alert(payload?.message || 'Abonnement activé via GoCardless.');
+        }
+        startSubscriptionStatusPolling({ force: true });
         if (typeof router === 'function') router('pricing');
     } catch (e) {
         console.warn('[GoCardless] complete:', e.message);
-        alert(e.message || 'Autorisation reçue — finalisation en cours. Rechargez la page Tarifs dans un instant.');
+        if (typeof showToast === 'function') {
+            showToast(e.message || 'Autorisation reçue — confirmation en cours…', 'info');
+        } else {
+            alert(e.message || 'Autorisation reçue — finalisation en cours. Rechargez la page Tarifs dans un instant.');
+        }
+        // Le webhook / sync mettra à jour la BDD — on poll jusqu'à régularisation
+        startSubscriptionStatusPolling({ force: true });
+        void refreshSubscriptionStatus({ syncRemote: true });
     }
 }
 
@@ -472,21 +597,76 @@ if (typeof window !== 'undefined') {
     }
 }
 
-window.subscribeToPlan = async function (planId) {
-    if (!planId) return;
-    if (!confirm(`Activer le forfait ${planId} via prélèvement SEPA (GoCardless) ?`)) return;
+/**
+ * Démarre le parcours de paiement abonnement (GoCardless SEPA).
+ * @param {string} [planId]
+ * @param {{ skipConfirm?: boolean }} [opts]
+ */
+window.subscribeToPlan = async function (planId, opts = {}) {
+    const sub = window.cachedSubscription || {};
+    const resolvedPlan = planId || sub.targetPlan || sub.plan;
+    if (!resolvedPlan) {
+        if (typeof showToast === 'function') showToast('Aucun forfait à régulariser', 'error');
+        return;
+    }
+    if (!opts.skipConfirm) {
+        if (!confirm(`Activer / régulariser le forfait ${resolvedPlan} via prélèvement SEPA (GoCardless) ?`)) return;
+    }
     try {
-        const res = await apiFetch('subscription/subscribe', { method: 'POST', body: { plan: planId } });
-        if (res?.redirectUrl) {
-            window.location.href = res.redirectUrl;
+        const res = await apiFetch('subscription/subscribe', {
+            method: 'POST',
+            body: { plan: resolvedPlan }
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(payload.error || payload.message || `Erreur ${res.status}`);
+        }
+        if (payload?.redirectUrl) {
+            window.location.href = payload.redirectUrl;
             return;
         }
-        if (res?.data) window.cachedSubscription = res.data;
-        alert(res?.message || 'Abonnement activé.');
-        router('pricing');
+        if (payload?.data) window.cachedSubscription = payload.data;
+        if (typeof showToast === 'function') {
+            showToast(payload?.message || 'Abonnement activé.', 'success');
+        } else {
+            alert(payload?.message || 'Abonnement activé.');
+        }
+        if (typeof router === 'function') router('pricing');
+        if (typeof applySubscriptionAccessGate === 'function') applySubscriptionAccessGate();
     } catch (e) {
-        alert(e.message || 'Impossible d\'activer l\'abonnement. Vérifiez la configuration GoCardless.');
+        const ribUrl = sub.flenovaRib?.ribUrl;
+        if (ribUrl) {
+            window.open(ribUrl, '_blank', 'noopener');
+            if (typeof showToast === 'function') {
+                showToast('Ouverture du lien de paiement / RIB', 'info');
+            }
+            return;
+        }
+        if (typeof showToast === 'function') {
+            showToast(e.message || 'Paiement indisponible — contactez support@flenova.fr', 'error');
+        } else {
+            alert(e.message || 'Impossible d\'activer l\'abonnement. Vérifiez la configuration GoCardless.');
+        }
+        if (typeof router === 'function') router('pricing');
     }
+};
+
+/** CTA bandeau grâce / retard / accès suspendu → parcours paiement SEPA. */
+window.goToSubscriptionPayment = function () {
+    if (typeof closeAppModal === 'function') closeAppModal('saas-overdue-modal');
+    else document.getElementById('saas-overdue-modal')?.classList.add('hidden');
+    const sub = window.cachedSubscription || {};
+    const planId = sub.targetPlan || sub.plan;
+    if (typeof subscribeToPlan === 'function' && planId) {
+        void subscribeToPlan(planId, { skipConfirm: true });
+        return;
+    }
+    if (sub.flenovaRib?.ribUrl) {
+        window.open(sub.flenovaRib.ribUrl, '_blank', 'noopener');
+        return;
+    }
+    if (typeof router === 'function') router('pricing');
+    else window.location.hash = 'pricing';
 };
 
 window.adjustSubscriptionAddon = function (field, delta) {
@@ -550,7 +730,8 @@ window.applyPlanBasedNav = function () {
         const route = el.dataset.navRoute;
         if (el.style.display === 'none') return;
         if (!sub?.allowedRoutes) return;
-        if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback', 'disputes'].includes(route)) return;
+        if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback', 'tracking'].includes(route)) return;
+        if (route === 'platform_ops' || route === 'platform_crm') return;
         if (transportRoutes.has(route)) return;
         if (!sub.allowedRoutes.includes(route)) {
             el.style.display = 'none';
@@ -572,124 +753,25 @@ window.canAccessPlanRoute = function (routeName) {
     const transportRoutes = sub?.transportRoutes || [
         'transports', 'planning', 'inprogress_transports', 'completed_transports',
         'closed_transports', 'cancelled_transports', 'chartered_transports',
-        'create_order', 'cmr_preview'
+        'create_order', 'cmr_preview', 'tracking'
     ];
     if (transportRoutes.includes(routeName)) return true;
     const salesInvoiceSubRoutes = ['sales_invoices_validated', 'sales_invoices_draft'];
     if (salesInvoiceSubRoutes.includes(routeName) && sub?.allowedRoutes?.includes('sales_invoices')) return true;
     if (!sub?.allowedRoutes) return true;
-    if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback', 'disputes'].includes(routeName)) return true;
+    if (['pricing', 'contact', 'about', 'solutions', 'onboarding', 'feedback', 'tracking'].includes(routeName)) return true;
+    if (routeName === 'disputes') {
+        if (!sub?.features) return true;
+        return typeof planHasFeature !== 'function' || planHasFeature('dispute_management');
+    }
     return sub.allowedRoutes.includes(routeName);
-};
-
-window.goToSubscriptionPayment = function () {
-    document.getElementById('saas-overdue-modal')?.classList.add('hidden');
-    openFlenovaRibModal();
-};
-
-function formatIbanDisplay(iban) {
-    if (!iban) return '';
-    return String(iban).replace(/(.{4})/g, '$1 ').trim();
-}
-
-window.closeFlenovaRibModal = function () {
-    document.getElementById('flenova-rib-modal')?.classList.add('hidden');
-};
-
-window.copyFlenovaRibField = async function (value, label) {
-    try {
-        await navigator.clipboard.writeText(value);
-        showToast(`${label} copié`, 'success');
-    } catch {
-        showToast('Copie impossible — sélectionnez le texte manuellement', 'info');
-    }
-};
-
-async function loadFlenovaRib() {
-    let rib = window.cachedSubscription?.flenovaRib;
-    if (rib) return rib;
-    try {
-        const res = await apiFetch('subscription/status');
-        if (res.ok) {
-            const payload = await res.json();
-            window.cachedSubscription = { ...(window.cachedSubscription || {}), ...(payload.data || {}) };
-            return window.cachedSubscription.flenovaRib || null;
-        }
-    } catch { /* ignore */ }
-    return null;
-}
-
-window.openFlenovaRibModal = async function () {
-    const rib = await loadFlenovaRib();
-
-    // Si un lien PDF/page RIB est configuré → ouverture directe
-    if (rib?.ribUrl) {
-        window.open(rib.ribUrl, '_blank', 'noopener');
-        // Affiche aussi le détail IBAN si dispo
-        if (!rib.iban) return;
-    }
-
-    const modal = document.getElementById('flenova-rib-modal');
-    const body = document.getElementById('flenova-rib-body');
-    const link = document.getElementById('flenova-rib-link');
-    if (!modal || !body) {
-        if (rib?.ribUrl) return;
-        showToast('Coordonnées de paiement indisponibles', 'error');
-        return;
-    }
-
-    if (rib?.ribUrl && link) {
-        link.href = rib.ribUrl;
-        link.classList.remove('hidden');
-        link.textContent = 'Ouvrir le RIB / PDF';
-    } else if (link) {
-        link.classList.add('hidden');
-        link.removeAttribute('href');
-    }
-
-    if (!rib?.configured) {
-        body.innerHTML = `
-            <p class="text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3">
-                Le RIB Flenova n’est pas encore configuré côté plateforme.
-                Contactez <a class="underline font-semibold" href="mailto:support@flenova.fr?subject=RIB%20abonnement">support@flenova.fr</a>
-                pour obtenir les coordonnées de virement.
-            </p>`;
-        modal.classList.remove('hidden');
-        return;
-    }
-
-    const esc = typeof escapeHtml === 'function' ? escapeHtml : (v) => String(v ?? '');
-    const row = (label, value, copyLabel) => {
-        if (!value) return '';
-        const safe = esc(value);
-        return `<div class="rounded-lg border border-gray-100 bg-gray-50 p-3">
-            <div class="flex justify-between items-start gap-2">
-                <div class="min-w-0">
-                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-bold">${esc(label)}</p>
-                    <p class="font-mono text-sm text-gray-900 break-all mt-0.5">${safe}</p>
-                </div>
-                <button type="button" class="shrink-0 text-xs text-blue-600 hover:underline"
-                    onclick="copyFlenovaRibField(${JSON.stringify(value)}, ${JSON.stringify(copyLabel || label)})">
-                    Copier
-                </button>
-            </div>
-        </div>`;
-    };
-
-    body.innerHTML = `
-        ${row('Bénéficiaire', rib.beneficiary, 'Bénéficiaire')}
-        ${row('IBAN', formatIbanDisplay(rib.iban), 'IBAN')}
-        ${row('BIC', rib.bic, 'BIC')}
-        ${row('Banque', rib.bankName, 'Banque')}
-        <p class="text-xs text-gray-500 leading-relaxed">${esc(rib.referenceHint || '')}</p>
-        <p class="text-[11px] text-gray-400">Ce RIB concerne uniquement l’abonnement Flenova — pas vos factures clients transport.</p>
-    `;
-    modal.classList.remove('hidden');
 };
 
 function showOverdueBillingModal(alert) {
     if (!alert) return;
     const sub = window.cachedSubscription || {};
+    // Essai / démo : pas de modal « période de grâce »
+    if (sub.isDemo || sub.isTrial || sub.trialActive || sub.status === 'trialing') return;
     // Grâce : modal non oubliable (pas de dismiss session) — CTA paiement obligatoire
     if (alert.type === 'grace_period' || sub.gracePeriod) {
         const modal = document.getElementById('saas-overdue-modal');
@@ -703,7 +785,11 @@ function showOverdueBillingModal(alert) {
             dismissBtn.classList.remove('hidden');
             dismissBtn.textContent = 'Continuer (le bandeau reste affiché)';
         }
-        modal.classList.remove('hidden');
+        if (typeof showAppModal === 'function') showAppModal('saas-overdue-modal');
+        else {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
         return;
     }
     if (alert.type === 'payment_required' || sub.accessSuspended) {
@@ -717,12 +803,17 @@ function showOverdueBillingModal(alert) {
     document.getElementById('saas-overdue-message').textContent = alert.message || '';
     const dismissBtn = document.getElementById('saas-overdue-dismiss-btn');
     if (dismissBtn) dismissBtn.classList.remove('hidden');
-    modal.classList.remove('hidden');
+    if (typeof showAppModal === 'function') showAppModal('saas-overdue-modal');
+    else {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
 }
 
 window.dismissSaasOverdueModal = async function () {
     const sub = window.cachedSubscription || {};
-    document.getElementById('saas-overdue-modal')?.classList.add('hidden');
+    if (typeof closeAppModal === 'function') closeAppModal('saas-overdue-modal');
+    else document.getElementById('saas-overdue-modal')?.classList.add('hidden');
     // En grâce : on ne masque PAS le bandeau ; dismiss modal seulement
     if (sub.gracePeriod) return;
     sessionStorage.setItem('overdue_dismissed', '1');
@@ -736,8 +827,11 @@ window.applyGraceBanner = function () {
     const textEl = document.getElementById('grace-banner-text');
     if (!banner || !textEl) return;
     const sub = window.cachedSubscription;
-    if (!sub?.gracePeriod) {
+    // Essai Premium / démo / trial : jamais de bandeau grâce (évite le fantôme a11y)
+    if (!sub?.gracePeriod || sub.isDemo || sub.isTrial || sub.trialActive || sub.status === 'trialing') {
         banner.classList.add('hidden');
+        banner.setAttribute('aria-hidden', 'true');
+        textEl.textContent = '';
         return;
     }
     const days = sub.graceDaysRemaining ?? '?';
@@ -746,6 +840,7 @@ window.applyGraceBanner = function () {
         : '';
     textEl.innerHTML = `<i class="fa-solid fa-clock mr-2"></i><strong>Période de grâce — J-${days}</strong> : accès maintenu${endLabel ? ` jusqu'au ${endLabel}` : ''}. Régularisez votre <em>facture Flenova</em> (abonnement) pour éviter la suspension.`;
     banner.classList.remove('hidden');
+    banner.setAttribute('aria-hidden', 'false');
 };
 
 window.applyAccessSuspendedScreen = function () {
@@ -764,7 +859,7 @@ window.applyAccessSuspendedScreen = function () {
     if (titleEl) titleEl.textContent = alert.title || 'Compte en pause';
     if (msg) {
         msg.textContent = alert.message
-            || 'Vos données sont conservées. Pour rouvrir Transports, Planning et Facturation, effectuez un virement sur le RIB Flenova.';
+            || 'Vos données sont conservées. Pour rouvrir Transports, Planning et Facturation, régularisez votre paiement (prélèvement SEPA).';
     }
     if (cta) cta.textContent = alert.cta || 'Mettre à jour mon paiement';
     screen.classList.remove('hidden');
@@ -780,31 +875,16 @@ window.applySubscriptionAccessGate = function () {
     if (typeof updateAppActionRail === 'function') {
         updateAppActionRail(window.currentAppRoute || 'dashboard');
     }
+    if (subscriptionNeedsRegularization()) {
+        startSubscriptionStatusPolling();
+    } else {
+        stopSubscriptionStatusPolling();
+    }
     return suspended;
 };
 
 window.updateNavQuotaWidget = function () {
-    let el = document.getElementById('nav-quota-widget');
-    const sidebar = document.getElementById('app-sidebar');
-    if (!sidebar) return;
-    const aff = window.cachedSubscription?.affretementUsage;
-    if (!aff || aff.limit == null) {
-        el?.remove();
-        return;
-    }
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'nav-quota-widget';
-        el.className = 'px-3 py-2 mx-2 mb-2 rounded-lg bg-slate-800 text-[11px] text-slate-300';
-        const footer = sidebar.querySelector('.mt-auto') || sidebar.lastElementChild;
-        sidebar.insertBefore(el, footer);
-    }
-    const used = aff.sendsThisMonth || 0;
-    const pct = Math.min(100, Math.round((used / aff.limit) * 100));
-    const tone = used >= aff.limit ? 'text-amber-300' : used >= aff.limit * 0.8 ? 'text-amber-200' : 'text-slate-300';
-    el.innerHTML = `<div class="flex justify-between ${tone} font-semibold mb-1"><span>Affrètements</span><span>${used}/${aff.limit}</span></div>
-        <div class="h-1.5 bg-slate-700 rounded overflow-hidden"><div class="h-full bg-indigo-400" style="width:${pct}%"></div></div>
-        ${used >= aff.limit ? `<p class="mt-1 text-amber-300/90">Hors quota : +${String(aff.unitPrice ?? 1.5).replace('.', ',')} € HT / envoi</p>` : ''}`;
+    document.getElementById('nav-quota-widget')?.remove();
 };
 
 window.renderAppPricingPage = renderAppPricingPage;
@@ -824,6 +904,18 @@ window.hydrateSubscription = function (payload) {
         applySubscriptionAccessGate();
     }
 };
+
+if (typeof window !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        if (!subscriptionNeedsRegularization()) return;
+        void refreshSubscriptionStatus({ syncRemote: true });
+    });
+    window.addEventListener('focus', () => {
+        if (!subscriptionNeedsRegularization()) return;
+        void refreshSubscriptionStatus();
+    });
+}
 
 window.applyDemoBanner = function () {
     const sub = window.cachedSubscription;

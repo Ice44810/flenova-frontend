@@ -78,6 +78,14 @@
         if (new URLSearchParams(window.location.search).get('registered') === '1') {
             document.getElementById('registered-notice')?.classList.remove('hidden');
         }
+        const prefillEmail = new URLSearchParams(window.location.search).get('email');
+        if (prefillEmail) {
+            const emailInput = document.getElementById('login-email');
+            if (emailInput) {
+                emailInput.value = prefillEmail;
+                document.getElementById('login-password')?.focus();
+            }
+        }
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');

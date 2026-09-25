@@ -344,6 +344,7 @@ function renderTransportList() {
         ${selectableOrders.length ? `
         <div class="flex flex-wrap items-center gap-2 mb-4 p-3 bg-slate-50 border border-slate-100 rounded-lg">
             <span class="text-xs text-gray-500 mr-1"><i class="fa-solid fa-check-double mr-1"></i>Sélection : <strong>${selectedCount}</strong></span>
+            ${selectedCount === 0 ? `<span class="text-[11px] text-slate-500">Cochez une ou plusieurs lignes pour activer les actions de masse.</span>` : ''}
             ${inTrash && canDelete ? `
                 <button type="button" onclick="bulkRestoreTransports()"
                     class="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -434,16 +435,18 @@ function renderTransportList() {
                                 ${o.invoice_draft_id ? `<div class="text-[10px] text-gray-400 mt-1">Préfacture ${o.invoice_draft_id}</div>` : ''}
                             </td>
                             <td class="px-4 py-3 text-xs whitespace-nowrap">
-                                ${o.co2_kg != null ? `<span class="text-green-700 font-semibold">${Number(o.co2_kg).toFixed(1)} kg</span><div class="text-[10px] text-gray-400">${o.co2_scope || ''}</div>` : '<span class="text-gray-300">—</span>'}
+                                ${o.co2_kg != null
+                                    ? `<span class="text-green-700 font-semibold">${Number(o.co2_kg).toFixed(1)} kg</span><div class="text-[10px] text-gray-400">${o.co2_scope || ''}${!(o.vehicle_id || o.vehicle_plate) ? ' · estim.' : ''}</div>`
+                                    : '<span class="text-gray-300">—</span>'}
                             </td>
                             <td class="px-4 py-3 font-bold">${Number(o.price || 0).toLocaleString()} €</td>
-                            <td class="px-4 py-3 whitespace-nowrap">
+                            <td class="px-4 py-3 whitespace-nowrap min-w-[9rem]">
                                 ${inTrash ? `
                                     ${canDelete ? `<button onclick="restoreTransport(${o.id})" class="text-emerald-600 hover:underline text-xs"><i class="fa-solid fa-rotate-left mr-1"></i>Restaurer</button>` : ''}
                                 ` : `
                                 <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs mr-2">Détail</button>
-                                ${canShowDispatchButton(o) ? `<button onclick="openDispatchModal(${o.id})" class="text-purple-600 hover:underline text-xs mr-2"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>` : ''}
-                                ${canWriteTransport() ? `<button onclick="openEditOrderModal(${o.id})" class="text-gray-500 hover:text-blue-600 text-xs"><i class="fa-solid fa-pen"></i></button>` : ''}
+                                ${canShowDispatchButton(o) ? `<button onclick="openDispatchModal(${o.id})" class="text-purple-600 hover:underline text-xs mr-2 whitespace-nowrap"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>` : ''}
+                                ${canWriteTransport() ? `<button onclick="openEditOrderModal(${o.id})" class="text-gray-500 hover:text-blue-600 text-xs" title="Modifier"><i class="fa-solid fa-pen"></i></button>` : ''}
                                 `}
                             </td>
                             ${inTrash ? `<td class="px-4 py-3 text-xs text-gray-500">${deletedLabel}</td>` : `<td class="px-4 py-3">${renderTransportBillingSelect(o)}</td>`}

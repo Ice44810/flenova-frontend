@@ -51,7 +51,11 @@
         if (idx < 0) return null;
         const d = planningMonday();
         d.setDate(d.getDate() + idx);
-        return d.toISOString().slice(0, 10);
+        if (typeof formatDateForInput === 'function') return formatDateForInput(d);
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yy}-${mm}-${dd}`;
     }
 
     async function applyPlanningDrop({ orderId, loadDate, driverId }) {
@@ -312,8 +316,8 @@
             : 0;
 
         return {
-            from: from.toISOString().slice(0, 10),
-            to: to.toISOString().slice(0, 10),
+            from: typeof formatDateForInput === 'function' ? formatDateForInput(from) : from.toISOString().slice(0, 10),
+            to: typeof formatDateForInput === 'function' ? formatDateForInput(to) : to.toISOString().slice(0, 10),
             orderCount: orders.length,
             ca,
             margeSt,
@@ -656,9 +660,18 @@
             else document.getElementById('global-search-input')?.focus();
         } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
             e.preventDefault();
-            document.getElementById('keyboard-help-modal')?.classList.remove('hidden');
+            if (typeof showAppModal === 'function') showAppModal('keyboard-help-modal');
+            else {
+                const help = document.getElementById('keyboard-help-modal');
+                help?.classList.remove('hidden');
+                help?.classList.add('flex');
+            }
         } else if (e.key === 'Escape') {
-            document.getElementById('keyboard-help-modal')?.classList.add('hidden');
+            if (typeof closeAppModal === 'function') {
+                closeAppModal('keyboard-help-modal');
+            } else {
+                document.getElementById('keyboard-help-modal')?.classList.add('hidden');
+            }
             document.getElementById('notification-center-panel')?.classList.add('hidden');
             document.getElementById('global-search-results')?.classList.add('hidden');
             if (typeof closeMobileGlobalSearch === 'function') closeMobileGlobalSearch();

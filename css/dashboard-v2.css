@@ -759,6 +759,11 @@
     margin-bottom: 1rem;
 }
 
+.dash-v2-kpi-grid--four {
+    grid-template-columns: repeat(4, 1fr);
+    margin-bottom: 1rem;
+}
+
 .dash-v2-kpi-grid--secondary {
     grid-template-columns: repeat(4, 1fr);
     margin-bottom: 1.25rem;

@@ -183,7 +183,7 @@ if (registerForm) registerForm.addEventListener('submit', async (e) => {
                 showVerificationNotice(email, days);
             } else {
                 showToast(`Compte créé. Essai Premium ${days} jours — vous pouvez vous connecter.`, 'success');
-                window.location.href = 'login.html?registered=1';
+                window.location.href = `login.html?registered=1&email=${encodeURIComponent(email)}`;
             }
         } else {
             showToast(result.error || result.message || 'Erreur lors de l\'inscription', 'error');

@@ -139,6 +139,59 @@ function normalizeUploadUrl(url) {
 let currentUser = getCurrentUser();
 
 // --- MODAUX (global) ---
+const APP_MODAL_IDS = [
+    'chart-modal', 'edit-mission-modal', 'add-mission-modal', 'add-client-modal',
+    'driver-card-modal', 'driver-modal', 'add-vehicle-modal', 'edit-vehicle-modal',
+    'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
+    'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
+    'invoice-modal', 'transport-detail-modal', 'assign-driver-modal', 'credit-note-modal',
+    'dashboard-advanced-filter-modal', 'validate-due-modal', 'invoice-payment-modal',
+    'saas-overdue-modal', 'affretement-quota-modal', 'keyboard-help-modal'
+];
+
+function setModalA11yClosed(el) {
+    if (!el) return;
+    el.setAttribute('aria-hidden', 'true');
+    el.setAttribute('inert', '');
+    try { el.inert = true; } catch (_) { /* older browsers */ }
+}
+
+function setModalA11yOpen(el) {
+    if (!el) return;
+    el.setAttribute('aria-hidden', 'false');
+    el.removeAttribute('inert');
+    try { el.inert = false; } catch (_) { /* older browsers */ }
+}
+
+function syncModalA11yFromClass(el) {
+    if (!(el instanceof HTMLElement) || !el.id) return;
+    if (el.classList.contains('hidden')) setModalA11yClosed(el);
+    else setModalA11yOpen(el);
+}
+
+function initAppModalsA11yObserver() {
+    const wrap = document.getElementById('app-modals');
+    if (!wrap || wrap.dataset.a11yObserved === '1') return;
+    wrap.dataset.a11yObserved = '1';
+    const syncChild = (node) => {
+        if (!(node instanceof HTMLElement)) return;
+        if (node.parentElement === wrap || APP_MODAL_IDS.includes(node.id)) {
+            syncModalA11yFromClass(node);
+        }
+    };
+    Array.from(wrap.children).forEach(syncChild);
+    APP_MODAL_IDS.forEach((id) => syncChild(document.getElementById(id)));
+    new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            if (m.type === 'attributes' && m.attributeName === 'class') {
+                syncChild(m.target);
+            }
+        }
+    }).observe(wrap, { attributes: true, subtree: true, attributeFilter: ['class'] });
+}
+
+window.initAppModalsA11yObserver = initAppModalsA11yObserver;
+
 function hideAllModals() {
     // Empêche des “ré-activations” tardives (setTimeout / handlers de preview facture)
     // de faire réapparaître l’aperçu facture pendant l’ouverture d’un autre modal.
@@ -150,16 +203,6 @@ function hideAllModals() {
     if (!window.__invoicePreviewSessionId) window.__invoicePreviewSessionId = 0;
     window.__invoicePreviewSessionId++;
 
-
-    const modalIds = [
-        'chart-modal', 'edit-mission-modal', 'add-mission-modal', 'add-client-modal',
-        'driver-card-modal', 'driver-modal', 'add-vehicle-modal', 'edit-vehicle-modal',
-        'add-purchase-invoice-modal', 'add-user-modal', 'modal-overlay',
-        'edit-order-modal', 'add-order-modal', 'add-subcontractor-modal', 'dispatch-modal',
-        'invoice-modal', 'transport-detail-modal', 'assign-driver-modal', 'credit-note-modal', 'dashboard-advanced-filter-modal',
-        'validate-due-modal', 'invoice-payment-modal'
-    ];
-
     // Invariant: le modal aperçu facture A4 (modal-overlay/modal-content) ne doit jamais être visible
     // lorsque l'utilisateur ouvre un autre modal.
     // On le masque en dur ici, même si un rendu (ex: openInvoiceModal) l'avait réaffiché.
@@ -167,17 +210,19 @@ function hideAllModals() {
     if (invoiceOverlayEl) {
         invoiceOverlayEl.classList.add('hidden');
         invoiceOverlayEl.classList.remove('flex', 'items-center', 'justify-center');
+        setModalA11yClosed(invoiceOverlayEl);
     }
     const invoiceContentEl = document.getElementById('modal-content');
     if (invoiceContentEl) {
         invoiceContentEl.classList.add('hidden');
         invoiceContentEl.innerHTML = '';
     }
-    modalIds.forEach(id => {
+    APP_MODAL_IDS.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.classList.add('hidden');
             el.classList.remove('flex'); // Nécessaire car modal-overlay utilise flex pour le centrage
+            setModalA11yClosed(el);
 
             // CRITICAL: Vider le contenu du conteneur générique 'modal-content'
             // pour éviter que l'aperçu de facture ne s'affiche par erreur dans d'autres modaux.
@@ -201,9 +246,30 @@ function hideAllModals() {
 function showAppModal(modalId) {
     const el = document.getElementById(modalId);
     if (!el) return;
+    // Ferme les autres modales (y compris a11y) avant d'ouvrir celle demandée
+    APP_MODAL_IDS.forEach((id) => {
+        if (id === modalId) return;
+        const other = document.getElementById(id);
+        if (!other) return;
+        other.classList.add('hidden');
+        other.classList.remove('flex');
+        setModalA11yClosed(other);
+    });
     el.classList.remove('hidden');
     el.classList.add('flex');
+    setModalA11yOpen(el);
 }
+
+function closeAppModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+    setModalA11yClosed(el);
+}
+
+window.showAppModal = showAppModal;
+window.closeAppModal = closeAppModal;
 
 // Fonction pour rendre un élément déplaçable (Draggable)
 function makeElementDraggable(el) {
@@ -997,7 +1063,16 @@ function setAppModalsVisible(visible) {
     const wrap = document.getElementById('app-modals');
     if (!wrap) return;
     wrap.classList.toggle('hidden', !visible);
-    wrap.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    if (!visible) {
+        wrap.setAttribute('aria-hidden', 'true');
+        setModalA11yClosed(wrap);
+        return;
+    }
+    // Conteneur visible, mais chaque modal fermée reste hors arbre a11y (inert).
+    wrap.removeAttribute('aria-hidden');
+    wrap.removeAttribute('inert');
+    try { wrap.inert = false; } catch (_) { /* noop */ }
+    hideAllModals();
 }
 
 function initPublicSite() {
@@ -1303,10 +1378,13 @@ function initMobileNav() {
     });
     if (window.cachedSubscription?.billingAlert && typeof showOverdueBillingModal === 'function') {
         const alert = window.cachedSubscription.billingAlert;
-        if (alert.type === 'grace_period' || window.cachedSubscription.gracePeriod) {
-            showOverdueBillingModal(alert);
-        } else if (!window.cachedSubscription.accessSuspended) {
-            showOverdueBillingModal(alert);
+        const sub = window.cachedSubscription;
+        if (!(sub.isDemo || sub.isTrial || sub.trialActive || sub.status === 'trialing')) {
+            if (alert.type === 'grace_period' || sub.gracePeriod) {
+                showOverdueBillingModal(alert);
+            } else if (!sub.accessSuspended) {
+                showOverdueBillingModal(alert);
+            }
         }
     }
 
@@ -1338,7 +1416,7 @@ function getDefaultDashboardFilters() {
     return {
         periodPreset: 'year',
         startDate: `${year}-01-01`,
-        endDate: new Date().toISOString().split('T')[0],
+        endDate: formatDateForInput(new Date()),
         clientId: null,
         driverId: null,
         vehicleId: null,
@@ -1470,7 +1548,7 @@ async function loadDashboardSavedViewsFromServer() {
 
 function resolvePeriodDates(preset) {
     const now = new Date();
-    const fmt = (d) => d.toISOString().split('T')[0];
+    const fmt = (d) => formatDateForInput(d);
     const start = new Date(now);
     if (preset === 'today') return { startDate: fmt(now), endDate: fmt(now) };
     if (preset === 'week') {
@@ -2422,6 +2500,56 @@ function formatDashboardCity(label) {
     return lastWord ? lastWord[1].trim() : segment || raw;
 }
 
+function getRecentDocuments(limit = 5) {
+    const invoices = Array.isArray(db.sales_invoices) ? db.sales_invoices.slice() : [];
+    return invoices
+        .filter((inv) => inv && (inv.number || inv.invoice_number || inv.id))
+        .sort((a, b) => {
+            const ta = new Date(a.date || a.sent_date || a.created_at || a.due_date || 0).getTime();
+            const tb = new Date(b.date || b.sent_date || b.created_at || b.due_date || 0).getTime();
+            return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+        })
+        .slice(0, limit);
+}
+
+function renderRecentDocumentsCard(limit = 5) {
+    const docs = getRecentDocuments(limit);
+    const canOpen = typeof openInvoiceModal === 'function';
+    const rows = docs.length
+        ? docs.map((inv) => {
+            const ref = inv.number || inv.invoice_number || inv.id;
+            const issued = formatDisplayDate(inv.date || inv.sent_date || inv.created_at) || '—';
+            const due = formatDisplayDate(inv.due_date) || '—';
+            const amount = `${Number(getInvoiceAmount(inv) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+            const invId = String(inv.id ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const click = canOpen ? `onclick="openInvoiceModal('${invId}')"` : `onclick="router('sales_invoices_validated')"`;
+            return `<button type="button" class="recent-doc-row" ${click}>
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="shrink-0 w-8 h-8 rounded-lg bg-white/80 flex items-center justify-center text-blue-600">
+                        <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
+                    </span>
+                    <div class="min-w-0">
+                        <div class="doc-id truncate">${esc(ref)}</div>
+                        <div class="doc-meta">Émise ${esc(issued)}</div>
+                    </div>
+                </div>
+                <div class="shrink-0">
+                    <div class="doc-amount">${esc(amount)}</div>
+                    <div class="doc-meta text-right">Échéance ${esc(due)}</div>
+                </div>
+            </button>`;
+        }).join('')
+        : '<p class="dash-v2-muted italic text-sm py-3 text-center">Aucun document récent</p>';
+
+    return `<div class="dash-v2-card">
+        <div class="flex items-center justify-between gap-2 mb-3">
+            <h3 class="dash-v2-card-title mb-0">Documents récents</h3>
+            <button type="button" class="text-xs font-medium text-blue-600 hover:underline" onclick="router('sales_invoices_validated')">Voir tout</button>
+        </div>
+        <div class="recent-docs-list">${rows}</div>
+    </div>`;
+}
+
 function renderDashboardTopDestinations(geoPerformance = []) {
     const items = (geoPerformance || []).slice(0, 5);
     if (!items.length) {
@@ -2438,7 +2566,72 @@ function renderDashboardTopDestinations(geoPerformance = []) {
     }).join('');
 }
 
+function isDashboardEarlyStage(stats = {}) {
+    const orderCount = (db.orders || []).length;
+    const clientCount = (db.clients || []).length;
+    const driverCount = (db.drivers || []).length;
+    const missionsDone = Number(stats.completedMissions ?? stats.missionPerformance?.counts?.delivered ?? 0) || 0;
+    const revenue = Number(stats.filteredTransportRevenue ?? stats.totalRevenue ?? 0) || 0;
+    // J1 / démarrage : peu d’activité — on allège la vue dense
+    return orderCount < 5 && missionsDone < 3 && revenue < 2000 && (clientCount + driverCount) < 8;
+}
+
+function renderDashboardEarlyBody(stats = {}) {
+    const orderCount = (db.orders || []).length;
+    const clientCount = (db.clients || []).length;
+    const driverCount = (db.drivers || []).length;
+    const vehicleCount = (db.vehicles || []).length;
+    const active = (db.orders || []).filter((o) => !['Validé', 'Clôturé', 'Terminé', 'Annulé', 'Livré'].includes(o.status)).length;
+    const today = stats.todayStats || {};
+
+    const nextSteps = [
+        !clientCount ? { label: 'Créer un client', action: "router('clients')", icon: 'fa-building' } : null,
+        !driverCount ? { label: 'Ajouter un chauffeur', action: "router('drivers')", icon: 'fa-id-card' } : null,
+        !orderCount ? { label: 'Créer un premier OT', action: 'openAddOrderModal()', icon: 'fa-plus' } : null,
+        orderCount && !(db.orders || []).some((o) => o.driver_id || o.subcontractor_id)
+            ? { label: 'Affecter un chauffeur', action: "router('planning')", icon: 'fa-user-check' } : null,
+        !vehicleCount ? { label: 'Renseigner un véhicule', action: "router('vehicles')", icon: 'fa-truck' } : null,
+    ].filter(Boolean).slice(0, 3);
+
+    return `
+    <div id="dash-kpi-loading" class="dash-v2-loading hidden"><i class="fa-solid fa-spinner fa-spin"></i> Mise à jour…</div>
+    <div class="mb-4 rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-blue-700 mb-1">Démarrage</p>
+                <h3 class="text-lg font-bold text-slate-800">Bienvenue — activez votre exploitation</h3>
+                <p class="text-sm text-slate-600 mt-1 max-w-xl">Vue simplifiée tant que l’activité est faible. Les KPI complets (CA, carte GPS, tops) s’affichent après quelques missions.</p>
+            </div>
+            <button type="button" onclick="window.dashboardForceFullView=true; refreshDashboardView()" class="text-xs text-blue-700 hover:underline whitespace-nowrap">Afficher la vue complète</button>
+        </div>
+        ${nextSteps.length ? `<div class="mt-4 flex flex-wrap gap-2">
+            ${nextSteps.map((s) => `<button type="button" onclick="${s.action}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">
+                <i class="fa-solid ${s.icon}" aria-hidden="true"></i>${s.label}
+            </button>`).join('')}
+        </div>` : ''}
+    </div>
+    <div class="dash-v2-kpi-grid dash-v2-kpi-grid--four mb-4">
+        ${dashV2Kpi('fa-building', '#2563eb', 'Clients', clientCount, '', 'neutral')}
+        ${dashV2Kpi('fa-id-card', '#059669', 'Chauffeurs', driverCount, '', 'neutral')}
+        ${dashV2Kpi('fa-truck-fast', '#7c3aed', 'OT actifs', active, '', 'neutral')}
+        ${dashV2Kpi('fa-clipboard-list', '#ea580c', "Missions aujourd'hui", today.missions ?? 0, '', 'neutral')}
+    </div>
+    <div class="dash-v2-card">
+        <h3 class="dash-v2-card-title">Prochaine étape métier</h3>
+        <ol class="list-decimal list-inside text-sm text-slate-700 space-y-2">
+            <li>Créer client → chauffeur (code TF-) → ordre de transport</li>
+            <li>Affecter le chauffeur : la mission part sur l’app mobile</li>
+            <li>Après livraison / validation : préfacturer depuis Facturation</li>
+        </ol>
+        <p class="dash-v2-muted text-xs mt-3">Astuce : barre d’actions en bas — Créer OT, Affréter, Préfacturer.</p>
+    </div>
+    <div class="mt-4">${renderRecentDocumentsCard(3)}</div>`;
+}
+
 function renderDashboardDirigeantBody(stats = {}) {
+    if (!window.dashboardForceFullView && isDashboardEarlyStage(stats)) {
+        return renderDashboardEarlyBody(stats);
+    }
     const revenue = stats.filteredTransportRevenue ?? stats.totalRevenue ?? 0;
     const trends = stats.kpiTrends || {};
     const today = stats.todayStats || {};
@@ -2521,7 +2714,7 @@ function renderDashboardDirigeantBody(stats = {}) {
         </div>
     </div>
 
-    <div class="dash-v2-lower-grid dash-v2-lower-grid--4">
+    <div class="dash-v2-lower-grid dash-v2-lower-grid--5">
         <div class="dash-v2-card">
             <h3 class="dash-v2-card-title">Top 5 Véhicules</h3>
             <table class="dash-v2-table">
@@ -2545,6 +2738,7 @@ function renderDashboardDirigeantBody(stats = {}) {
                 return `<div class="dash-v2-alert ${a.type}"${click}><i class="fa-solid ${a.icon}"></i><span>${a.text}</span></div>`;
             }).join('') : '<p class="dash-v2-muted italic text-sm py-2">Aucune alerte</p>'}
         </div>
+        ${renderRecentDocumentsCard(5)}
     </div>
 
     <div class="dash-v2-sensors">
@@ -2560,6 +2754,9 @@ function renderDashboardDirigeantBody(stats = {}) {
 function renderDashboardKpiBody(stats = {}) {
     if (getDefaultCockpitMode() === 'dirigeant') {
         return renderDashboardDirigeantBody(stats);
+    }
+    if (!window.dashboardForceFullView && isDashboardEarlyStage(stats)) {
+        return renderDashboardEarlyBody(stats);
     }
 
     const cockpit = getDefaultCockpitMode();
@@ -2711,8 +2908,11 @@ function renderDashboardKpiBody(stats = {}) {
             }).join('') : '<p class="dash-v2-muted italic text-sm py-2">Aucune alerte</p>'}
         </div>`);
     }
+    if (typeof mayView !== 'function' || mayView('billing')) {
+        lowerCards.push(renderRecentDocumentsCard(5));
+    }
 
-    const lowerSection = lowerCards.length ? `<div class="dash-v2-lower-grid dash-v2-lower-grid--${lowerCards.length}">${lowerCards.join('')}</div>` : '';
+    const lowerSection = lowerCards.length ? `<div class="dash-v2-lower-grid dash-v2-lower-grid--${Math.min(lowerCards.length, 5)}">${lowerCards.join('')}</div>` : '';
 
     const footerSection = isCockpitSectionVisible('footer') ? `
     <div class="dash-v2-footer-bar">
@@ -2735,10 +2935,11 @@ function renderDashboardKpiBody(stats = {}) {
 }
 
 function renderDashboardGeneralV2(stats = {}) {
-    const expanded = getDefaultCockpitMode() === 'dirigeant' ? true : !!window.dashboardFiltersExpanded;
-    if (getDefaultCockpitMode() === 'dirigeant') window.dashboardFiltersExpanded = true;
+    const early = !window.dashboardForceFullView && isDashboardEarlyStage(stats);
+    const expanded = early ? false : (getDefaultCockpitMode() === 'dirigeant' ? true : !!window.dashboardFiltersExpanded);
+    if (!early && getDefaultCockpitMode() === 'dirigeant') window.dashboardFiltersExpanded = true;
     return `
-    <div id="dash-filters-wrap" class="dash-v2-filters-wrap">
+    <div id="dash-filters-wrap" class="dash-v2-filters-wrap ${early ? 'hidden' : ''}">
         ${renderDashboardFiltersBar()}
         <div id="dash-filters-panel" class="dash-v2-filters-panel ${expanded ? '' : 'dash-v2-filters-panel--hidden'}">
             ${renderDashboardFiltersBody()}
@@ -2755,6 +2956,7 @@ function renderDashboard(stats = {}) {
         activeTab = 'general';
     }
 
+    const early = !window.dashboardForceFullView && isDashboardEarlyStage(stats);
     const f = window.dashboardFilters || getDefaultDashboardFilters();
     const periodLabel = `${f.startDate ? formatDisplayDate(f.startDate) : '…'} – ${f.endDate ? formatDisplayDate(f.endDate) : '…'}`;
 
@@ -2762,7 +2964,9 @@ function renderDashboard(stats = {}) {
         ? `<button type="button" role="tab" id="dash-tab-pallets" aria-selected="${activeTab === 'pallets'}" aria-controls="dash-tabpanel" onclick="window.switchDashboardTab('pallets')" class="dash-v2-tab dash-v2-tab--teal px-6 py-2 ${activeTab === 'pallets' ? 'bg-gray-100 border-t-2 border-teal-500 font-bold' : 'font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider"><i class="fa-solid fa-pallet mr-1" aria-hidden="true"></i> Palettes Europe</button>`
         : '';
 
-    const tabsHtml = `
+    const tabsHtml = early
+        ? ''
+        : `
         <div class="flex gap-1 border-b border-gray-200 mb-4" role="tablist" aria-label="Onglets du tableau de bord">
             <button type="button" role="tab" id="dash-tab-general" aria-selected="${activeTab === 'general'}" aria-controls="dash-tabpanel" onclick="window.switchDashboardTab('general')" class="dash-v2-tab px-6 py-2 ${activeTab === 'general' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold' : 'font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Général</button>
             <button type="button" role="tab" id="dash-tab-quotations" aria-selected="${activeTab === 'quotations'}" aria-controls="dash-tabpanel" onclick="window.switchDashboardTab('quotations')" class="dash-v2-tab px-6 py-2 ${activeTab === 'quotations' ? 'bg-gray-100 border-t-2 border-blue-500 font-bold' : 'font-bold hover:bg-gray-50'} text-xs uppercase tracking-wider">Cotations</button>
@@ -2773,7 +2977,7 @@ function renderDashboard(stats = {}) {
 
     let tabContent = '';
 
-    if (activeTab === 'general') {
+    if (early || activeTab === 'general') {
         tabContent = renderDashboardGeneralV2(stats);
     } else if (activeTab === 'quotations') {
         tabContent = `
@@ -2905,12 +3109,12 @@ function renderDashboard(stats = {}) {
     <div class="fade-in dash-v2">
         <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
             <div>
-                <p class="dash-v2-subtitle">Vue d'ensemble de votre activité</p>
+                <p class="dash-v2-subtitle">${early ? 'Premiers pas sur votre TMS' : "Vue d'ensemble de votre activité"}</p>
             </div>
-            <div class="dash-v2-period" role="status"><i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i> Période ${periodLabel}</div>
+            ${early ? '' : `<div class="dash-v2-period" role="status"><i class="fa-regular fa-calendar mr-1" aria-hidden="true"></i> Période ${periodLabel}</div>`}
         </div>
         ${tabsHtml}
-        <div id="dash-tabpanel" role="tabpanel" aria-labelledby="dash-tab-${activeTab}">
+        <div id="dash-tabpanel" role="tabpanel" ${early ? '' : `aria-labelledby="dash-tab-${activeTab}"`}>
         ${tabContent}
         </div>
     </div>`;
@@ -3037,6 +3241,21 @@ function createInvoiceFromMission(missionId) {
     }
 }
 
+function parseLocalDate(value) {
+    if (!value) return null;
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+    const s = String(value).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+        const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+        return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+    const parsed = new Date(s);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 // --- RENDER: Planning ---
 function renderPlanning() {
     const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -3058,15 +3277,25 @@ function renderPlanning() {
     const weekMissions = db.orders.filter(o => {
         const loadDate = o.load_date || o.date_chargement;
         if (!loadDate) return false;
-        const dObj = new Date(loadDate);
+        const dObj = parseLocalDate(loadDate);
+        if (!dObj) return false;
         return dObj >= monday && dObj <= sunday;
     }).map(o => {
         const loadDate = o.load_date || o.date_chargement;
-        const dateObj = new Date(loadDate);
-        const dayIndex = dateObj.getDay();
+        const dateObj = parseLocalDate(loadDate);
+        const dayIndex = dateObj ? dateObj.getDay() : 1;
         let dayName = days[dayIndex === 0 ? 6 : dayIndex - 1];
         return { ...o, day: dayName };
     });
+
+    const outsideWeekCount = (db.orders || []).filter((o) => {
+        if (['Annulé', 'Clôturé'].includes(o.status)) return false;
+        const loadDate = o.load_date || o.date_chargement;
+        if (!loadDate) return false;
+        const dObj = parseLocalDate(loadDate);
+        if (!dObj) return false;
+        return dObj < monday || dObj > sunday;
+    }).length;
 
     const getStatusColor = (s) => typeof getStatusBorderClass === 'function' ? getStatusBorderClass(s) : (s === 'Planifié' ? 'border-l-4 border-gray-400' : s === 'En cours' ? 'border-l-4 border-blue-500' : s === 'Terminé' ? 'border-l-4 border-green-500' : s === 'Annulé' ? 'border-l-4 border-red-400' : '');
 
@@ -3177,8 +3406,12 @@ function renderPlanning() {
             </div>
         </div>
         <p class="text-xs text-gray-500 mb-2"><i class="fa-solid fa-hand-pointer mr-1"></i>Glissez un OT vers un autre jour pour changer la date de chargement.</p>
+        ${outsideWeekCount > 0 ? `<div class="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm flex flex-wrap items-center justify-between gap-2">
+            <span><i class="fa-solid fa-calendar-week mr-1"></i><strong>${outsideWeekCount}</strong> OT hors de cette semaine (lun.–dim.).</span>
+            <button type="button" onclick="jumpPlanningToNearestOutsideOrder()" class="text-xs font-semibold underline hover:no-underline">Voir la semaine concernée</button>
+        </div>` : ''}
         <div class="flex-1 overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200 -webkit-overflow-scrolling-touch">
-            <div class="min-w-[1200px] flex h-full md:min-w-[1200px]" style="min-width: min(1200px, 100%);">
+            <div class="min-w-[1400px] flex h-full" style="min-width: min(1400px, 100%);">
                 ${days.map(day => {
         const dayMissions = weekMissions.filter(m => m.day === day);
         const isToday = day === days[now.getDay() === 0 ? 6 : now.getDay() - 1];
@@ -3353,8 +3586,29 @@ function canShowDispatchButton(order) {
     if (typeof planHasFeature === 'function' && !planHasFeature('affretement')) return false;
     if (!order || typeof canDispatchSubcontractor !== 'function' || !canDispatchSubcontractor()) return false;
     if (isOrderSubcontracted(order)) return false;
-    return !['Validé', 'Clôturé', 'Terminé', 'Annulé'].includes(order.status);
+    // Déjà affecté en flotte interne : pas de CTA Affréter (réaffectation via Modifier)
+    if (order.driver_id) return false;
+    return !['Validé', 'Clôturé', 'Terminé', 'Annulé', 'Livré'].includes(order.status);
 }
+
+window.jumpPlanningToNearestOutsideOrder = function () {
+    const current = new Date(window.planningDate || new Date());
+    const day = current.getDay();
+    const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(current);
+    monday.setDate(diff);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    const outside = (db.orders || [])
+        .map((o) => ({ o, d: parseLocalDate(o.load_date || o.date_chargement) }))
+        .filter(({ o, d }) => d && !['Annulé', 'Clôturé'].includes(o.status) && (d < monday || d > sunday))
+        .sort((a, b) => Math.abs(a.d - monday) - Math.abs(b.d - monday));
+    if (!outside.length) return;
+    window.planningDate = outside[0].d;
+    router('planning');
+};
 
 function renderSubcontractors() {
     const all = Array.isArray(db.subcontractors) ? db.subcontractors : [];
@@ -3892,7 +4146,11 @@ function renderDrivers() {
                                 ${canManage ? `<button type="button" onclick="openEditDriverModal(${d.id})" class="text-blue-600 hover:underline"><i class="fa-solid fa-pen-to-square mr-1"></i>Éditer</button>` : ''}
                             </td>
                         </tr>`;
-    }).join('') : `<tr><td colspan="${canDelete ? 8 : 7}" class="px-4 py-8 text-center text-gray-400">Aucun chauffeur</td></tr>`}
+    }).join('') : `<tr><td colspan="${canDelete ? 8 : 7}" class="px-4 py-10 text-center text-gray-500">
+        <p class="font-medium text-gray-700 mb-1">Aucun chauffeur</p>
+        <p class="text-xs text-gray-500 max-w-md mx-auto mb-3">Ajoutez un chauffeur pour lui envoyer des missions sur l’app mobile. Un code d’activation <span class="font-mono text-teal-700">TF-</span> est généré à l’enregistrement.</p>
+        ${canManage ? `<button type="button" onclick="openAddDriverModal()" class="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700"><i class="fa-solid fa-plus mr-1"></i>Nouveau chauffeur</button>` : ''}
+    </td></tr>`}
                 </tbody>
             </table>
         </div>`;
@@ -7193,6 +7451,7 @@ async function router(route) {
         publicRouter(PUBLIC_ROUTES.includes(route) ? route : 'home');
         return;
     }
+    if (typeof hideAllModals === 'function') hideAllModals();
     if (typeof closeMobileNav === 'function') closeMobileNav();
     if (typeof resolveTenantAppRoute === 'function') {
         route = resolveTenantAppRoute(route);
@@ -8027,7 +8286,7 @@ async function submitEditMission() {
         vehicleSelect.innerHTML = getVehiclesByType('TRUCK').map(v => optionHtml(v.id, `${v.plate} - ${v.model}`)).join('');
 
         // Set default date
-        document.getElementById('add-mission-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('add-mission-date').value = formatDateForInput(new Date());
 
         document.getElementById('add-mission-modal').classList.remove('hidden');
     }
@@ -8413,10 +8672,18 @@ function showDriverInviteCodeAfterCreate(driver) {
     syncDriverMobileSection({ mode: 'edit', driver });
 
     const statusEl = document.getElementById('driver-mobile-status');
-    if (!statusEl) return;
-    if (driver?.invite_code && !driver?.user_account_id) {
-        statusEl.textContent = 'Code généré — copiez-le et transmettez-le au chauffeur, ou générez-en un nouveau.';
-        statusEl.className = 'text-xs mt-2 ml-7 text-teal-900 font-semibold';
+    if (statusEl) {
+        if (driver?.invite_code && !driver?.user_account_id) {
+            statusEl.textContent = 'Code généré — copiez-le et transmettez-le au chauffeur, ou générez-en un nouveau.';
+            statusEl.className = 'text-xs mt-2 ml-7 text-teal-900 font-semibold';
+        }
+    }
+    const displayEl = document.getElementById('driver-invite-display');
+    const scrollRoot = displayEl?.closest('.overflow-y-auto');
+    if (displayEl && scrollRoot) {
+        displayEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else if (displayEl) {
+        displayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 }
 
@@ -8484,6 +8751,7 @@ async function issueDriverTemporaryPassword() {
 window.issueDriverTemporaryPassword = issueDriverTemporaryPassword;
 
 document.addEventListener('DOMContentLoaded', () => {
+    if (typeof initAppModalsA11yObserver === 'function') initAppModalsA11yObserver();
     if (typeof initMobileNav === 'function') initMobileNav();
     const addOrderModal = document.getElementById('add-order-modal');
     if (addOrderModal) {
@@ -9436,7 +9704,7 @@ function openAddPurchaseInvoiceModal(prefill = {}) {
     document.getElementById('add-purchase-type').value = prefill.type || 'Carburant';
     document.getElementById('add-purchase-ref').value = prefill.ref || '';
     document.getElementById('add-purchase-amount').value = prefill.amount ?? '';
-    document.getElementById('add-purchase-date').value = prefill.date || new Date().toISOString().split('T')[0];
+    document.getElementById('add-purchase-date').value = prefill.date || formatDateForInput(new Date());
     populateSubcontractorSelect(document.getElementById('add-purchase-subcontractor'), prefill.subcontractor_id);
     document.getElementById('add-purchase-order-id').value = prefill.order_id || '';
     selectedPurchaseCategory = prefill.type || 'Carburant';
@@ -9504,7 +9772,7 @@ async function handlePurchaseFileUpload(input) {
                 ref: "PIECE-" + Math.floor(Math.random() * 9000 + 1000),
                 supplier: file.name.includes('Total') ? 'Total Energies' : (file.name.includes('Vinci') ? 'Vinci Autoroutes' : 'Fournisseur Extrait'),
                 amount: (Math.random() * 200 + 50).toFixed(2),
-                date: new Date().toISOString().split('T')[0],
+                date: formatDateForInput(new Date()),
                 type: file.name.toLowerCase().includes('essence') || file.name.toLowerCase().includes('total') ? 'Carburant' : 'Entretien'
             };
 
@@ -10939,8 +11207,8 @@ function openAddOrderModal(prefill = {}) {
     if (internalRadio) internalRadio.checked = true;
     toggleAddOrderAssignment();
 
-    document.getElementById('add-order-load-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('add-order-delivery-date').value = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    document.getElementById('add-order-load-date').value = formatDateForInput(new Date());
+    document.getElementById('add-order-delivery-date').value = addCalendarDaysIso(new Date(), 1);
 
     const refInput = document.getElementById('add-order-ref');
     const refDisplay = document.getElementById('add-order-ref-display');
@@ -11093,6 +11361,9 @@ async function submitAddOrder() {
                 lastDriverId: assignment.driver_id || null
             });
             closeAddOrderModal();
+            const loadIso = newOrder.load_date || formatDateForInput(new Date());
+            const loadLocal = typeof parseLocalDate === 'function' ? parseLocalDate(loadIso) : null;
+            if (loadLocal) window.planningDate = loadLocal;
             if (typeof refreshAfterMvpStep === 'function') {
                 await refreshAfterMvpStep({
                     orderId,

@@ -6,6 +6,7 @@
     const ONBOARDING_KEY = 'flenova_onboarding_checklist_v1';
     const DENSITY_KEY = 'flenova_ui_density';
     const CANCEL_KEY = 'flenova_cancellation_request';
+    const THEME_KEY = 'flenova_ui_theme';
 
     function companyKey(suffix) {
         const uid = (typeof getCurrentUser === 'function' ? getCurrentUser()?.company_id : null) || 'anon';
@@ -592,12 +593,16 @@
             return;
         }
         const steps = [
+            { id: 'client', label: 'Créer un premier client (donneur d\'ordre)', go: () => router('clients') },
+            { id: 'driver', label: 'Créer un chauffeur + code TF- (app mobile)', go: () => router('drivers') },
             { id: 'order', label: 'Créer un premier ordre de transport', go: () => openAddOrderModal() },
-            { id: 'assign', label: 'Affecter un chauffeur (code TF-) ou affréter', go: () => router('planning') },
+            { id: 'assign', label: 'Affecter un chauffeur ou affréter', go: () => router('planning') },
             { id: 'invoice', label: 'Générer une préfacture', go: () => router('preinvoicing') },
             { id: 'pricing', label: 'Vérifier mon forfait / quotas', go: () => router('pricing') }
         ];
         // Auto-detect progress from data
+        if ((db.clients || []).length) st.client = true;
+        if ((db.drivers || []).length) st.driver = true;
         if ((db.orders || []).length) st.order = true;
         if ((db.orders || []).some((o) => o.driver_id || o.subcontractor_id || o.assignment_type === 'SUBCONTRACTED')) st.assign = true;
         if ((db.orders || []).some((o) => o.invoice_draft_id) || (db.sales_invoices || []).length) st.invoice = true;
@@ -703,20 +708,33 @@
         const input = document.getElementById('global-search-input');
         const toggle = document.getElementById('global-search-toggle');
         if (!wrap) return;
-        const toggleVisible = !toggle || getComputedStyle(toggle).display !== 'none';
-        const wrapHidden = getComputedStyle(wrap).display === 'none';
-        if (toggleVisible || wrapHidden) {
-            if (wrap.classList.contains('mobile-search-open')) {
-                closeMobileGlobalSearch();
-            } else {
-                wrap.classList.remove('hidden');
-                wrap.classList.add('mobile-search-open');
-                toggle?.setAttribute('aria-expanded', 'true');
-                setTimeout(() => input?.focus(), 30);
-            }
+        const isOpen = !wrap.classList.contains('hidden') || wrap.classList.contains('mobile-search-open');
+        if (isOpen) {
+            closeMobileGlobalSearch();
             return;
         }
-        input?.focus();
+        document.getElementById('notification-center-panel')?.classList.add('hidden');
+        if (typeof closeAccountMenu === 'function') closeAccountMenu();
+        wrap.classList.remove('hidden');
+        wrap.classList.add('mobile-search-open');
+        toggle?.setAttribute('aria-expanded', 'true');
+        setTimeout(() => input?.focus(), 30);
+    };
+
+    window.setAppTheme = function (theme) {
+        const next = theme === 'dark' ? 'dark' : 'light';
+        document.body.classList.toggle('theme-dark', next === 'dark');
+        try { localStorage.setItem(THEME_KEY, next); } catch { /* ignore */ }
+        document.getElementById('theme-toggle-light')?.classList.toggle('is-active', next === 'light');
+        document.getElementById('theme-toggle-dark')?.classList.toggle('is-active', next === 'dark');
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', next === 'dark' ? '#0f172a' : '#2563eb');
+    };
+
+    window.initAppTheme = function () {
+        let saved = 'light';
+        try { saved = localStorage.getItem(THEME_KEY) || 'light'; } catch { /* ignore */ }
+        setAppTheme(saved === 'dark' ? 'dark' : 'light');
     };
 
     window.updateAppActionRail = function (route) {
@@ -782,6 +800,7 @@
     // ── Init hooks ──────────────────────────────────────────────────
     window.initUxImprovements = function () {
         initUiDensity();
+        initAppTheme();
         refreshNotificationBadge();
         renderOnboardingChecklist();
         if (typeof loadOrderTemplates === 'function') {
@@ -806,10 +825,10 @@
         const searchWrap = document.getElementById('global-search-wrap');
         const searchToggle = document.getElementById('global-search-toggle');
         if (searchBox && !searchBox.classList.contains('hidden') && !searchBox.contains(e.target) && e.target !== searchInput
-            && !searchToggle?.contains(e.target)) {
+            && !searchToggle?.contains(e.target) && !searchWrap?.contains(e.target)) {
             searchBox.classList.add('hidden');
         }
-        if (searchWrap?.classList.contains('mobile-search-open')
+        if (searchWrap && !searchWrap.classList.contains('hidden')
             && !searchWrap.contains(e.target) && !searchToggle?.contains(e.target)) {
             closeMobileGlobalSearch();
         }
@@ -820,4 +839,9 @@
             closeAccountMenu();
         }
     });
+
+    try {
+        const savedTheme = localStorage.getItem('flenova_ui_theme');
+        if (savedTheme === 'dark') document.body.classList.add('theme-dark');
+    } catch { /* ignore */ }
 })();

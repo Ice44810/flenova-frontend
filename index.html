@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/dashboard-v2.css">
     <link rel="stylesheet" href="css/a11y.css">
     <link rel="stylesheet" href="css/responsive-touch.css">
+    <link rel="stylesheet" href="css/shell-ui.css">
 </head>
 
 <body class="h-screen overflow-hidden text-gray-800">
@@ -66,11 +67,11 @@
         <div id="app-nav-overlay" class="app-nav-overlay" hidden aria-hidden="true"></div>
 
         <!-- SIDEBAR (tiroir < lg ; colonne fixe ≥ lg) -->
-        <aside id="app-sidebar" class="app-sidebar w-64 bg-slate-900 text-white flex-col shadow-xl h-full shrink-0"
+        <aside id="app-sidebar" class="app-sidebar w-64 flex-col h-full shrink-0"
             aria-label="Navigation principale">
-            <div class="h-16 flex items-center px-6 border-b border-slate-700 gap-2">
-                <img src="assets/flenova_icon_512.jpg" alt="" class="w-8 h-8" aria-hidden="true">
-                <span class="text-xl font-bold tracking-wide">Flenova</span>
+            <div class="h-16 flex items-center px-6 border-b gap-2">
+                <img src="assets/flenova_icon_512.jpg" alt="" class="w-8 h-8 rounded-lg" aria-hidden="true">
+                <span class="brand-wordmark font-bold tracking-wide">Flenova</span>
             </div>
 
             <nav class="flex-1 overflow-y-auto py-4">
@@ -302,36 +303,55 @@
                         <p id="header-company-name" class="text-xs text-gray-500 hidden truncate"></p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <button type="button" id="global-search-toggle" class="sm:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 cursor-pointer"
-                        aria-label="Ouvrir la recherche" aria-expanded="false" aria-controls="global-search-wrap"
-                        onclick="toggleMobileGlobalSearch(event)">
-                        <i class="fa-solid fa-magnifying-glass pointer-events-none" aria-hidden="true"></i>
+                <div class="header-toolbar relative shrink-0">
+                    <button type="button" class="header-toolbar-btn header-toolbar-btn--primary" data-tour="first_order_cta"
+                        data-perm-module="transports" data-perm-action="create"
+                        onclick="typeof openAddOrderModal==='function'&&openAddOrderModal()"
+                        aria-label="Créer un ordre de transport" title="Créer OT (N)">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
                     </button>
-                    <div id="global-search-wrap" class="relative hidden sm:block">
-                        <label for="global-search-input" class="sr-only">Recherche globale</label>
-                        <input type="search" id="global-search-input" placeholder="OT, client, facture, plaque…"
-                            autocomplete="off"
-                            oninput="renderGlobalSearchResults(this.value)"
-                            class="w-44 lg:w-56 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                        <div id="global-search-results" class="hidden absolute right-0 top-full mt-1 w-80 max-w-[90vw] bg-white border border-gray-200 rounded-lg shadow-lg z-40 overflow-hidden"></div>
+                    <div class="relative">
+                        <button type="button" id="global-search-toggle" class="header-toolbar-btn"
+                            aria-label="Recherche" aria-expanded="false" aria-controls="global-search-wrap"
+                            onclick="toggleMobileGlobalSearch(event)" title="Recherche (/)">
+                            <i class="fa-solid fa-magnifying-glass pointer-events-none" aria-hidden="true"></i>
+                        </button>
+                        <div id="global-search-wrap" class="header-search-popover hidden">
+                            <label for="global-search-input" class="sr-only">Recherche globale</label>
+                            <input type="search" id="global-search-input" placeholder="OT, client, facture, plaque…"
+                                autocomplete="off" oninput="renderGlobalSearchResults(this.value)">
+                            <div id="global-search-results"
+                                class="hidden absolute right-0 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-40 overflow-hidden"></div>
+                        </div>
                     </div>
                     <div class="relative">
-                        <button type="button" id="notification-center-btn" data-tour="notifications" onclick="toggleNotificationCenter()"
-                            class="relative w-10 h-10 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
-                            aria-label="Notifications">
+                        <button type="button" id="notification-center-btn" data-tour="notifications"
+                            onclick="toggleNotificationCenter()"
+                            class="header-toolbar-btn relative" aria-label="Notifications" title="Notifications">
                             <i class="fa-solid fa-bell" aria-hidden="true"></i>
-                            <span id="notification-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">0</span>
+                            <span id="notification-badge"
+                                class="hidden absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">0</span>
                         </button>
                         <div id="notification-center-panel"
                             class="hidden fixed z-[80] w-[min(22rem,calc(100vw-1.5rem))] max-h-[min(28rem,calc(100vh-5rem))] bg-orange-50 border border-orange-300 rounded-lg shadow-lg overflow-hidden"
                             role="dialog" aria-label="Notifications"></div>
                     </div>
+                    <div class="header-theme-toggle" role="group" aria-label="Thème clair ou sombre">
+                        <button type="button" id="theme-toggle-light" class="is-active" onclick="setAppTheme('light')"
+                            aria-label="Mode clair" title="Clair">
+                            <i class="fa-solid fa-sun text-xs" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" id="theme-toggle-dark" onclick="setAppTheme('dark')"
+                            aria-label="Mode sombre" title="Sombre">
+                            <i class="fa-solid fa-moon text-xs" aria-hidden="true"></i>
+                        </button>
+                    </div>
                     <div class="relative">
                         <button type="button" id="account-menu-btn" onclick="toggleAccountMenu()"
                             class="flex items-center rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                             aria-haspopup="true" aria-expanded="false" aria-controls="account-menu-panel" aria-label="Menu compte">
-                            <img id="header-user-avatar" src="assets/flenova_icon_512.jpg" alt="" class="w-10 h-10 rounded-full border border-gray-200" width="40" height="40">
+                            <img id="header-user-avatar" src="assets/flenova_icon_512.jpg" alt=""
+                                class="w-10 h-10 rounded-full border border-gray-200 object-cover" width="40" height="40">
                         </button>
                         <div id="account-menu-panel"
                             class="hidden fixed z-[80] w-[min(14rem,calc(100vw-1.5rem))] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden py-1"
@@ -380,7 +400,7 @@
                         class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold hover:bg-emerald-100">
                         <i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Préfacturer
                     </button>
-                    <button type="button" onclick="document.getElementById('keyboard-help-modal')?.classList.remove('hidden')"
+                    <button type="button" onclick="typeof showAppModal==='function'?showAppModal('keyboard-help-modal'):document.getElementById('keyboard-help-modal')?.classList.remove('hidden')"
                         class="ml-auto w-9 h-9 rounded-full border border-gray-200 bg-white text-gray-600 text-sm font-bold hover:bg-gray-50"
                         title="Raccourcis clavier" aria-label="Aide raccourcis clavier">?</button>
                 </div>
@@ -389,9 +409,9 @@
             <div id="demo-banner" class="hidden shrink-0 bg-gradient-to-r from-purple-700 to-blue-600 text-white px-6 py-2.5 text-sm">
                 <span id="demo-banner-text"><i class="fa-solid fa-gift mr-2"></i>Essai Premium en cours</span>
             </div>
-            <div id="grace-banner" class="hidden shrink-0 bg-amber-600 text-white px-4 sm:px-6 py-3 text-sm" role="alert">
+            <div id="grace-banner" class="hidden shrink-0 bg-amber-600 text-white px-4 sm:px-6 py-3 text-sm" role="alert" aria-hidden="true">
                 <div class="flex flex-wrap items-center justify-between gap-3 max-w-6xl mx-auto">
-                    <p id="grace-banner-text" class="font-medium">Période de grâce — régularisez votre paiement.</p>
+                    <p id="grace-banner-text" class="font-medium"></p>
                     <button type="button" id="grace-banner-cta" onclick="goToSubscriptionPayment()"
                         class="shrink-0 px-4 py-2 rounded-lg bg-white text-amber-800 text-xs font-bold hover:bg-amber-50">
                         Mettre à jour mon paiement
@@ -1009,6 +1029,38 @@
             <form onsubmit="submitDriver(event)" class="flex-1 flex flex-col overflow-hidden">
                 <div class="p-6 space-y-4 overflow-y-auto">
                     <input type="hidden" id="edit-driver-id" autocomplete="off">
+                    <div id="driver-mobile-section" class="bg-teal-50 border border-teal-200 rounded-lg p-4 order-first sm:order-none">
+                        <div id="driver-mobile-option" class="flex items-start gap-3">
+                            <input type="checkbox" id="driver-generate-mobile-code" checked class="mt-1 h-4 w-4 text-teal-600 border-teal-300 rounded focus:ring-teal-500">
+                            <div class="flex-1">
+                                <label for="driver-generate-mobile-code" class="text-sm font-semibold text-teal-900 cursor-pointer">
+                                    <i class="fa-solid fa-mobile-screen-button mr-1"></i> Générer un code d'activation TMS Mobile
+                                </label>
+                                <p class="text-xs text-teal-800 mt-1">Le chauffeur saisit ce code dans l'application mobile pour activer son compte (code + mot de passe).</p>
+                            </div>
+                        </div>
+                        <p id="driver-mobile-pending" class="text-xs text-teal-700 mt-3 ml-7 hidden">
+                            <i class="fa-solid fa-circle-info mr-1"></i>Un code unique sera créé à l'enregistrement.
+                        </p>
+                        <div id="driver-invite-display" class="hidden mt-3 ml-7">
+                            <label for="driver-invite-code" class="block text-xs font-semibold text-teal-900 mb-1">Code d'activation</label>
+                            <div class="flex gap-2 items-center flex-wrap">
+                                <input type="text" id="driver-invite-code" readonly class="flex-1 min-w-[180px] font-mono font-bold text-lg text-teal-900 bg-white border border-teal-300 rounded-md p-2">
+                                <button type="button" onclick="copyDriverInviteCode()" class="px-3 py-2 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 whitespace-nowrap">
+                                    <i class="fa-solid fa-copy mr-1"></i>Copier
+                                </button>
+                            </div>
+                        </div>
+                        <div id="driver-mobile-actions" class="hidden mt-3 ml-7 flex flex-wrap gap-2">
+                            <button type="button" id="btn-regenerate-driver-invite" onclick="regenerateDriverInviteCode()" class="px-3 py-2 border border-teal-600 text-teal-700 rounded-md text-sm hover:bg-teal-100 whitespace-nowrap">
+                                <i class="fa-solid fa-rotate mr-1"></i>Nouveau code
+                            </button>
+                            <button type="button" id="btn-temp-driver-password" onclick="issueDriverTemporaryPassword()" class="hidden px-3 py-2 border border-amber-600 text-amber-800 rounded-md text-sm hover:bg-amber-50 whitespace-nowrap">
+                                <i class="fa-solid fa-unlock-keyhole mr-1"></i>Mot de passe provisoire
+                            </button>
+                        </div>
+                        <p id="driver-mobile-status" class="text-xs mt-2 ml-7 text-gray-600"></p>
+                    </div>
                     <div>
                         <label for="driver-name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
                     <input type="text" id="driver-name" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
@@ -1068,38 +1120,6 @@
                     <div>
                         <label for="driver-notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                     <textarea id="driver-notes" rows="3" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    </div>
-                    <div id="driver-mobile-section" class="bg-teal-50 border border-teal-200 rounded-lg p-4">
-                        <div id="driver-mobile-option" class="flex items-start gap-3">
-                            <input type="checkbox" id="driver-generate-mobile-code" checked class="mt-1 h-4 w-4 text-teal-600 border-teal-300 rounded focus:ring-teal-500">
-                            <div class="flex-1">
-                                <label for="driver-generate-mobile-code" class="text-sm font-semibold text-teal-900 cursor-pointer">
-                                    <i class="fa-solid fa-mobile-screen-button mr-1"></i> Générer un code d'activation TMS Mobile
-                                </label>
-                                <p class="text-xs text-teal-800 mt-1">Le chauffeur saisit ce code dans l'application mobile pour activer son compte (code + mot de passe).</p>
-                            </div>
-                        </div>
-                        <p id="driver-mobile-pending" class="text-xs text-teal-700 mt-3 ml-7 hidden">
-                            <i class="fa-solid fa-circle-info mr-1"></i>Un code unique sera créé à l'enregistrement.
-                        </p>
-                        <div id="driver-invite-display" class="hidden mt-3 ml-7">
-                            <label for="driver-invite-code" class="block text-xs font-semibold text-teal-900 mb-1">Code d'activation</label>
-                            <div class="flex gap-2 items-center flex-wrap">
-                                <input type="text" id="driver-invite-code" readonly class="flex-1 min-w-[180px] font-mono font-bold text-lg text-teal-900 bg-white border border-teal-300 rounded-md p-2">
-                                <button type="button" onclick="copyDriverInviteCode()" class="px-3 py-2 bg-teal-600 text-white rounded-md text-sm hover:bg-teal-700 whitespace-nowrap">
-                                    <i class="fa-solid fa-copy mr-1"></i>Copier
-                                </button>
-                            </div>
-                        </div>
-                        <div id="driver-mobile-actions" class="hidden mt-3 ml-7 flex flex-wrap gap-2">
-                            <button type="button" id="btn-regenerate-driver-invite" onclick="regenerateDriverInviteCode()" class="px-3 py-2 border border-teal-600 text-teal-700 rounded-md text-sm hover:bg-teal-100 whitespace-nowrap">
-                                <i class="fa-solid fa-rotate mr-1"></i>Nouveau code
-                            </button>
-                            <button type="button" id="btn-temp-driver-password" onclick="issueDriverTemporaryPassword()" class="hidden px-3 py-2 border border-amber-600 text-amber-800 rounded-md text-sm hover:bg-amber-50 whitespace-nowrap">
-                                <i class="fa-solid fa-unlock-keyhole mr-1"></i>Mot de passe provisoire
-                            </button>
-                        </div>
-                        <p id="driver-mobile-status" class="text-xs mt-2 ml-7 text-gray-600"></p>
                     </div>
                 </div>
                 <div class="p-4 border-t bg-gray-50 flex justify-between rounded-b-lg">
@@ -2061,32 +2081,6 @@
         </div>
     </div>
 
-    <!-- RIB Flenova (virement abonnement) -->
-    <div id="flenova-rib-modal" class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 fade-in text-left">
-            <div class="flex items-start justify-between gap-3 mb-4">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-900">RIB Flenova</h3>
-                    <p class="text-sm text-gray-500 mt-1">Virement pour l’abonnement SaaS</p>
-                </div>
-                <button type="button" onclick="closeFlenovaRibModal()" class="text-gray-400 hover:text-gray-600" aria-label="Fermer">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <div id="flenova-rib-body" class="space-y-3 text-sm text-gray-700"></div>
-            <div class="flex flex-col gap-2 mt-5">
-                <a id="flenova-rib-link" href="#" target="_blank" rel="noopener"
-                    class="hidden w-full text-center py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 text-sm">
-                    Ouvrir le RIB / PDF
-                </a>
-                <button type="button" onclick="closeFlenovaRibModal()"
-                    class="w-full py-2 text-sm text-gray-500 hover:text-gray-700">
-                    Fermer
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- MODALE AFFRÈTEMENT QUOTA -->
     <div id="affretement-quota-modal" class="hidden fixed inset-0 z-[95] flex items-center justify-center bg-black/50 p-4">
         <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
@@ -2104,7 +2098,7 @@
         <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="font-bold text-lg">Raccourcis clavier</h3>
-                <button type="button" onclick="document.getElementById('keyboard-help-modal').classList.add('hidden')" class="text-gray-400" aria-label="Fermer"><i class="fa-solid fa-times"></i></button>
+                <button type="button" onclick="typeof closeAppModal==='function'?closeAppModal('keyboard-help-modal'):document.getElementById('keyboard-help-modal').classList.add('hidden')" class="text-gray-400" aria-label="Fermer"><i class="fa-solid fa-times"></i></button>
             </div>
             <ul class="text-sm text-gray-700 space-y-2">
                 <li><kbd class="px-1.5 py-0.5 bg-gray-100 rounded border text-xs">N</kbd> Nouvel ordre de transport</li>
