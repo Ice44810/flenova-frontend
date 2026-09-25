@@ -17,9 +17,12 @@
         const color = COLORS[type] || COLORS.info;
         const toast = document.createElement('div');
         toast.className = `toast border-${color}-500`;
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
 
         const icon = document.createElement('i');
         icon.className = `fa-solid ${ICONS[type] || ICONS.info} text-${color}-500 text-xl mr-3`;
+        icon.setAttribute('aria-hidden', 'true');
 
         const label = document.createElement('span');
         label.className = 'text-sm text-gray-700';

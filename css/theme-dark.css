@@ -1,0 +1,402 @@
+/**
+ * Mode nuit — harmonisation globale (app + modales).
+ * Remappe surfaces / textes Tailwind utilisés dans planning, transports,
+ * affrètement, litiges, facturation, admin, etc.
+ *
+ * Importers: index.html (link stylesheet après shell-ui.css).
+ * Callers: body.theme-dark (setAppTheme dans ux-improvements.js).
+ * Instruction: « fait ceci sur toute la page y compris tous les volets :
+ * planning, transports, affretement, litiges, etc... il faut harmoniser
+ * les couleurs pour le mode night. »
+ */
+
+body.theme-dark {
+    color-scheme: dark;
+}
+
+/* ── Conteneurs ciblés ───────────────────────── */
+body.theme-dark #app-screen,
+body.theme-dark #app-modals,
+body.theme-dark #toast-container {
+    color: #e2e8f0;
+}
+
+/* ── Surfaces ────────────────────────────────── */
+body.theme-dark #app-screen .bg-white,
+body.theme-dark #app-modals .bg-white,
+body.theme-dark #toast-container .bg-white,
+body.theme-dark #app-screen .bg-white\/80 {
+    background-color: #1e293b !important;
+}
+
+body.theme-dark #app-screen .bg-gray-50,
+body.theme-dark #app-modals .bg-gray-50,
+body.theme-dark #app-screen .bg-slate-50,
+body.theme-dark #app-modals .bg-slate-50 {
+    background-color: #0f172a !important;
+}
+
+body.theme-dark #app-screen .bg-gray-100,
+body.theme-dark #app-modals .bg-gray-100,
+body.theme-dark #app-screen .bg-slate-100,
+body.theme-dark #app-modals .bg-slate-100 {
+    background-color: #1e293b !important;
+}
+
+body.theme-dark #app-screen .bg-blue-50,
+body.theme-dark #app-modals .bg-blue-50 {
+    background-color: rgba(30, 58, 138, 0.35) !important;
+}
+
+body.theme-dark #app-screen .bg-amber-50,
+body.theme-dark #app-modals .bg-amber-50,
+body.theme-dark #app-screen .bg-yellow-50,
+body.theme-dark #app-modals .bg-yellow-50 {
+    background-color: rgba(120, 53, 15, 0.35) !important;
+}
+
+body.theme-dark #app-screen .bg-green-50,
+body.theme-dark #app-modals .bg-green-50,
+body.theme-dark #app-screen .bg-emerald-50,
+body.theme-dark #app-modals .bg-emerald-50 {
+    background-color: rgba(6, 78, 59, 0.35) !important;
+}
+
+body.theme-dark #app-screen .bg-red-50,
+body.theme-dark #app-modals .bg-red-50,
+body.theme-dark #app-screen .bg-rose-50 {
+    background-color: rgba(127, 29, 29, 0.35) !important;
+}
+
+body.theme-dark #app-screen .bg-purple-50,
+body.theme-dark #app-modals .bg-purple-50,
+body.theme-dark #app-screen .bg-indigo-50 {
+    background-color: rgba(49, 46, 129, 0.35) !important;
+}
+
+body.theme-dark #app-screen .hover\:bg-gray-50:hover,
+body.theme-dark #app-modals .hover\:bg-gray-50:hover,
+body.theme-dark #app-screen .hover\:bg-gray-100:hover,
+body.theme-dark #app-modals .hover\:bg-gray-100:hover,
+body.theme-dark #app-screen tr.hover\:bg-gray-50:hover,
+body.theme-dark #app-screen .hover\:bg-blue-50:hover {
+    background-color: #334155 !important;
+}
+
+/* ── Bordures ────────────────────────────────── */
+body.theme-dark #app-screen .border-gray-100,
+body.theme-dark #app-modals .border-gray-100,
+body.theme-dark #app-screen .border-gray-200,
+body.theme-dark #app-modals .border-gray-200,
+body.theme-dark #app-screen .border-slate-200,
+body.theme-dark #app-modals .border-slate-200 {
+    border-color: #334155 !important;
+}
+
+body.theme-dark #app-screen .border-gray-300,
+body.theme-dark #app-modals .border-gray-300,
+body.theme-dark #app-screen .border-slate-300,
+body.theme-dark #app-modals .border-slate-300 {
+    border-color: #475569 !important;
+}
+
+body.theme-dark #app-screen .border-b,
+body.theme-dark #app-modals .border-b,
+body.theme-dark #app-screen .border-t,
+body.theme-dark #app-modals .border-t {
+    border-color: #334155;
+}
+
+/* ── Textes ──────────────────────────────────── */
+body.theme-dark #app-screen .text-gray-900,
+body.theme-dark #app-modals .text-gray-900,
+body.theme-dark #app-screen .text-slate-900,
+body.theme-dark #app-modals .text-slate-900 {
+    color: #f8fafc !important;
+}
+
+body.theme-dark #app-screen .text-gray-800,
+body.theme-dark #app-modals .text-gray-800,
+body.theme-dark #app-screen .text-slate-800,
+body.theme-dark #app-modals .text-slate-800 {
+    color: #f1f5f9 !important;
+}
+
+body.theme-dark #app-screen .text-gray-700,
+body.theme-dark #app-modals .text-gray-700,
+body.theme-dark #app-screen .text-slate-700,
+body.theme-dark #app-modals .text-slate-700 {
+    color: #e2e8f0 !important;
+}
+
+body.theme-dark #app-screen .text-gray-600,
+body.theme-dark #app-modals .text-gray-600,
+body.theme-dark #app-screen .text-slate-600,
+body.theme-dark #app-modals .text-slate-600 {
+    color: #cbd5e1 !important;
+}
+
+body.theme-dark #app-screen .text-gray-500,
+body.theme-dark #app-modals .text-gray-500,
+body.theme-dark #app-screen .text-slate-500,
+body.theme-dark #app-modals .text-slate-500 {
+    color: #94a3b8 !important;
+}
+
+body.theme-dark #app-screen .text-gray-400,
+body.theme-dark #app-modals .text-gray-400,
+body.theme-dark #app-screen .text-slate-400,
+body.theme-dark #app-modals .text-slate-400 {
+    color: #94a3b8 !important;
+}
+
+body.theme-dark #app-screen .text-gray-300,
+body.theme-dark #app-modals .text-gray-300 {
+    color: #64748b !important;
+}
+
+body.theme-dark #app-screen .hover\:text-gray-600:hover,
+body.theme-dark #app-modals .hover\:text-gray-600:hover,
+body.theme-dark #app-screen .hover\:text-gray-700:hover,
+body.theme-dark #app-modals .hover\:text-gray-700:hover,
+body.theme-dark #app-screen .hover\:text-gray-800:hover {
+    color: #f1f5f9 !important;
+}
+
+body.theme-dark #app-content h1,
+body.theme-dark #app-content h2,
+body.theme-dark #app-content h3,
+body.theme-dark #app-content h4,
+body.theme-dark #app-modals h1,
+body.theme-dark #app-modals h2,
+body.theme-dark #app-modals h3,
+body.theme-dark #app-modals h4 {
+    color: #f1f5f9;
+}
+
+/* ── Formulaires ─────────────────────────────── */
+body.theme-dark #app-screen input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+body.theme-dark #app-screen select,
+body.theme-dark #app-screen textarea,
+body.theme-dark #app-modals input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+body.theme-dark #app-modals select,
+body.theme-dark #app-modals textarea {
+    background-color: #0f172a !important;
+    border-color: #475569 !important;
+    color: #f1f5f9 !important;
+}
+
+body.theme-dark #app-screen input::placeholder,
+body.theme-dark #app-screen textarea::placeholder,
+body.theme-dark #app-modals input::placeholder,
+body.theme-dark #app-modals textarea::placeholder {
+    color: #64748b !important;
+}
+
+body.theme-dark #app-screen option,
+body.theme-dark #app-modals option {
+    background-color: #1e293b;
+    color: #f1f5f9;
+}
+
+/* ── Tableaux ────────────────────────────────── */
+body.theme-dark #app-screen table,
+body.theme-dark #app-modals table {
+    color: #e2e8f0;
+}
+
+body.theme-dark #app-screen thead,
+body.theme-dark #app-modals thead,
+body.theme-dark #app-screen th,
+body.theme-dark #app-modals th {
+    background-color: #0f172a;
+    color: #94a3b8;
+    border-color: #334155;
+}
+
+body.theme-dark #app-screen td,
+body.theme-dark #app-modals td {
+    border-color: #334155 !important;
+    color: #e2e8f0;
+}
+
+body.theme-dark #app-screen tr.bg-white,
+body.theme-dark #app-modals tr.bg-white {
+    background-color: #1e293b !important;
+}
+
+body.theme-dark #app-screen tbody tr:hover,
+body.theme-dark #app-modals tbody tr:hover {
+    background-color: #334155 !important;
+}
+
+/* ── Badges / pastilles ──────────────────────── */
+body.theme-dark #app-screen .bg-green-100,
+body.theme-dark #app-modals .bg-green-100,
+body.theme-dark #app-screen .bg-emerald-100 {
+    background-color: rgba(6, 95, 70, 0.45) !important;
+}
+body.theme-dark #app-screen .text-green-800,
+body.theme-dark #app-modals .text-green-800,
+body.theme-dark #app-screen .text-emerald-800 {
+    color: #6ee7b7 !important;
+}
+
+body.theme-dark #app-screen .bg-blue-100,
+body.theme-dark #app-modals .bg-blue-100 {
+    background-color: rgba(30, 64, 175, 0.45) !important;
+}
+body.theme-dark #app-screen .text-blue-800,
+body.theme-dark #app-modals .text-blue-800 {
+    color: #93c5fd !important;
+}
+
+body.theme-dark #app-screen .bg-red-100,
+body.theme-dark #app-modals .bg-red-100 {
+    background-color: rgba(153, 27, 27, 0.45) !important;
+}
+body.theme-dark #app-screen .text-red-800,
+body.theme-dark #app-modals .text-red-800 {
+    color: #fca5a5 !important;
+}
+
+body.theme-dark #app-screen .bg-yellow-100,
+body.theme-dark #app-modals .bg-yellow-100,
+body.theme-dark #app-screen .bg-amber-100 {
+    background-color: rgba(146, 64, 14, 0.45) !important;
+}
+body.theme-dark #app-screen .text-yellow-800,
+body.theme-dark #app-modals .text-yellow-800,
+body.theme-dark #app-screen .text-amber-800 {
+    color: #fcd34d !important;
+}
+
+body.theme-dark #app-screen .bg-purple-100,
+body.theme-dark #app-modals .bg-purple-100,
+body.theme-dark #app-screen .bg-indigo-100 {
+    background-color: rgba(76, 29, 149, 0.45) !important;
+}
+body.theme-dark #app-screen .text-purple-800,
+body.theme-dark #app-modals .text-purple-800,
+body.theme-dark #app-screen .text-indigo-800 {
+    color: #c4b5fd !important;
+}
+
+body.theme-dark #app-screen .bg-orange-100 {
+    background-color: rgba(154, 52, 18, 0.45) !important;
+}
+body.theme-dark #app-screen .text-orange-800 {
+    color: #fdba74 !important;
+}
+
+body.theme-dark #app-screen .bg-gray-200,
+body.theme-dark #app-modals .bg-gray-200 {
+    background-color: #334155 !important;
+}
+
+/* ── Liens / accents ─────────────────────────── */
+body.theme-dark #app-screen .text-blue-600,
+body.theme-dark #app-modals .text-blue-600,
+body.theme-dark #app-screen .hover\:text-blue-600:hover,
+body.theme-dark #app-modals .hover\:text-blue-600:hover {
+    color: #60a5fa !important;
+}
+
+body.theme-dark #app-screen .text-blue-700,
+body.theme-dark #app-modals .text-blue-700 {
+    color: #93c5fd !important;
+}
+
+body.theme-dark #app-screen .text-purple-600,
+body.theme-dark #app-modals .text-purple-600 {
+    color: #a78bfa !important;
+}
+
+body.theme-dark #app-screen .text-emerald-600,
+body.theme-dark #app-screen .text-green-600,
+body.theme-dark #app-modals .text-green-600 {
+    color: #34d399 !important;
+}
+
+body.theme-dark #app-screen .text-red-600,
+body.theme-dark #app-modals .text-red-600 {
+    color: #f87171 !important;
+}
+
+body.theme-dark #app-screen .text-amber-600,
+body.theme-dark #app-screen .text-orange-600 {
+    color: #fbbf24 !important;
+}
+
+/* ── Action rail / barres outils ─────────────── */
+body.theme-dark #app-action-rail {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+body.theme-dark #grace-banner-cta {
+    background-color: #1e293b !important;
+    color: #fcd34d !important;
+}
+
+/* ── Planning drop zones ─────────────────────── */
+body.theme-dark #app-content .border-dashed {
+    border-color: #475569 !important;
+}
+
+body.theme-dark #app-content .planning-drop-zone {
+    background-color: #1e293b;
+}
+
+/* ── Toasts ──────────────────────────────────── */
+body.theme-dark .toast {
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-color: #334155;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+}
+
+body.theme-dark .toast .text-gray-700 {
+    color: #e2e8f0 !important;
+}
+
+/* ── Modales ─────────────────────────────────── */
+body.theme-dark #app-modals .border-b,
+body.theme-dark #app-modals .border-t {
+    border-color: #334155 !important;
+}
+
+body.theme-dark #app-screen button.bg-gray-100,
+body.theme-dark #app-modals button.bg-gray-100 {
+    background-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+body.theme-dark #app-screen .hover\:bg-gray-200:hover,
+body.theme-dark #app-modals .hover\:bg-gray-200:hover {
+    background-color: #475569 !important;
+}
+
+body.theme-dark #app-screen .shadow-sm,
+body.theme-dark #app-modals .shadow-sm,
+body.theme-dark #app-screen .shadow,
+body.theme-dark #app-modals .shadow,
+body.theme-dark #app-screen .shadow-md,
+body.theme-dark #app-modals .shadow-2xl {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.theme-dark #app-content .scan-preview,
+body.theme-dark #app-modals .scan-preview,
+body.theme-dark #app-content .file-upload,
+body.theme-dark #app-modals .file-upload {
+    background-color: #0f172a;
+    border-color: #475569;
+    color: #cbd5e1;
+}
+
+body.theme-dark #notification-panel {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #e2e8f0;
+}

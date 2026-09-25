@@ -973,11 +973,99 @@ function updatePublicNav(route) {
     });
 }
 
+const PUBLIC_SEO_BASE = 'https://app.flenova.fr';
+const PUBLIC_SEO_BY_ROUTE = {
+    home: {
+        title: 'Flenova — Logiciel TMS pour transporteurs PME',
+        description: 'Flenova : TMS cloud pour PME de transport. Ordres, planning, chauffeurs mobiles, préfacturation Factur-X et suivi en temps réel.',
+        path: '/'
+    },
+    fonctionnalites: {
+        title: 'Fonctionnalités TMS — Flenova',
+        description: 'OT, planning, app chauffeur, affrètement, Factur-X, suivi GPS : les modules Flenova pour exploiter votre flotte.',
+        path: '/#fonctionnalites'
+    },
+    tarifs: {
+        title: 'Tarifs Flenova — Essai Premium 30 jours',
+        description: 'Tarifs clairs pour PME de transport. Essai Premium 30 jours sans carte bancaire.',
+        path: '/#tarifs'
+    },
+    contact: {
+        title: 'Contact — Flenova TMS',
+        description: 'Contactez l’équipe Flenova pour une démo ou un essai de notre logiciel TMS.',
+        path: '/#contact'
+    },
+    privacy: {
+        title: 'Politique de confidentialité — Flenova',
+        description: 'Politique de confidentialité et protection des données personnelles Flenova.',
+        path: '/#privacy'
+    },
+    legal: {
+        title: 'Mentions légales — Flenova',
+        description: 'Mentions légales du service Flenova TMS.',
+        path: '/#legal'
+    },
+    terms: {
+        title: 'Conditions d’utilisation — Flenova',
+        description: 'Conditions générales d’utilisation de la plateforme Flenova.',
+        path: '/#terms'
+    },
+    cgv: {
+        title: 'CGV — Flenova',
+        description: 'Conditions générales de vente Flenova.',
+        path: '/#cgv'
+    },
+    cookies: {
+        title: 'Politique cookies — Flenova',
+        description: 'Informations sur les cookies utilisés par Flenova.',
+        path: '/#cookies'
+    },
+    tracking: {
+        title: 'Suivi de livraison — Flenova',
+        description: 'Suivi public de votre livraison Flenova.',
+        path: '/#tracking'
+    }
+};
+
+function upsertMetaByAttr(attr, key, content) {
+    let el = document.head.querySelector(`meta[${attr}="${key}"]`);
+    if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+    }
+    el.setAttribute('content', content);
+}
+
+function upsertCanonical(href) {
+    let link = document.head.querySelector('link[rel="canonical"]');
+    if (!link) {
+        link = document.createElement('link');
+        link.setAttribute('rel', 'canonical');
+        document.head.appendChild(link);
+    }
+    link.setAttribute('href', href);
+}
+
+function setPublicSeo(route) {
+    const seo = PUBLIC_SEO_BY_ROUTE[route] || PUBLIC_SEO_BY_ROUTE.home;
+    const url = `${PUBLIC_SEO_BASE}${seo.path}`;
+    document.title = seo.title;
+    upsertMetaByAttr('name', 'description', seo.description);
+    upsertMetaByAttr('property', 'og:title', seo.title);
+    upsertMetaByAttr('property', 'og:description', seo.description);
+    upsertMetaByAttr('property', 'og:url', url);
+    upsertMetaByAttr('name', 'twitter:title', seo.title);
+    upsertMetaByAttr('name', 'twitter:description', seo.description);
+    upsertCanonical(url);
+}
+
 function publicRouter(route) {
     if (!PUBLIC_ROUTES.includes(route)) route = 'home';
     const container = document.getElementById('public-content');
     if (!container) return;
 
+    setPublicSeo(route);
     window.location.hash = route;
     updatePublicNav(route);
     document.getElementById('public-screen')?.classList.toggle('public-on-home', route === 'home');
@@ -2197,10 +2285,12 @@ function dashMapPosition(city, index) {
 
 function dashV2Kpi(icon, bg, label, value, trend, trendClass) {
     return `<div class="dash-v2-kpi">
-        <div class="dash-v2-kpi-icon" style="background:${bg}20;color:${bg}"><i class="fa-solid ${icon}"></i></div>
-        <div class="dash-v2-kpi-value">${value}</div>
-        <div class="dash-v2-kpi-label">${label}</div>
-        ${trend ? `<div class="dash-v2-kpi-trend ${trendClass || 'neutral'}">${trend}</div>` : ''}
+        <div class="dash-v2-kpi-icon" style="background:${bg}20;color:${bg}"><i class="fa-solid ${icon}" aria-hidden="true"></i></div>
+        <div class="dash-v2-kpi-body">
+            <div class="dash-v2-kpi-value">${value}</div>
+            <div class="dash-v2-kpi-label">${label}</div>
+            ${trend ? `<div class="dash-v2-kpi-trend ${trendClass || 'neutral'}">${trend}</div>` : ''}
+        </div>
     </div>`;
 }
 
@@ -2663,6 +2753,15 @@ function renderDashboardDirigeantBody(stats = {}) {
         ${dashV2Kpi('fa-basket-shopping', '#db2777', 'Panier moyen', `${Number(stats.avgOrderValue || 0).toLocaleString('fr-FR')} €`, trendLabel(trends.avgOrder), 'up')}
     </div>
 
+    <div class="dash-v2-sensors">
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--blue"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Véhicules disponibles</span><strong>${fleet.vehicles?.available ?? 0} / ${fleet.vehicles?.total ?? 0}</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--indigo"><i class="fa-solid fa-user" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Conducteurs disponibles</span><strong>${fleet.drivers?.available ?? 0} / ${fleet.drivers?.total ?? 0}</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--purple"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Missions aujourd'hui</span><strong>${today.missions ?? 0}</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--teal"><i class="fa-solid fa-box" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Livraisons aujourd'hui</span><strong>${today.deliveries ?? 0}</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--orange"><i class="fa-solid fa-road" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Km aujourd'hui</span><strong>${Number(today.km || 0).toLocaleString('fr-FR')} km</strong></div></div>
+        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--green"><i class="fa-solid fa-euro-sign" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">CA aujourd'hui</span><strong>${Number(today.revenue || 0).toLocaleString('fr-FR')} €</strong></div></div>
+    </div>
+
     <div class="dash-v2-main-grid">
         <div class="dash-v2-card">
             <div class="flex justify-between items-center mb-2">
@@ -2714,7 +2813,7 @@ function renderDashboardDirigeantBody(stats = {}) {
         </div>
     </div>
 
-    <div class="dash-v2-lower-grid dash-v2-lower-grid--5">
+    <div class="dash-v2-lower-grid dash-v2-lower-grid--4">
         <div class="dash-v2-card">
             <h3 class="dash-v2-card-title">Top 5 Véhicules</h3>
             <table class="dash-v2-table">
@@ -2738,17 +2837,9 @@ function renderDashboardDirigeantBody(stats = {}) {
                 return `<div class="dash-v2-alert ${a.type}"${click}><i class="fa-solid ${a.icon}"></i><span>${a.text}</span></div>`;
             }).join('') : '<p class="dash-v2-muted italic text-sm py-2">Aucune alerte</p>'}
         </div>
-        ${renderRecentDocumentsCard(5)}
     </div>
 
-    <div class="dash-v2-sensors">
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--blue"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Véhicules disponibles</span><strong>${fleet.vehicles?.available ?? 0} / ${fleet.vehicles?.total ?? 0}</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--indigo"><i class="fa-solid fa-user" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Conducteurs disponibles</span><strong>${fleet.drivers?.available ?? 0} / ${fleet.drivers?.total ?? 0}</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--purple"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Missions aujourd'hui</span><strong>${today.missions ?? 0}</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--teal"><i class="fa-solid fa-box" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Livraisons aujourd'hui</span><strong>${today.deliveries ?? 0}</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--orange"><i class="fa-solid fa-road" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">Km aujourd'hui</span><strong>${Number(today.km || 0).toLocaleString('fr-FR')} km</strong></div></div>
-        <div class="dash-v2-sensor"><span class="dash-v2-sensor-icon dash-v2-sensor-icon--green"><i class="fa-solid fa-euro-sign" aria-hidden="true"></i></span><div><span class="dash-v2-sensor-label">CA aujourd'hui</span><strong>${Number(today.revenue || 0).toLocaleString('fr-FR')} €</strong></div></div>
-    </div>`;
+    <div class="mt-3">${renderRecentDocumentsCard(5)}</div>`;
 }
 
 function renderDashboardKpiBody(stats = {}) {
@@ -3016,18 +3107,18 @@ function renderDashboard(stats = {}) {
 
         tabContent = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-blue-200" onclick="router('preinvoicing')">
+            <button type="button" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-blue-200" onclick="router('preinvoicing')" aria-label="Voir les transports à facturer">
                 <h3 class="text-3xl font-bold text-blue-600">${toInvoice}</h3>
                 <p class="dash-v2-muted text-sm">À facturer</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-amber-200" onclick="router('sales_invoices_validated')">
+            </button>
+            <button type="button" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-amber-200" onclick="router('sales_invoices_validated')" aria-label="Voir les factures à encaisser">
                 <h3 class="text-3xl font-bold text-amber-600">${formatEuro(outstanding)} €</h3>
                 <p class="dash-v2-muted text-sm">À encaisser</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-red-200" onclick="invoiceListFilters.due='overdue'; invoiceListFilters.status='all'; router('sales_invoices_validated')">
+            </button>
+            <button type="button" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:border-red-200" onclick="invoiceListFilters.due='overdue'; invoiceListFilters.status='all'; router('sales_invoices_validated')" aria-label="Voir les factures en retard">
                 <h3 class="text-3xl font-bold text-red-600">${formatEuro(overdue)} €</h3>
                 <p class="dash-v2-muted text-sm">En retard${stats.overdueInvoiceCount ? ` · ${stats.overdueInvoiceCount}` : ''}</p>
-            </div>
+            </button>
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                 <h3 class="text-3xl font-bold text-emerald-600">${formatEuro(paid)} €</h3>
                 <p class="dash-v2-muted text-sm">Payé</p>
@@ -3327,10 +3418,10 @@ function renderPlanning() {
         return `<div class="h-full flex flex-col fade-in">
             <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
                 <div class="flex flex-wrap items-center gap-2">
-                    <button onclick="changePlanningWeek(-1)" class="p-2 bg-white rounded shadow hover:text-blue-600"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button type="button" onclick="changePlanningWeek(-1)" class="p-2 bg-white rounded shadow hover:text-blue-600" aria-label="Semaine précédente"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
                     <span class="font-bold text-gray-700 text-lg">Semaine ${weekNum}</span>
-                    <button onclick="changePlanningWeek(1)" class="p-2 bg-white rounded shadow hover:text-blue-600"><i class="fa-solid fa-chevron-right"></i></button>
-                    <select onchange="window.planningFocusDay=this.value; router('planning')" class="border rounded-lg px-2 py-1.5 text-sm">
+                    <button type="button" onclick="changePlanningWeek(1)" class="p-2 bg-white rounded shadow hover:text-blue-600" aria-label="Semaine suivante"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                    <select onchange="window.planningFocusDay=this.value; router('planning')" class="border rounded-lg px-2 py-1.5 text-sm" aria-label="Jour du planning">
                         ${days.map((d) => `<option value="${d}" ${d === focusDay ? 'selected' : ''}>${d}</option>`).join('')}
                     </select>
                 </div>
@@ -3393,9 +3484,9 @@ function renderPlanning() {
     return `<div class="h-full flex flex-col fade-in">
         <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div class="flex items-center gap-4">
-                <button onclick="changePlanningWeek(-1)" class="p-2 bg-white rounded shadow hover:text-blue-600"><i class="fa-solid fa-chevron-left"></i></button>
+                <button type="button" onclick="changePlanningWeek(-1)" class="p-2 bg-white rounded shadow hover:text-blue-600" aria-label="Semaine précédente"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
                 <span class="font-bold text-gray-700 self-center text-lg">Semaine ${weekNum} - ${monday.getFullYear()}</span>
-                <button onclick="changePlanningWeek(1)" class="p-2 bg-white rounded shadow hover:text-blue-600"><i class="fa-solid fa-chevron-right"></i></button>
+                <button type="button" onclick="changePlanningWeek(1)" class="p-2 bg-white rounded shadow hover:text-blue-600" aria-label="Semaine suivante"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
             </div>
             <div class="flex flex-wrap gap-2">
                 <div class="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
@@ -6468,9 +6559,12 @@ function renderAdmin(bankSettings = null) {
                             <span class="text-sm text-gray-800 font-semibold block">Notifications Email Automatiques</span>
                             <span class="text-[10px] text-gray-500">Envoyer les rapports de planning et confirmations de factures</span>
                         </div>
-                        <div onclick="toggleEmailNotifications()" class="w-12 h-6 ${emailEnabled ? 'bg-blue-600' : 'bg-gray-200'} rounded-full relative cursor-pointer transition-colors duration-200">
-                            <div class="w-4 h-4 bg-white rounded-full absolute top-1 ${emailEnabled ? 'right-1' : 'left-1'} transition-all shadow-sm"></div>
-                        </div>
+                        <button type="button" role="switch" aria-checked="${emailEnabled ? 'true' : 'false'}"
+                            aria-label="Notifications email automatiques"
+                            onclick="toggleEmailNotifications()"
+                            class="w-12 h-6 ${emailEnabled ? 'bg-blue-600' : 'bg-gray-200'} rounded-full relative cursor-pointer transition-colors duration-200 p-0 border-0">
+                            <span class="w-4 h-4 bg-white rounded-full absolute top-1 ${emailEnabled ? 'right-1' : 'left-1'} transition-all shadow-sm" aria-hidden="true"></span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -7782,8 +7876,11 @@ async function router(route) {
 // --- TOAST NOTIFICATIONS ---
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast border-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500`;
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
 
     const icons = {
         success: 'fa-check-circle',
@@ -7793,6 +7890,7 @@ function showToast(message, type = 'info') {
 
     const icon = document.createElement('i');
     icon.className = `fa-solid ${icons[type] || icons.info} text-${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}-500 text-xl mr-3`;
+    icon.setAttribute('aria-hidden', 'true');
 
     const text = document.createElement('span');
     text.className = 'text-sm text-gray-700';
@@ -9754,8 +9852,12 @@ function openCamera() {
 }
 
 function selectPurchaseCategory(element, category) {
-    document.querySelectorAll('.category-tag').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.category-tag').forEach((el) => {
+        el.classList.remove('selected');
+        if (el.hasAttribute('aria-pressed')) el.setAttribute('aria-pressed', 'false');
+    });
     element.classList.add('selected');
+    if (element.hasAttribute('aria-pressed')) element.setAttribute('aria-pressed', 'true');
     selectedPurchaseCategory = category;
 }
 

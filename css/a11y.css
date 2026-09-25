@@ -38,6 +38,22 @@
     border: 0;
 }
 
+/* Focus clavier visible — n’écrase pas les focus:ring Tailwind déjà présents */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* Tags catégorie (boutons) — reset navigateur */
+button.category-tag {
+    border: none;
+    font-family: inherit;
+}
+
 /* Sidebar — contraste sur fond slate-900 */
 aside.bg-slate-900 .sidebar-section-label {
     color: #94a3b8;

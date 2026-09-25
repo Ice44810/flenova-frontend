@@ -1,0 +1,13 @@
+# Flenova — robots.txt
+User-agent: *
+Allow: /
+Allow: /index.html
+Disallow: /login.html
+Disallow: /register.html
+Disallow: /forgot-password.html
+Disallow: /reset-password.html
+Disallow: /verify-email.html
+Disallow: /maquette-ui-proposition.html
+Disallow: /maquette-ui-2-choix.html
+
+Sitemap: https://app.flenova.fr/sitemap.xml

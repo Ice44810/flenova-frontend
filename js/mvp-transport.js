@@ -444,9 +444,9 @@ function renderTransportList() {
                                 ${inTrash ? `
                                     ${canDelete ? `<button onclick="restoreTransport(${o.id})" class="text-emerald-600 hover:underline text-xs"><i class="fa-solid fa-rotate-left mr-1"></i>Restaurer</button>` : ''}
                                 ` : `
-                                <button onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs mr-2">Détail</button>
-                                ${canShowDispatchButton(o) ? `<button onclick="openDispatchModal(${o.id})" class="text-purple-600 hover:underline text-xs mr-2 whitespace-nowrap"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>` : ''}
-                                ${canWriteTransport() ? `<button onclick="openEditOrderModal(${o.id})" class="text-gray-500 hover:text-blue-600 text-xs" title="Modifier"><i class="fa-solid fa-pen"></i></button>` : ''}
+                                <button type="button" onclick="openTransportDetail(${o.id})" class="text-blue-600 hover:underline text-xs mr-2">Détail</button>
+                                ${canShowDispatchButton(o) ? `<button type="button" onclick="openDispatchModal(${o.id})" class="text-purple-600 hover:underline text-xs mr-2 whitespace-nowrap" aria-label="Affréter l'ordre ${o.id}"><i class="fa-solid fa-handshake mr-1" aria-hidden="true"></i>Affréter</button>` : ''}
+                                ${canWriteTransport() ? `<button type="button" onclick="openEditOrderModal(${o.id})" class="text-gray-500 hover:text-blue-600 text-xs" title="Modifier" aria-label="Modifier l'ordre ${o.id}"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>` : ''}
                                 `}
                             </td>
                             ${inTrash ? `<td class="px-4 py-3 text-xs text-gray-500">${deletedLabel}</td>` : `<td class="px-4 py-3">${renderTransportBillingSelect(o)}</td>`}
@@ -891,13 +891,13 @@ function renderTransportDetailModal(t) {
     const actionsEl = document.getElementById('td-actions');
     let actionsHtml = '';
     if (typeof canAssignTransport === 'function' && canAssignTransport()) {
-        actionsHtml += `<button onclick="assignTransportFromDetail(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-user-check mr-1"></i>Affecter chauffeur</button>`;
+        actionsHtml += `<button type="button" onclick="assignTransportFromDetail(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2" aria-label="Affecter un chauffeur"><i class="fa-solid fa-user-check mr-1" aria-hidden="true"></i>Affecter chauffeur</button>`;
     }
     if (typeof canShowDispatchButton === 'function' && canShowDispatchButton(t)) {
-        actionsHtml += `<button onclick="closeTransportDetail(); openDispatchModal(${t.id})" class="px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 mr-2"><i class="fa-solid fa-handshake mr-1"></i>Affréter</button>`;
+        actionsHtml += `<button type="button" onclick="closeTransportDetail(); openDispatchModal(${t.id})" class="px-3 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 mr-2" aria-label="Affréter le transport"><i class="fa-solid fa-handshake mr-1" aria-hidden="true"></i>Affréter</button>`;
     }
     if (typeof canWriteTransport === 'function' && canWriteTransport() && !['Validé', 'Clôturé', 'Terminé', 'Annulé'].includes(t.status)) {
-        actionsHtml += `<button onclick="closeTransportDetail(); openEditOrderModal(${t.id})" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 mr-2"><i class="fa-solid fa-pen mr-1"></i>Modifier affectation</button>`;
+        actionsHtml += `<button type="button" onclick="closeTransportDetail(); openEditOrderModal(${t.id})" class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 mr-2" aria-label="Modifier l'affectation"><i class="fa-solid fa-pen mr-1" aria-hidden="true"></i>Modifier affectation</button>`;
     }
     if (typeof isOrderSubcontracted === 'function' ? isOrderSubcontracted(t) : (t.assignment_type === 'SUBCONTRACTED' || t.status === 'Affrété')) {
         actionsHtml += `<button onclick="closeTransportDetail(); openAffretementConfirmation(${t.id})" class="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 mr-2"><i class="fa-solid fa-file-contract mr-1"></i>Confirmation</button>`;
