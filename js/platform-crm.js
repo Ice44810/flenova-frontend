@@ -35,6 +35,14 @@ const CONTACT_STATUS_LABELS = {
     archived: 'Archivé',
 };
 
+/** Valeur pour <input type="datetime-local"> en heure locale (toISOString donnerait l'heure UTC). */
+function toLocalDateTimeInputValue(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function crmEsc(value) {
     if (typeof escapeHtml === 'function') return escapeHtml(value);
     return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -259,7 +267,7 @@ function renderCrmDetailPanel(detail) {
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1" for="crm-detail-last-contact">Dernier contact</label>
                         <input type="datetime-local" id="crm-detail-last-contact" class="w-full border rounded-lg px-3 py-2 text-sm"
-                            value="${detail.lastContactAt ? new Date(detail.lastContactAt).toISOString().slice(0, 16) : ''}">
+                            value="${detail.lastContactAt ? toLocalDateTimeInputValue(detail.lastContactAt) : ''}">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1" for="crm-detail-notes">Notes internes</label>

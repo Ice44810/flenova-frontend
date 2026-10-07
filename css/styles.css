@@ -9,9 +9,6 @@
 body { 
     font-family: 'Inter', sans-serif; 
     background-color: #f3f4f6; 
-    height: 100vh;
-    overflow: hidden;
-    text-gray-800;
 }
 
 /* Animation */
@@ -49,6 +46,23 @@ body {
 /* Login Background */
 .login-bg {
     background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
+}
+
+/* Pages d'authentification : la page doit pouvoir défiler sur petit écran */
+body.login-bg {
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-y: auto;
+}
+
+.auth-wrap {
+    box-sizing: border-box;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem;
 }
 
 /* Status Badge Pulse */

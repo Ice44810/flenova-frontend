@@ -585,9 +585,9 @@ function renderPublicPainPoints() {
 
 function renderPublicProductPillars() {
     const pillars = [
-        { icon: 'fa-truck-ramp-box', tag: 'Exploitation', title: 'Commandes &amp; planning', desc: 'Ordres de transport, affectation chauffeurs, app mobile et suivi client — affrètement &amp; marges dès le forfait PME.', link: 'fonctionnalites' },
+        { icon: 'fa-truck-ramp-box', tag: 'Exploitation', title: 'Commandes & planning', desc: 'Ordres de transport, affectation chauffeurs, app mobile et suivi client — affrètement & marges dès le forfait PME.', link: 'fonctionnalites' },
         { icon: 'fa-mobile-screen-button', tag: 'Mobile', title: 'App chauffeurs', desc: 'Missions, arrivée GPS, signatures et preuves de livraison depuis le smartphone.', link: 'fonctionnalites' },
-        { icon: 'fa-file-invoice-dollar', tag: 'Facturation', title: 'Factur-X &amp; compta', desc: 'Préfacturation, factures clients, achats et export CSV pour votre expert-comptable.', link: 'fonctionnalites' }
+        { icon: 'fa-file-invoice-dollar', tag: 'Facturation', title: 'Factur-X & compta', desc: 'Préfacturation, factures clients, achats et export CSV pour votre expert-comptable.', link: 'fonctionnalites' }
     ];
     return `<section class="public-pillars-section">
         <div class="public-section-inner">
@@ -598,7 +598,7 @@ function renderPublicProductPillars() {
                     <article class="public-pillar-card">
                         <span class="public-pillar-tag">${p.tag}</span>
                         <div class="public-pillar-icon"><i class="fa-solid ${p.icon}" aria-hidden="true"></i></div>
-                        <h3>${p.title}</h3>
+                        <h3>${escapePublicHtml(p.title)}</h3>
                         <p>${escapePublicHtml(p.desc)}</p>
                         <button type="button" class="public-pillar-link" onclick="publicRouter('${p.link}')">En savoir plus <i class="fa-solid fa-arrow-right"></i></button>
                     </article>
@@ -5244,14 +5244,18 @@ window.printInvoice = function () {
         return;
     }
 
+    // Reprend les URL versionnées (?v=) de la page pour ne pas imprimer avec un CSS en cache
+    const versionedCss = (name) =>
+        document.querySelector(`link[rel="stylesheet"][href*="css/${name}"]`)?.href || `/css/${name}`;
+
     printWindow.document.write(`
         <!DOCTYPE html>
         <html lang="fr">
             <head>
                 <meta charset="UTF-8">
                 <title>Impression Facture</title>
-                <link rel="stylesheet" href="/css/tailwind.css">
-                <link rel="stylesheet" href="/css/styles.css">
+                <link rel="stylesheet" href="${versionedCss('tailwind.css')}">
+                <link rel="stylesheet" href="${versionedCss('styles.css')}">
                 <style>
                     @page { size: A4 portrait; margin: 8mm 10mm; }
                     html, body { margin: 0; padding: 0; background: #fff; }
@@ -10358,7 +10362,7 @@ window.openInvoicePaymentModal = function (inv, options = {}) {
     amountEl.value = dueAmt > 0 ? dueAmt.toFixed(2) : '';
     amountEl.readOnly = eligible.length > 1;
     amountEl.classList.toggle('bg-gray-50', eligible.length > 1);
-    document.getElementById('invoice-payment-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('invoice-payment-date').value = formatDateForInput(new Date());
     document.getElementById('invoice-payment-method').value = 'virement';
     document.getElementById('invoice-payment-ref').value = '';
     document.getElementById('invoice-payment-comment').value = '';

@@ -10,14 +10,14 @@
     <link rel="canonical" href="https://app.flenova.fr/login.html">
     <link rel="icon" href="assets/flenova_icon_512.jpg" type="image/jpeg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/tailwind.css">
-    <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="css/a11y.css">
-    <link rel="stylesheet" href="css/responsive-touch.css">
+    <link rel="stylesheet" href="css/tailwind.css?v=b03005caae">
+    <link rel="stylesheet" href="css/styles.css?v=93e2c747d4">
+    <link rel="stylesheet" href="css/a11y.css?v=74e430a130">
+    <link rel="stylesheet" href="css/responsive-touch.css?v=cba7c54a56">
 </head>
-<body class="h-screen overflow-hidden text-gray-800 login-bg">
+<body class="text-gray-800 login-bg">
     <a href="#login-form" class="skip-link">Aller au formulaire de connexion</a>
-    <div class="h-full w-full flex items-center justify-center">
+    <div class="auth-wrap w-full">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 fade-in">
             <div class="text-center mb-8">
                 <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-600 mb-4">
@@ -75,9 +75,9 @@
 
     <div id="toast-container"></div>
 
-    <script src="js/security.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/turnstile-auth.js"></script>
+    <script src="js/security.js?v=2a5e366b56"></script>
+    <script src="js/api.js?v=d66a93bbec"></script>
+    <script src="js/turnstile-auth.js?v=f3967caac1"></script>
     <script>
         initTurnstileWidget('login-turnstile');
 

@@ -316,8 +316,8 @@
             : 0;
 
         return {
-            from: typeof formatDateForInput === 'function' ? formatDateForInput(from) : from.toISOString().slice(0, 10),
-            to: typeof formatDateForInput === 'function' ? formatDateForInput(to) : to.toISOString().slice(0, 10),
+            from: typeof formatDateForInput === 'function' ? formatDateForInput(from) : from.toLocaleDateString('sv-SE'),
+            to: typeof formatDateForInput === 'function' ? formatDateForInput(to) : to.toLocaleDateString('sv-SE'),
             orderCount: orders.length,
             ca,
             margeSt,

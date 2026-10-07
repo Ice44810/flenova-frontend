@@ -151,7 +151,6 @@ function renderPublicPlansSection() {
             <h2 class="public-section-title" id="public-plans-title">Trois forfaits, une couverture complète</h2>
             <p class="public-section-lead">Du transporteur solo à la PME multi-agences : choisissez le forfait adapté à votre volume. Essai Premium 30 jours à l’inscription · <strong>Sans engagement de durée</strong>.</p>
             ${renderPublicPlansComparison()}
-            ${renderUpgradeVsAddonsBlock({ showAll: true, context: 'public' })}
             <div class="public-plans-cards mt-12">
                 ${renderPricingCards({ mode: 'public' })}
             </div>
@@ -222,7 +221,6 @@ async function renderPublicPricingAsync() {
         </div>
         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-12">
             ${renderPricingCards({ mode: 'public' })}
-            ${renderUpgradeVsAddonsBlock({ showAll: true, context: 'public' })}
         </div>
     </div>`;
 }
@@ -298,89 +296,6 @@ function renderBillingSummary(sub) {
     return `<p class="text-sm text-gray-600">${parts.join(' ')}</p>`;
 }
 
-/** Scénarios « rester + addons » vs « passer au forfait supérieur » */
-function buildUpgradeVsAddonsScenarios() {
-    const plans = window.cachedPlans || getFallbackPlans();
-    const byId = Object.fromEntries(plans.map((p) => [p.id, p]));
-    const addons = byId.independant?.addons || byId.pme?.addons || {
-        extraPcUser: { priceMonthly: 29 },
-        extraMobileDriver: { priceMonthly: 19 }
-    };
-    const pcPrice = addons.extraPcUser?.priceMonthly ?? 29;
-    const mobilePrice = addons.extraMobileDriver?.priceMonthly ?? 19;
-
-    const ladder = [
-        { from: 'independant', to: 'pme' },
-        { from: 'pme', to: 'premium' }
-    ];
-
-    return ladder
-        .map((step) => {
-            const from = byId[step.from];
-            const to = byId[step.to];
-            if (!from || !to) return null;
-            const extraPc = Math.max(0, (to.limits?.maxUsers || 0) - (from.limits?.maxUsers || 0));
-            const extraMobile = Math.max(0, (to.limits?.maxMobileDrivers || 0) - (from.limits?.maxMobileDrivers || 0));
-            const addonsCost = extraPc * pcPrice + extraMobile * mobilePrice;
-            const viaAddons = (from.priceMonthly || 0) + addonsCost;
-            const viaUpgrade = to.priceMonthly || 0;
-            const saving = viaAddons - viaUpgrade;
-            return {
-                fromId: from.id,
-                toId: to.id,
-                fromName: from.name,
-                toName: to.name,
-                extraPc,
-                extraMobile,
-                pcPrice,
-                mobilePrice,
-                viaAddons,
-                viaUpgrade,
-                saving,
-                highlight: saving > 0
-            };
-        })
-        .filter(Boolean);
-}
-
-function renderUpgradeVsAddonsBlock(options = {}) {
-    const { currentPlanId = null, showAll = false, context = 'public' } = options;
-    let scenarios = buildUpgradeVsAddonsScenarios();
-    if (!showAll && currentPlanId) {
-        scenarios = scenarios.filter((s) => s.fromId === currentPlanId);
-    }
-    if (!scenarios.length) return '';
-
-    const cards = scenarios.map((s) => {
-        const saveLabel = s.saving > 0
-            ? `<p class="text-sm font-semibold text-emerald-700 mt-3">Économie en passant à ${s.toName} : ${s.saving} € HT/mois</p>`
-            : `<p class="text-sm text-gray-500 mt-3">Comparaison capacité sièges uniquement.</p>`;
-        const cta = context === 'app' && typeof window.subscribeToPlan === 'function'
-            ? `<button type="button" onclick="subscribeToPlan('${s.toId}')" class="mt-4 w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition">Passer au forfait ${s.toName}</button>`
-            : context === 'public'
-                ? `<button type="button" onclick="publicRouterContactTrial('${s.toId}')" class="mt-4 w-full py-2.5 border border-blue-600 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-50 transition">Commencer l'essai ${s.toName}</button>`
-                : '';
-        return `<div class="border border-gray-200 rounded-xl p-5 bg-white text-left shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">${s.fromName} → capacité ${s.toName}</p>
-            <h4 class="font-bold text-gray-900 mb-3">Même nombre de sièges PC & mobiles</h4>
-            <ul class="text-sm text-gray-600 space-y-2 mb-3">
-                <li>Via <strong>suppléments</strong> sur ${s.fromName} : +${s.extraPc} PC × ${s.pcPrice} € + +${s.extraMobile} mobiles × ${s.mobilePrice} € → <strong>${s.viaAddons} € HT/mois</strong></li>
-                <li>Via forfait <strong>${s.toName}</strong> : <strong>${s.viaUpgrade} € HT/mois</strong>${s.toId === 'pme' ? ' + marges, RSE, 50 affrètements/mois' : s.toId === 'premium' ? ' + multi-agences & affrètement illimité' : ''}</li>
-            </ul>
-            ${saveLabel}
-            ${cta}
-        </div>`;
-    }).join('');
-
-    return `<div class="${context === 'app' ? 'mt-8 max-w-3xl mx-auto' : 'mt-10'}">
-        <div class="text-center mb-5">
-            <h3 class="text-xl font-bold text-gray-900">Suppléments vs forfait supérieur</h3>
-            <p class="text-sm text-gray-500 mt-1">Comparer le coût pour atteindre la capacité du palier suivant — le forfait supérieur est souvent plus avantageux.</p>
-        </div>
-        <div class="grid grid-cols-1 ${scenarios.length > 1 ? 'md:grid-cols-2' : ''} gap-4">${cards}</div>
-    </div>`;
-}
-
 function renderAppPricingPage() {
     const sub = window.cachedSubscription || {};
     const usage = sub.usage || {};
@@ -392,7 +307,6 @@ function renderAppPricingPage() {
 
     const companyName = (typeof getCurrentUser === 'function' ? getCurrentUser()?.company_name : null) || '';
     const safeCompany = typeof escapeHtml === 'function' ? escapeHtml(companyName) : companyName;
-    const planId = sub.targetPlan || sub.plan || null;
 
     return `<div class="max-w-3xl mx-auto fade-in py-10">
         <div class="text-center mb-10">
@@ -426,9 +340,6 @@ function renderAppPricingPage() {
         })()}
         ${renderAddonsPanel(sub)}
         ${renderBillingSummary(sub)}
-        ${planId && planId !== 'premium'
-            ? renderUpgradeVsAddonsBlock({ currentPlanId: planId, context: 'app' })
-            : ''}
     </div>`;
 }
 

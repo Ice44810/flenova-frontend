@@ -16,8 +16,11 @@ jobs:
           node-version: '20'
           cache: npm
           cache-dependency-path: package-lock.json
-      - run: |
-          npm ci
-          npm run build:css
+      - run: npm ci
+      # Avant le build : vérifie les ?v= des pages contre les fichiers commités
+      - name: Verify asset versions (cache-busting)
+        run: npm run check:assets
+      - run: npm run build:css
       - name: Verify tailwind output
         run: test -f css/tailwind.css
+

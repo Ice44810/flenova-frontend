@@ -311,7 +311,7 @@ async function exportMyPersonalData() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `flenova-export-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `flenova-export-${formatDateForInput(new Date())}.json`;
         a.click();
         URL.revokeObjectURL(url);
         if (typeof showToast === 'function') showToast('Export téléchargé', 'success');

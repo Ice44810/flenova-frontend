@@ -6,6 +6,8 @@
     "build:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --minify",
     "watch:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --watch",
     "vendor:maplibre": "node ./scripts/copy-maplibre-vendor.js",
+    "version:assets": "node ./scripts/version-assets.js",
+    "check:assets": "node ./scripts/version-assets.js --check",
     "postinstall": "npm run vendor:maplibre"
   },
   "devDependencies": {

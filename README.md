@@ -44,7 +44,12 @@ Lancer le backend avec `FRONTEND_PATH` pointant vers ce dossier, **ou** définir
 ```bash
 npm ci
 npm run build:css
+npm run version:assets   # ajoute ?v=<empreinte> aux CSS/JS dans les pages HTML
 ```
+
+`version:assets` doit être relancé (puis commité) après toute modification d'un fichier
+`css/` ou `js/` : chaque fichier modifié change d'URL, les navigateurs ne peuvent donc pas
+garder l'ancienne version en cache. La CI échoue si les versions ne sont pas à jour.
 
 Déployer le contenu du dossier (hors `node_modules/`, `src/`) vers `/var/www/flenova-frontend` ou équivalent.
 

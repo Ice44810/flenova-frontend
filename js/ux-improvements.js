@@ -759,9 +759,11 @@
             showToast(`Résiliation déjà demandée — effet le ${sub.cancellationEffectDate}`, 'info');
             return;
         }
-        const effect = new Date();
-        effect.setMonth(effect.getMonth() + 1);
-        const effectStr = effect.toISOString().slice(0, 10);
+        // Date locale (pas UTC) ; préavis d'un mois borné au dernier jour du mois suivant (31/01 → 28/02)
+        const now = new Date();
+        const lastDayNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
+        const effect = new Date(now.getFullYear(), now.getMonth() + 1, Math.min(now.getDate(), lastDayNextMonth));
+        const effectStr = effect.toLocaleDateString('fr-FR');
         if (!confirm(
             `Demander la résiliation avec préavis d'1 mois ?\n` +
             `Date d'effet estimée : ${effectStr}.\n` +
